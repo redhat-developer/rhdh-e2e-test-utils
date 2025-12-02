@@ -11,25 +11,40 @@
       "types": "./dist/eslint/base.config.d.ts",
       "default": "./dist/eslint/base.config.js"
     },
+    "./test": {
+      "types": "./dist/playwright/fixtures/test.d.ts",
+      "default": "./dist/playwright/fixtures/test.js"
+    },
     "./playwright-config": {
       "types": "./dist/playwright/base-config.d.ts",
       "default": "./dist/playwright/base-config.js"
     },
-    "./tsconfig": "./tsconfig.base.json"
+    "./tsconfig": "./tsconfig.base.json",
+    "./rhdh": {
+      "types": "./dist/deployment/rhdh/index.d.ts",
+      "default": "./dist/deployment/rhdh/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "default": "./dist/utils/index.js"
+    }
   },
   "files": [
     "dist",
-    "tsconfig.base.json"
+    "tsconfig.base.json",
+    "src/deployment/rhdh/config",
+    "src/deployment/rhdh/helm",
+    "src/deployment/rhdh/operator"
   ],
   "scripts": {
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "check": "npm run typecheck && npm run lint:check && npm run prettier:check",
     "clean": "rm -rf dist",
-    "lint:check": "eslint . --ignore-pattern dist",
-    "lint:fix": "eslint . --fix --ignore-pattern dist",
+    "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md",
+    "lint:fix": "eslint . --fix --ignore-pattern dist --ignore-pattern README.md",
     "prepublishOnly": "npm run build",
-    "prettier:check": "prettier --check . '!dist'",
-    "prettier:fix": "prettier --write . '!dist'",
+    "prettier:check": "prettier --check . '!dist' '!README.md'",
+    "prettier:fix": "prettier --write . '!dist' '!README.md'",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
@@ -43,16 +58,25 @@
     "npm": ">=11"
   },
   "peerDependencies": {
-    "@playwright/test": "^1.56.1"
+    "@playwright/test": "^1.56.1",
+    "zx": "^8.2.0"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "@types/lodash.mergewith": "^4.6.9",
     "@types/node": "^24.10.1"
   },
   "dependencies": {
     "@eslint/js": "^9.28.0",
+    "@kubernetes/client-node": "^1.4.0",
+    "boxen": "^8.0.1",
     "eslint": "^9.28.0",
     "eslint-plugin-check-file": "^3.2.0",
     "eslint-plugin-playwright": "^2.2.0",
+    "fs-extra": "^11.3.2",
+    "js-yaml": "^4.1.0",
+    "lodash.mergewith": "^4.6.2",
     "prettier": "^3.5.3",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.33.0"

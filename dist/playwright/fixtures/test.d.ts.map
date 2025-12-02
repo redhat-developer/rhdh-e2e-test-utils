@@ -1,0 +1,1 @@
+{"version":3,"file":"test.d.ts","sourceRoot":"","sources":["../../../src/playwright/fixtures/test.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,cAAc,EAAE,MAAM,gCAAgC,CAAC;AAGhE,KAAK,0BAA0B,GAAG;IAChC,IAAI,EAAE,cAAc,CAAC;CACtB,CAAC;AAEF,KAAK,4BAA4B,GAAG;IAClC,oBAAoB,EAAE,cAAc,CAAC;CACtC,CAAC;AAEF,eAAO,MAAM,IAAI,oSAuCf,CAAC;AAEH,OAAO,EAAE,MAAM,EAAE,MAAM,kBAAkB,CAAC"}

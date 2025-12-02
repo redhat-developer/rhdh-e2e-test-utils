@@ -127,6 +127,14 @@ export class RHDHDeployment {
       this.deploymentConfig.dynamicPlugins,
     ]);
 
+    console.log(
+      boxen(yaml.dump(valueFileObject.global.dynamic), {
+        title: "Dynamic Plugins",
+        padding: 1,
+        align: "left",
+      }),
+    );
+
     fs.writeFileSync(
       `/tmp/${this.deploymentConfig.namespace}-value-file.yaml`,
       yaml.dump(valueFileObject),

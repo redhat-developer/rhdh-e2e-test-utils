@@ -83,6 +83,11 @@ export class RHDHDeployment {
             DEFAULT_CONFIG_PATHS.dynamicPlugins,
             this.deploymentConfig.dynamicPlugins,
         ]);
+        console.log(boxen(yaml.dump(valueFileObject.global.dynamic), {
+            title: "Dynamic Plugins",
+            padding: 1,
+            align: "left",
+        }));
         fs.writeFileSync(`/tmp/${this.deploymentConfig.namespace}-value-file.yaml`, yaml.dump(valueFileObject));
         await $ `
       helm upgrade redhat-developer-hub -i "${process.env.CHART_URL || CHART_URL}" --version "${chartVersion}" \

@@ -1,6 +1,6 @@
 {
   "name": "rhdh-e2e-test-utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Test utilities for RHDH E2E tests",
   "license": "Apache-2.0",
   "type": "module",
@@ -31,13 +31,10 @@
   },
   "files": [
     "dist",
-    "tsconfig.base.json",
-    "src/deployment/rhdh/config",
-    "src/deployment/rhdh/helm",
-    "src/deployment/rhdh/operator"
+    "tsconfig.base.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -p tsconfig.build.json",
+    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config src/deployment/rhdh/helm src/deployment/rhdh/operator dist/deployment/rhdh/",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",
     "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md",

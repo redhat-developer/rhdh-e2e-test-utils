@@ -21,6 +21,7 @@ A comprehensive test utility package for Red Hat Developer Hub (RHDH) end-to-end
 - [Environment Variables](#environment-variables)
 - [Examples](#examples)
 - [Development](#development)
+  - [Testing Local Changes in Consumer Projects](#testing-local-changes-in-consumer-projects)
 
 ## Overview
 
@@ -561,6 +562,80 @@ yarn build
 | `yarn lint:fix` | Auto-fix ESLint issues |
 | `yarn prettier:check` | Check code formatting |
 | `yarn prettier:fix` | Auto-fix code formatting |
+
+### Testing Local Changes in Consumer Projects
+
+When developing features or fixes in `rhdh-e2e-test-utils`, you can test your local changes in a consumer project (e.g., a plugin's e2e-tests) before publishing.
+
+#### 1. Build your local changes
+
+```bash
+cd /path/to/rhdh-e2e-test-utils
+yarn build
+```
+
+#### 2. Update the consumer project's package.json
+
+In your e2e-tests project, update the dependency to point to your local package using the `file:` protocol:
+
+```json
+"rhdh-e2e-test-utils": "file:/path/to/rhdh-e2e-test-utils"
+```
+
+Example:
+```json
+"rhdh-e2e-test-utils": "file:/Users/yourname/Documents/rhdh/rhdh-e2e-test-utils"
+```
+
+#### 3. Install dependencies in the consumer project
+
+```bash
+yarn install
+```
+
+#### 4. Run tests with NODE_PRESERVE_SYMLINKS
+
+When running tests with a local symlinked package, you **must** set the `NODE_PRESERVE_SYMLINKS` environment variable:
+
+```bash
+NODE_PRESERVE_SYMLINKS=1 yarn test
+NODE_PRESERVE_SYMLINKS=1 yarn test:headed
+NODE_PRESERVE_SYMLINKS=1 yarn test:ui
+```
+
+> **Why is NODE_PRESERVE_SYMLINKS needed?**
+>
+> When using local packages via `file:` protocol, the package manager creates a symlink. Node.js follows symlinks by default and tries to resolve peer dependencies (like `@playwright/test`) from the original package location. This causes duplicate Playwright instances which fails with:
+> ```
+> Error: Requiring @playwright/test second time
+> ```
+> Setting `NODE_PRESERVE_SYMLINKS=1` tells Node.js to resolve dependencies from the symlink location (your project's `node_modules`) instead of the original package location.
+
+#### 5. Rebuild after making changes
+
+When you make further changes to `rhdh-e2e-test-utils`, rebuild before running tests:
+
+```bash
+cd /path/to/rhdh-e2e-test-utils
+yarn build
+```
+
+Then run your tests again in the consumer project (no need to reinstall).
+
+#### 6. Restore the published version
+
+After testing, restore the published version in the consumer project's `package.json`:
+
+```json
+"rhdh-e2e-test-utils": "^1.0.0"
+```
+
+Then run:
+```bash
+yarn install
+```
+
+You can now run tests normally without `NODE_PRESERVE_SYMLINKS`.
 
 ### CI/CD
 

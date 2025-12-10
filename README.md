@@ -20,6 +20,7 @@ A comprehensive test utility package for Red Hat Developer Hub (RHDH) end-to-end
 - [Configuration Files](#configuration-files)
 - [Environment Variables](#environment-variables)
 - [Examples](#examples)
+- [Development](#development)
 
 ## Overview
 
@@ -58,7 +59,7 @@ npm install github:redhat-developer/rhdh-e2e-test-utils#main
 ### System Requirements
 
 - **Node.js**: >= 22
-- **npm**: >= 11
+- **Yarn**: >= 3 (this project uses Yarn 3 with Corepack)
 
 ### OpenShift Cluster
 
@@ -88,8 +89,8 @@ The package provides multiple entry points for different use cases:
 
 ```bash
 mkdir e2e-tests && cd e2e-tests
-npm init -y
-npm install @playwright/test rhdh-e2e-test-utils
+yarn init -y
+yarn add @playwright/test rhdh-e2e-test-utils
 ```
 
 ### 2. Create Playwright Configuration
@@ -147,7 +148,7 @@ export INSTALLATION_METHOD="helm"       # "helm" or "operator"
 ### 6. Run Tests
 
 ```bash
-npx playwright test
+yarn playwright test
 ```
 
 ## Detailed Usage
@@ -532,6 +533,41 @@ test.beforeAll(async ({ rhdh }) => {
 });
 ```
 
+
+## Development
+
+### Setup
+
+This project uses Yarn 3 with Corepack. To get started:
+
+```bash
+# Enable Corepack (if not already enabled)
+corepack enable
+
+# Install dependencies
+yarn install
+
+# Build the project
+yarn build
+```
+
+### Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `yarn build` | Clean and build the TypeScript project |
+| `yarn check` | Run typecheck, lint, and prettier checks |
+| `yarn lint:check` | Check for ESLint issues |
+| `yarn lint:fix` | Auto-fix ESLint issues |
+| `yarn prettier:check` | Check code formatting |
+| `yarn prettier:fix` | Auto-fix code formatting |
+
+### CI/CD
+
+The project includes GitHub Actions workflows:
+
+- **PR Build and Check**: Runs on pull requests to `main`. Executes linting, type checking, and build verification.
+- **Publish to NPM**: Manual workflow dispatch to publish the package to npm registry.
 
 ## License
 

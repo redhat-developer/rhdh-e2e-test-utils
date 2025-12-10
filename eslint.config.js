@@ -1,3 +1,3 @@
-import { createEslintConfig } from "rhdh-e2e-test-utils/eslint";
+import { createEslintConfig } from "./src/eslint/base.config.ts";
 
 export default createEslintConfig(import.meta.dirname);

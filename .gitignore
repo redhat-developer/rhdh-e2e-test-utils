@@ -1,7 +1,6 @@
 # Dependencies
 node_modules/
 package-lock.json
-pnpm-lock.yaml
 
 # Yarn 3 files
 **/.pnp.*
@@ -30,7 +29,6 @@ playwright-report/
 
 # Logs
 *.log
-npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
@@ -53,6 +51,7 @@ Thumbs.db
 # Build outputs
 build/
 *.tsbuildinfo
+dist/
 
 # Coverage
 coverage/

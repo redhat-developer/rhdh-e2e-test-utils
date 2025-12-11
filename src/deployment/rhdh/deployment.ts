@@ -257,22 +257,23 @@ export class RHDHDeployment {
     const base: DeploymentConfigBase = {
       version,
       namespace: input.namespace,
-      appConfig: input.appConfig ?? `config/app-config-rhdh.yaml`,
-      secrets: input.secrets ?? `config/rhdh-secrets.yaml`,
-      dynamicPlugins: input.dynamicPlugins ?? `config/dynamic-plugins.yaml`,
+      appConfig: input.appConfig ?? `tests/config/app-config-rhdh.yaml`,
+      secrets: input.secrets ?? `tests/config/rhdh-secrets.yaml`,
+      dynamicPlugins:
+        input.dynamicPlugins ?? `tests/config/dynamic-plugins.yaml`,
     };
 
     if (method === "helm") {
       return {
         ...base,
         method,
-        valueFile: input.valueFile ?? `config/value_file.yaml`,
+        valueFile: input.valueFile ?? `tests/config/value_file.yaml`,
       };
     } else if (method === "operator") {
       return {
         ...base,
         method,
-        subscription: input.subscription ?? `config/subscription.yaml`,
+        subscription: input.subscription ?? `tests/config/subscription.yaml`,
       };
     } else {
       throw new Error(`Invalid RHDH installation method: ${method}`);

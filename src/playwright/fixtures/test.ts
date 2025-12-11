@@ -1,8 +1,11 @@
 import { RHDHDeployment } from "../../deployment/rhdh/index.js";
 import { test as base } from "@playwright/test";
+import { LoginHelper, UIhelper } from "../helpers/index.js";
 
 type RHDHDeploymentTestFixtures = {
   rhdh: RHDHDeployment;
+  uiHelper: UIhelper;
+  loginHelper: LoginHelper;
 };
 
 type RHDHDeploymentWorkerFixtures = {
@@ -41,6 +44,18 @@ export const test = base.extend<
       await use(rhdhDeploymentWorker);
     },
     { auto: true, scope: "test" },
+  ],
+  uiHelper: [
+    async ({ page }, use) => {
+      await use(new UIhelper(page));
+    },
+    { scope: "test" },
+  ],
+  loginHelper: [
+    async ({ page }, use) => {
+      await use(new LoginHelper(page));
+    },
+    { scope: "test" },
   ],
   baseURL: [
     async ({ rhdhDeploymentWorker }, use) => {

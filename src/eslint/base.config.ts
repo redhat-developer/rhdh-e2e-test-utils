@@ -76,6 +76,16 @@ export function createEslintConfig(tsconfigRootDir: string): Linter.Config[] {
             modifiers: ["public"],
             format: ["camelCase"],
           },
+          // Allow HTTP headers in object literals which require specific formats
+          {
+            selector: "objectLiteralProperty",
+            format: null,
+            filter: {
+              regex:
+                "^(Accept|Authorization|Content-Type|X-GitHub-Api-Version|X-[A-Za-z-]+)$",
+              match: true,
+            },
+          },
         ],
         // Promise handling
         "@typescript-eslint/no-floating-promises": "error",

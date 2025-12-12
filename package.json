@@ -27,6 +27,14 @@
     "./utils": {
       "types": "./dist/utils/index.d.ts",
       "default": "./dist/utils/index.js"
+    },
+    "./helpers": {
+      "types": "./dist/playwright/helpers/index.d.ts",
+      "default": "./dist/playwright/helpers/index.js"
+    },
+    "./pages": {
+      "types": "./dist/playwright/pages/index.d.ts",
+      "default": "./dist/playwright/pages/index.js"
     }
   },
   "files": [
@@ -58,6 +66,7 @@
     "@playwright/test": "^1.57.0"
   },
   "devDependencies": {
+    "@backstage/catalog-model": "1.7.5",
     "@playwright/test": "^1.57.0",
     "@types/fs-extra": "^11.0.4",
     "@types/js-yaml": "^4.0.9",
@@ -65,6 +74,7 @@
     "@types/node": "^24.10.1"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.11.0",
     "@eslint/js": "^9.39.1",
     "@kubernetes/client-node": "^1.4.0",
     "boxen": "^8.0.1",
@@ -74,6 +84,7 @@
     "fs-extra": "^11.3.2",
     "js-yaml": "^4.1.1",
     "lodash.mergewith": "^4.6.2",
+    "otplib": "12.0.1",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",

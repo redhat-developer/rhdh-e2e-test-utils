@@ -15,6 +15,8 @@ A comprehensive test utility package for Red Hat Developer Hub (RHDH) end-to-end
   - [Playwright Configuration](#playwright-configuration)
   - [RHDH Deployment](#rhdh-deployment)
   - [Utilities](#utilities)
+  - [Helpers](#helpers)
+  - [Page Objects](#page-objects)
   - [ESLint Configuration](#eslint-configuration)
   - [TypeScript Configuration](#typescript-configuration)
 - [Configuration Files](#configuration-files)
@@ -81,6 +83,8 @@ The package provides multiple entry points for different use cases:
 | `rhdh-e2e-test-utils/playwright-config` | Base Playwright configuration |
 | `rhdh-e2e-test-utils/rhdh` | RHDH deployment class and types |
 | `rhdh-e2e-test-utils/utils` | Utility functions (bash, YAML, Kubernetes) |
+| `rhdh-e2e-test-utils/helpers` | UI, API, and login helper classes |
+| `rhdh-e2e-test-utils/pages` | Page object classes for common RHDH pages |
 | `rhdh-e2e-test-utils/eslint` | ESLint configuration factory |
 | `rhdh-e2e-test-utils/tsconfig` | Base TypeScript configuration |
 
@@ -130,10 +134,10 @@ test("my plugin test", async ({ page }) => {
 
 ### 4. Create Configuration Files
 
-Create a `config/` directory with your RHDH configuration:
+Create a `tests/config/` directory with your RHDH configuration:
 
 ```
-config/
+tests/config/
 ├── app-config-rhdh.yaml    # App configuration
 ├── dynamic-plugins.yaml     # Dynamic plugins configuration
 └── rhdh-secrets.yaml        # Secrets (with env var placeholders)
@@ -167,6 +171,8 @@ import { test, expect } from "rhdh-e2e-test-utils/test";
 | Fixture | Scope | Description |
 |---------|-------|-------------|
 | `rhdh` | worker | Shared RHDHDeployment across all tests in a worker |
+| `uiHelper` | test | UIhelper instance for common UI interactions |
+| `loginHelper` | test | LoginHelper instance for authentication flows |
 | `baseURL` | test | Automatically set to the RHDH instance URL |
 
 #### Fixture Behavior
@@ -177,6 +183,7 @@ import { test, expect } from "rhdh-e2e-test-utils/test";
 
 ```typescript
 import { test, expect } from "rhdh-e2e-test-utils/test";
+
 test.beforeAll(async ({ rhdh }) => {
   // Configure RHDH (creates namespace, and optional DeploymentOptions)
   await rhdh.configure();
@@ -188,9 +195,16 @@ test.beforeAll(async ({ rhdh }) => {
   await rhdh.deploy();
 });
 
-test("example test", async ({ page, rhdh }) => {
+test("example test", async ({ page, rhdh, uiHelper, loginHelper }) => {
   // page.goto("/") will use rhdh.rhdhUrl as base
   await page.goto("/");
+
+  // Login as guest user
+  await loginHelper.loginAsGuest();
+
+  // Use UI helper for common interactions
+  await uiHelper.verifyHeading("Welcome");
+  await uiHelper.clickButton("Get Started");
 
   // Access deployment info
   console.log(`Namespace: ${rhdh.deploymentConfig.namespace}`);
@@ -388,6 +402,222 @@ const result = envsubst("Port: ${PORT:-8080}");
 const result = envsubst("API: ${API_URL}");
 ```
 
+### Helpers
+
+The package provides helper classes for common testing operations.
+
+#### UIhelper
+
+A utility class for common UI interactions with Material-UI components:
+
+```typescript
+import { UIhelper } from "rhdh-e2e-test-utils/helpers";
+
+const uiHelper = new UIhelper(page);
+
+// Wait for page to fully load
+await uiHelper.waitForLoad();
+
+// Verify headings and text
+await uiHelper.verifyHeading("Welcome to RHDH");
+await uiHelper.verifyText("Some content");
+
+// Button interactions
+await uiHelper.clickButton("Submit");
+await uiHelper.clickButtonByLabel("Close");
+
+// Navigation
+await uiHelper.openSidebar("Catalog");
+await uiHelper.clickTab("Overview");
+
+// Table operations
+await uiHelper.verifyRowsInTable(["row1", "row2"]);
+await uiHelper.verifyCellsInTable(["cell1", "cell2"]);
+
+// MUI component interactions
+await uiHelper.selectMuiBox("Kind", "Component");
+await uiHelper.fillTextInputByLabel("Name", "my-component");
+```
+
+#### LoginHelper
+
+Handles authentication flows for different providers:
+
+```typescript
+import { LoginHelper } from "rhdh-e2e-test-utils/helpers";
+
+const loginHelper = new LoginHelper(page);
+
+// Guest authentication
+await loginHelper.loginAsGuest();
+await loginHelper.signOut();
+
+// Keycloak authentication
+await loginHelper.loginAsKeycloakUser("username", "password");
+
+// GitHub authentication (requires environment variables)
+await loginHelper.loginAsGithubUser();
+```
+
+#### APIHelper
+
+Provides utilities for API interactions with both GitHub and Backstage catalog:
+
+```typescript
+import { APIHelper } from "rhdh-e2e-test-utils/helpers";
+
+// GitHub API operations
+await APIHelper.createGitHubRepo("owner", "repo-name");
+await APIHelper.deleteGitHubRepo("owner", "repo-name");
+const prs = await APIHelper.getGitHubPRs("owner", "repo", "open");
+
+// Backstage catalog API operations
+const apiHelper = new APIHelper();
+await apiHelper.setBaseUrl(rhdhUrl);
+await apiHelper.setStaticToken(token);
+
+const users = await apiHelper.getAllCatalogUsersFromAPI();
+const groups = await apiHelper.getAllCatalogGroupsFromAPI();
+const locations = await apiHelper.getAllCatalogLocationsFromAPI();
+
+// Schedule entity refresh
+await apiHelper.scheduleEntityRefreshFromAPI("my-component", "component", token);
+```
+
+#### setupBrowser
+
+Utility function for setting up a shared browser context with video recording. Use this in `test.beforeAll` for serial test suites or when you want to persist the browser context across multiple tests (e.g., to avoid repeated logins):
+
+```typescript
+import { test } from "@playwright/test";
+import { setupBrowser, LoginHelper } from "rhdh-e2e-test-utils/helpers";
+import type { Page, BrowserContext } from "@playwright/test";
+
+test.describe.configure({ mode: "serial" });
+
+let page: Page;
+let context: BrowserContext;
+
+test.beforeAll(async ({ browser }, testInfo) => {
+  // Setup shared browser context with video recording
+  ({ page, context } = await setupBrowser(browser, testInfo));
+
+  // Login once, session persists across all tests in this suite
+  const loginHelper = new LoginHelper(page);
+  await page.goto("/");
+  await loginHelper.loginAsKeycloakUser();
+});
+
+test.afterAll(async () => {
+  await context.close();
+});
+
+test("first test - already logged in", async () => {
+  await page.goto("/catalog");
+  // No need to login again
+});
+
+test("second test - session persists", async () => {
+  await page.goto("/settings");
+  // Still logged in from beforeAll
+});
+```
+
+### Page Objects
+
+Pre-built page object classes for common RHDH pages:
+
+```typescript
+import {
+  CatalogPage,
+  HomePage,
+  CatalogImportPage,
+  ExtensionsPage,
+  NotificationPage,
+} from "rhdh-e2e-test-utils/pages";
+```
+
+#### CatalogPage
+
+```typescript
+const catalogPage = new CatalogPage(page);
+
+// Navigate to catalog
+await catalogPage.go();
+
+// Search for entities
+await catalogPage.search("my-component");
+
+// Navigate to specific component
+await catalogPage.goToByName("my-component");
+```
+
+#### HomePage
+
+```typescript
+const homePage = new HomePage(page);
+
+// Verify quick search functionality
+await homePage.verifyQuickSearchBar("search-term");
+
+// Verify quick access sections
+await homePage.verifyQuickAccess("Favorites", "My Component");
+```
+
+#### CatalogImportPage
+
+```typescript
+const catalogImportPage = new CatalogImportPage(page);
+
+// Register or refresh an existing component
+const wasAlreadyRegistered = await catalogImportPage.registerExistingComponent(
+  "https://github.com/org/repo/blob/main/catalog-info.yaml"
+);
+
+// Analyze a component URL
+await catalogImportPage.analyzeComponent("https://github.com/org/repo/blob/main/catalog-info.yaml");
+
+// Inspect entity and verify YAML content
+await catalogImportPage.inspectEntityAndVerifyYaml("kind: Component");
+```
+
+#### ExtensionsPage
+
+```typescript
+const extensionsPage = new ExtensionsPage(page);
+
+// Filter by support type
+await extensionsPage.selectSupportTypeFilter("Red Hat");
+
+// Verify plugin details
+await extensionsPage.verifyPluginDetails({
+  pluginName: "Topology",
+  badgeLabel: "Red Hat support",
+  badgeText: "Red Hat",
+});
+
+// Search and verify results
+await extensionsPage.waitForSearchResults("catalog");
+```
+
+#### NotificationPage
+
+```typescript
+const notificationPage = new NotificationPage(page);
+
+// Navigate to notifications
+await notificationPage.clickNotificationsNavBarItem();
+
+// Check notification content
+await notificationPage.notificationContains("Build completed");
+
+// Manage notifications
+await notificationPage.markAllNotificationsAsRead();
+await notificationPage.selectSeverity("critical");
+await notificationPage.viewSaved();
+await notificationPage.sortByNewestOnTop();
+```
+
 ### ESLint Configuration
 
 Pre-configured ESLint rules for Playwright tests:
@@ -431,7 +661,7 @@ src/deployment/rhdh/
 
 ### Project Configuration
 
-Create these files in your project's `config/` directory:
+Create these files in your project's `tests/config/` directory:
 
 #### app-config-rhdh.yaml
 
@@ -523,14 +753,46 @@ test.beforeAll(async ({ rhdh }) => {
     namespace: "custom-test-ns",
     version: "1.5",
     method: "helm",
-    appConfig: "custom/app-config.yaml",
-    secrets: "custom/secrets.yaml",
-    dynamicPlugins: "custom/plugins.yaml",
-    valueFile: "custom/values.yaml",
+    appConfig: "tests/config/app-config.yaml",
+    secrets: "tests/config/secrets.yaml",
+    dynamicPlugins: "tests/config/plugins.yaml",
+    valueFile: "tests/config/values.yaml",
   });
 
   await rhdh.deploy();
+});
+```
 
+### Using Helpers and Page Objects
+
+```typescript
+import { test, expect } from "rhdh-e2e-test-utils/test";
+import { CatalogPage } from "rhdh-e2e-test-utils/pages";
+import { APIHelper } from "rhdh-e2e-test-utils/helpers";
+
+test.beforeAll(async ({ rhdh }) => {
+  await rhdh.deploy();
+});
+
+test("catalog interaction", async ({ page, uiHelper, loginHelper }) => {
+  // Login
+  await loginHelper.loginAsKeycloakUser();
+
+  // Use page object for catalog operations
+  const catalogPage = new CatalogPage(page);
+  await catalogPage.go();
+  await catalogPage.search("my-component");
+
+  // Use UI helper for assertions
+  await uiHelper.verifyRowsInTable(["my-component"]);
+});
+
+test("API operations", async ({ rhdh }) => {
+  // Create GitHub repo via API
+  await APIHelper.createGitHubRepo("my-org", "test-repo");
+
+  // Clean up
+  await APIHelper.deleteGitHubRepo("my-org", "test-repo");
 });
 ```
 

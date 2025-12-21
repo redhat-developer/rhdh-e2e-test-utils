@@ -12,13 +12,41 @@ $.verbose = true;
 class KubernetesClientHelper {
   private _kc: k8s.KubeConfig;
   private _k8sApi: k8s.CoreV1Api;
+  private _appsApi: k8s.AppsV1Api;
   private _customObjectsApi: k8s.CustomObjectsApi;
 
   constructor() {
     this._kc = new k8s.KubeConfig();
     this._kc.loadFromDefault();
-    this._k8sApi = this._kc.makeApiClient(k8s.CoreV1Api);
-    this._customObjectsApi = this._kc.makeApiClient(k8s.CustomObjectsApi);
+
+    try {
+      this._k8sApi = this._kc.makeApiClient(k8s.CoreV1Api);
+      this._appsApi = this._kc.makeApiClient(k8s.AppsV1Api);
+      this._customObjectsApi = this._kc.makeApiClient(k8s.CustomObjectsApi);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("No active cluster")
+      ) {
+        const currentContext = this._kc.getCurrentContext();
+        const contexts = this._kc.getContexts().map((c) => c.name);
+
+        throw new Error(
+          `No active Kubernetes cluster found.\n\n` +
+            `The kubeconfig was loaded but no cluster is configured or the current context is invalid.\n\n` +
+            `Current context: ${currentContext || "(none)"}\n` +
+            `Available contexts: ${contexts.length > 0 ? contexts.join(", ") : "(none)"}\n\n` +
+            `To fix this:\n` +
+            `  1. Log in to your k8s cluster: oc login or kubectl login\n` +
+            `  2. Or set a valid context: kubectl config use-context <context-name>\n` +
+            `  3. Verify your connection: oc whoami && oc cluster-info\n\n` +
+            `Kubeconfig locations checked:\n` +
+            `  - KUBECONFIG env: ${process.env.KUBECONFIG || "(not set)"}\n` +
+            `  - Default: ~/.kube/config`,
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -313,6 +341,49 @@ class KubernetesClientHelper {
       }
     }
   }
+
+  /**
+   * Check if a StatefulSet is ready (all replicas are available)
+   */
+  async isStatefulSetReady(namespace: string, name: string): Promise<boolean> {
+    try {
+      const statefulSet = await this._appsApi.readNamespacedStatefulSet({
+        name,
+        namespace,
+      });
+      const replicas = statefulSet.spec?.replicas ?? 1;
+      const readyReplicas = statefulSet.status?.readyReplicas ?? 0;
+      return readyReplicas >= replicas;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Wait for a StatefulSet to be ready (all replicas available)
+   */
+  async waitForStatefulSetReady(
+    namespace: string,
+    name: string,
+    timeoutSeconds: number = 300,
+    pollIntervalMs: number = 5000,
+  ): Promise<boolean> {
+    const startTime = Date.now();
+    const timeoutMs = timeoutSeconds * 1000;
+
+    while (Date.now() - startTime < timeoutMs) {
+      if (await this.isStatefulSetReady(namespace, name)) {
+        console.log(`✓ StatefulSet ${name} is ready`);
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+    }
+
+    throw new Error(
+      `StatefulSet ${name} in namespace ${namespace} not ready after ${timeoutSeconds}s`,
+    );
+  }
+
   /**
    * Get the cluster's ingress domain from OpenShift config
    * Equivalent to: oc get ingresses.config.openshift.io cluster -o jsonpath='{.spec.domain}'

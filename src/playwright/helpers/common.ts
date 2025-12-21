@@ -6,6 +6,7 @@ import { SETTINGS_PAGE_COMPONENTS } from "../page-objects/page-obj.js";
 import { UI_HELPER_ELEMENTS } from "../page-objects/global-obj.js";
 import * as path from "path";
 import * as fs from "fs";
+import { DEFAULT_USERS } from "../../deployment/keycloak/constants.js";
 
 export class LoginHelper {
   page: Page;
@@ -84,8 +85,8 @@ export class LoginHelper {
   }
 
   async loginAsKeycloakUser(
-    userid: string = process.env.GH_USER_ID as string,
-    password: string = process.env.GH_USER_PASS as string,
+    userid: string = DEFAULT_USERS[0].username,
+    password: string = DEFAULT_USERS[0].password,
   ) {
     await this.page.goto("/");
     await this.uiHelper.waitForLoad(240000);

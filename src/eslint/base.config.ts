@@ -93,8 +93,6 @@ export function createEslintConfig(tsconfigRootDir: string): Linter.Config[] {
         "@typescript-eslint/no-misused-promises": "error",
         // Allow any type in tests (for mocking, test data)
         "@typescript-eslint/no-explicit-any": "warn",
-        // Modern import style
-        "@typescript-eslint/consistent-type-imports": "error",
         // Prefer modern syntax
         "@typescript-eslint/prefer-optional-chain": "error",
         // Allow unused vars starting with underscore

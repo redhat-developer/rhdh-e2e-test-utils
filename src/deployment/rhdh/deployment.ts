@@ -41,6 +41,7 @@ export class RHDHDeployment {
 
     if (this.deploymentConfig.method === "helm") {
       await this._deployWithHelm(this.deploymentConfig.valueFile);
+      await this.scaleDownAndRestart(); // Restart as helm does not monitor config changes
     } else {
       await this._applyDynamicPlugins();
       await this._deployWithOperator(this.deploymentConfig.subscription);
@@ -53,13 +54,7 @@ export class RHDHDeployment {
       DEFAULT_CONFIG_PATHS.appConfig,
       this.deploymentConfig.appConfig,
     ]);
-    console.log(
-      boxen(yaml.dump(appConfigYaml), {
-        title: "App Config",
-        padding: 1,
-        align: "left",
-      }),
-    );
+    this._logBoxen("App Config", appConfigYaml);
 
     await this.k8sClient.applyConfigMapFromObject(
       "app-config-rhdh",
@@ -86,13 +81,7 @@ export class RHDHDeployment {
       DEFAULT_CONFIG_PATHS.dynamicPlugins,
       this.deploymentConfig.dynamicPlugins,
     ]);
-    console.log(
-      boxen(yaml.dump(dynamicPluginsYaml), {
-        title: "Dynamic Plugins",
-        padding: 1,
-        align: "left",
-      }),
-    );
+    this._logBoxen("Dynamic Plugins", dynamicPluginsYaml);
     await this.k8sClient.applyConfigMapFromObject(
       "dynamic-plugins",
       dynamicPluginsYaml,
@@ -110,13 +99,7 @@ export class RHDHDeployment {
       valueFile,
     ])) as Record<string, Record<string, unknown>>;
 
-    console.log(
-      boxen(yaml.dump(valueFileObject), {
-        title: "Value File",
-        padding: 1,
-        align: "left",
-      }),
-    );
+    this._logBoxen("Value File", valueFileObject);
 
     // Merge dynamic plugins into the values file
     if (!valueFileObject.global) {
@@ -127,13 +110,7 @@ export class RHDHDeployment {
       this.deploymentConfig.dynamicPlugins,
     ]);
 
-    console.log(
-      boxen(yaml.dump(valueFileObject.global.dynamic), {
-        title: "Dynamic Plugins",
-        padding: 1,
-        align: "left",
-      }),
-    );
+    this._logBoxen("Dynamic Plugins", valueFileObject.global.dynamic);
 
     fs.writeFileSync(
       `/tmp/${this.deploymentConfig.namespace}-value-file.yaml`,
@@ -155,13 +132,7 @@ export class RHDHDeployment {
       DEFAULT_CONFIG_PATHS.operator.subscription,
       subscription,
     ]);
-    console.log(
-      boxen(yaml.dump(subscriptionObject), {
-        title: "Subscription",
-        padding: 1,
-        align: "left",
-      }),
-    );
+    this._logBoxen("Subscription", subscriptionObject);
     fs.writeFileSync(
       `/tmp/${this.deploymentConfig.namespace}-subscription.yaml`,
       yaml.dump(subscriptionObject),
@@ -193,6 +164,18 @@ export class RHDHDeployment {
       `RHDH deployment restarted successfully in namespace ${this.deploymentConfig.namespace}`,
     );
     await this.waitUntilReady();
+  }
+
+  /**
+   * Performs a clean restart by scaling down to 0 first, waiting for pods to terminate,
+   * then scaling back up. This prevents MigrationLocked errors by ensuring no pods
+   * hold database locks when new pods start.
+   */
+  async scaleDownAndRestart(): Promise<void> {
+    const namespace = this.deploymentConfig.namespace;
+    await $`oc scale deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' --replicas=0 -n ${namespace}`;
+    await $`oc wait --for=delete pod -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub),app.kubernetes.io/name!=postgresql' -n ${namespace} --timeout=120s || true`;
+    await $`oc scale deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' --replicas=1 -n ${namespace}`;
   }
 
   async waitUntilReady(timeout: number = 300): Promise<void> {
@@ -306,5 +289,9 @@ export class RHDHDeployment {
 
   private _log(...args: unknown[]): void {
     console.log("[RHDHDeployment]", ...args);
+  }
+
+  private _logBoxen(title: string, data: unknown): void {
+    console.log(boxen(yaml.dump(data), { title, padding: 1 }));
   }
 }

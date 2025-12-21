@@ -35,6 +35,10 @@
     "./pages": {
       "types": "./dist/playwright/pages/index.d.ts",
       "default": "./dist/playwright/pages/index.js"
+    },
+    "./keycloak": {
+      "types": "./dist/deployment/keycloak/index.d.ts",
+      "default": "./dist/deployment/keycloak/index.js"
     }
   },
   "files": [
@@ -42,7 +46,7 @@
     "tsconfig.base.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config src/deployment/rhdh/helm src/deployment/rhdh/operator dist/deployment/rhdh/",
+    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config src/deployment/rhdh/helm src/deployment/rhdh/operator dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",
     "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md",
@@ -76,6 +80,7 @@
   "dependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@eslint/js": "^9.39.1",
+    "@keycloak/keycloak-admin-client": "^26.0.0",
     "@kubernetes/client-node": "^1.4.0",
     "boxen": "^8.0.1",
     "eslint": "^9.39.1",

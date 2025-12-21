@@ -1,4 +1,7 @@
-import type { PlaywrightTestConfig } from "@playwright/test";
+import {
+  defineConfig as baseDefineConfig,
+  PlaywrightTestConfig,
+} from "@playwright/test";
 import { resolve } from "path";
 
 /**
@@ -36,16 +39,17 @@ export const baseConfig: PlaywrightTestConfig = {
 };
 
 /**
- * Creates a workspace-specific config by merging with base config.
+ * Defines a workspace-specific config by merging with base config.
  * Only allows overriding the projects configuration.
  * @param overrides - Object containing projects to override
  * @returns Merged Playwright configuration
  */
-export function createPlaywrightConfig(
+
+export function defineConfig(
   overrides: Pick<PlaywrightTestConfig, "projects"> = {},
 ): PlaywrightTestConfig {
-  return {
+  return baseDefineConfig({
     ...baseConfig,
     projects: overrides.projects,
-  };
+  });
 }

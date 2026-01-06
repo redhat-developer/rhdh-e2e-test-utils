@@ -263,29 +263,27 @@ export class RHDHDeployment {
     if (!method)
       throw new Error("Installation method (helm/operator) is required");
 
-    const configDir = `${import.meta.dirname}/tests/config`;
-
     const base: DeploymentConfigBase = {
       version,
       namespace: input.namespace ?? this.deploymentConfig.namespace,
       auth: input.auth ?? "keycloak",
-      appConfig: input.appConfig ?? `${configDir}/app-config-rhdh.yaml`,
-      secrets: input.secrets ?? `${configDir}/rhdh-secrets.yaml`,
+      appConfig: input.appConfig ?? `tests/config/app-config-rhdh.yaml`,
+      secrets: input.secrets ?? `tests/config/rhdh-secrets.yaml`,
       dynamicPlugins:
-        input.dynamicPlugins ?? `${configDir}/dynamic-plugins.yaml`,
+        input.dynamicPlugins ?? `tests/config/dynamic-plugins.yaml`,
     };
 
     if (method === "helm") {
       return {
         ...base,
         method,
-        valueFile: input.valueFile ?? `${configDir}/value_file.yaml`,
+        valueFile: input.valueFile ?? `tests/config/value_file.yaml`,
       };
     } else if (method === "operator") {
       return {
         ...base,
         method,
-        subscription: input.subscription ?? `${configDir}/subscription.yaml`,
+        subscription: input.subscription ?? `tests/config/subscription.yaml`,
       };
     } else {
       throw new Error(`Invalid RHDH installation method: ${method}`);

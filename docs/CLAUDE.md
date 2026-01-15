@@ -150,6 +150,7 @@ The docs are a standalone package, independent of the root project. This allows:
 ### Setup
 
 ```bash
+corepack enable  # Enable Yarn 3 via Corepack (one-time setup)
 cd docs
 yarn install
 ```

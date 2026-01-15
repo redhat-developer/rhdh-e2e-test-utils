@@ -1,0 +1,18 @@
+{
+  "name": "rhdh-e2e-test-utils-docs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Documentation for rhdh-e2e-test-utils",
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

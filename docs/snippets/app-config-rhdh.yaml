@@ -1,0 +1,15 @@
+app:
+  title: Red Hat Developer Hub
+  baseUrl: ${RHDH_BASE_URL}
+
+backend:
+  baseUrl: ${RHDH_BASE_URL}
+  cors:
+    origin: ${RHDH_BASE_URL}
+
+catalog:
+  rules:
+    - allow: [Component, System, API, Resource, Location, Template]
+  locations:
+    - type: url
+      target: https://github.com/backstage/backstage/blob/master/catalog-info.yaml

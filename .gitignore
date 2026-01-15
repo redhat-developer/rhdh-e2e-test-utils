@@ -53,6 +53,10 @@ build/
 *.tsbuildinfo
 dist/
 
+# VitePress
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
 # Coverage
 coverage/
 .nyc_output/

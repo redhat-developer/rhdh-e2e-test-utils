@@ -49,11 +49,11 @@
     "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",
-    "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md",
-    "lint:fix": "eslint . --fix --ignore-pattern dist --ignore-pattern README.md",
+    "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
+    "lint:fix": "eslint . --fix --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
     "prepublishOnly": "yarn build",
-    "prettier:check": "prettier --check . '!dist' '!README.md'",
-    "prettier:fix": "prettier --write . '!dist' '!README.md'",
+    "prettier:check": "prettier --check . '!dist' '!README.md' '!docs' '!.github/workflows/deploy-docs.yml'",
+    "prettier:fix": "prettier --write . '!dist' '!README.md' '!docs' '!.github/workflows/deploy-docs.yml'",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

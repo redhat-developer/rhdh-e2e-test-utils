@@ -389,7 +389,7 @@ export class KeycloakHelper {
   }
 
   private async _createRoute(): Promise<void> {
-    // Use TLS edge termination with Allow policy to support both HTTP and HTTPS
+    // Use plain HTTP route (no TLS) for test environments to avoid self-signed certificate issues
     const routeManifest = `
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -406,9 +406,6 @@ spec:
     weight: 100
   port:
     targetPort: http
-  tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Allow
   wildcardPolicy: None
 `;
 

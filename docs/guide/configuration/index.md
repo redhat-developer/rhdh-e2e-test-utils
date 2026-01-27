@@ -67,3 +67,7 @@ RHDH configurations are merged in layers:
 3. **Project configs** - Your custom configurations
 
 This allows you to override only what you need while using sensible defaults.
+
+## Plugin Metadata Injection
+
+For PR builds, the package can automatically inject plugin configurations from metadata files. See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.

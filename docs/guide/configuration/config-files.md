@@ -137,6 +137,87 @@ When you deploy RHDH, configurations are merged:
 
 Later files override earlier files. You only need to specify what's different from defaults.
 
+## Plugin Metadata Injection
+
+During deployment, the package automatically handles plugin configurations from metadata files. The behavior depends on whether your [`dynamic-plugins.yaml`](#dynamic-plugins-yaml) file exists:
+
+```
+┌─────────────────────────────────────┐
+│  dynamic-plugins.yaml exists?       │
+└──────────────┬──────────────────────┘
+               │
+       ┌───────┴───────┐
+       │               │
+      YES              NO
+       │               │
+       ▼               ▼
+┌──────────────┐  ┌──────────────────────┐
+│ Inject into  │  │ Auto-generate from   │
+│ existing     │  │ ALL metadata files   │
+│ plugins only │  │ (all enabled)        │
+└──────────────┘  └──────────────────────┘
+```
+
+```
+workspaces/<plugin-name>/
+├── metadata/                           # Plugin metadata files
+│   ├── plugin-frontend.yaml            # Contains spec.appConfigExamples
+│   └── plugin-backend.yaml
+├── e2e-tests/
+│   └── tests/config/
+│       └── dynamic-plugins.yaml        # Your plugin config (optional)
+└── plugins/                            # Plugin source code
+```
+
+### Auto-Generation (No Config File)
+
+If your `dynamic-plugins.yaml` file doesn't exist, the package **auto-generates** a complete configuration:
+
+1. Iterates through all metadata files in `../metadata/`
+2. Creates plugin entries with `disabled: false` (enabled)
+3. Uses `spec.appConfigExamples[0].content` as the plugin config
+
+This is useful when you want to test all plugins with their default configurations without writing a `dynamic-plugins.yaml`.
+
+### Injection (Config File Exists)
+
+If your `dynamic-plugins.yaml` file exists, the package **injects** metadata only for plugins listed in your config:
+
+1. Looks for matching metadata files in `../metadata/`
+2. Merges: **metadata (base) + your config (override)**
+3. Plugins not in your config are **not** added automatically
+
+Your `pluginConfig` in `dynamic-plugins.yaml` overrides values from metadata.
+
+### When Injection is Enabled
+
+Plugin metadata injection is **enabled by default** for:
+- Local development
+- PR builds in CI
+
+Injection is **disabled** when:
+- [`RHDH_SKIP_PLUGIN_METADATA_INJECTION`](/guide/configuration/environment-variables#plugin-metadata-variables) environment variable is set
+- `JOB_NAME` contains `periodic-` (nightly/periodic CI builds)
+
+::: warning
+When injection is enabled, deployment will fail if:
+- The `metadata/` directory doesn't exist
+- No valid metadata files are found in the directory
+:::
+
+### Package Reference Matching
+
+The package automatically matches plugins across different reference formats:
+
+| Format | Example |
+|--------|---------|
+| Wrapper path | `./dynamic-plugins/dist/my-plugin` |
+| OCI with tag | `oci://quay.io/rhdh/my-plugin:1.0.0` |
+| OCI with digest | `oci://quay.io/rhdh/my-plugin@sha256:abc...` |
+| GHCR | `ghcr.io/org/repo/my-plugin:tag` |
+
+All formats extract the plugin name (`my-plugin`) for matching against metadata.
+
 ## Environment Variable Substitution
 
 Use these syntaxes in YAML files:

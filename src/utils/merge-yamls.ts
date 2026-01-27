@@ -69,7 +69,7 @@ function mergeArraysByKey(
  * Deeply merges two YAML-compatible objects.
  * Array handling is controlled by the arrayMergeStrategy option.
  */
-function deepMerge(
+export function deepMerge(
   target: Record<string, unknown>,
   source: Record<string, unknown>,
   options: MergeOptions = {},

@@ -10,6 +10,7 @@ The package provides utility functions for common operations in E2E testing.
 | [Bash ($)](/guide/utilities/bash-utilities) | Shell command execution |
 | [YAML Merging](/guide/utilities/yaml-merging) | Merge YAML files |
 | [envsubst](/guide/utilities/environment-substitution) | Environment variable substitution |
+| [Plugin Metadata](/guide/utilities/plugin-metadata) | Plugin metadata injection |
 
 ## Importing Utilities
 

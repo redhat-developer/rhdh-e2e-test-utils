@@ -25,6 +25,18 @@ These are set automatically during deployment:
 | `CI` | Enables auto-cleanup | - |
 | `CHART_URL` | Custom Helm chart URL | `oci://quay.io/rhdh/chart` |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak auto-deploy | `false` |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection | - |
+
+## Plugin Metadata Variables
+
+These control automatic plugin configuration injection from metadata files:
+
+| Variable | Description | Effect |
+|----------|-------------|--------|
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When set (any value), disables metadata injection | Opt-out |
+| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
+
+See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
 
 ## Keycloak Variables
 

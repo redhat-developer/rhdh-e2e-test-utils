@@ -50,6 +50,7 @@ Complete API documentation for all exports from `rhdh-e2e-test-utils`.
 - [Bash ($)](/api/utils/bash) - Shell command execution
 - [YAML Merging](/api/utils/merge-yamls) - YAML utilities
 - [envsubst](/api/utils/common) - Environment substitution
+- [Plugin Metadata](/api/utils/plugin-metadata) - Plugin metadata injection
 
 ### ESLint
 

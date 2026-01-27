@@ -22,7 +22,7 @@ The package simplifies end-to-end testing for RHDH plugins by providing:
 | Deploy Keycloak | For authentication testing with automatic realm, client, and user configuration |
 | Modular authentication | Configuration for guest and Keycloak providers |
 | Automatic namespace | Creation and cleanup |
-| Dynamic plugin | Configuration support |
+| Dynamic plugin | Configuration with [automatic metadata injection](/guide/configuration/config-files#plugin-metadata-injection) |
 | UI, API, and common helpers | For test interactions |
 | Kubernetes client helper | For OpenShift resources |
 | Pre-configured Playwright | Settings optimized for RHDH testing |

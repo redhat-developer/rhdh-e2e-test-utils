@@ -95,11 +95,12 @@ await deployment.deploy();
 
 This method:
 1. Merges configuration files (common → auth → project)
-2. Applies ConfigMaps (app-config, dynamic-plugins)
-3. Applies Secrets (with environment variable substitution)
-4. Installs RHDH via Helm or Operator
-5. Waits for the deployment to be ready
-6. Sets `RHDH_BASE_URL` environment variable
+2. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
+3. Applies ConfigMaps (app-config, dynamic-plugins)
+4. Applies Secrets (with environment variable substitution)
+5. Installs RHDH via Helm or Operator
+6. Waits for the deployment to be ready
+7. Sets `RHDH_BASE_URL` environment variable
 
 ### `waitUntilReady(timeout?)`
 

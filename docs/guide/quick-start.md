@@ -75,6 +75,10 @@ stringData:
   GITHUB_TOKEN: $GITHUB_TOKEN
 ```
 
+::: tip Skip dynamic-plugins.yaml
+If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically generate configuration from metadata files. See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection).
+:::
+
 ## Step 4: Create Environment File
 
 Create `.env`:

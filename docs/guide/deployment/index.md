@@ -113,10 +113,11 @@ await rhdh.deploy();
 
 This:
 1. Creates the namespace
-2. Applies ConfigMaps
-3. Applies Secrets (with env substitution)
-4. Installs RHDH (Helm or Operator)
-5. Waits for deployment to be ready
+2. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins
+3. Applies ConfigMaps
+4. Applies Secrets (with env substitution)
+5. Installs RHDH (Helm or Operator)
+6. Waits for deployment to be ready
 
 ### 3. Access
 

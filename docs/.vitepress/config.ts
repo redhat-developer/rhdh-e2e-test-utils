@@ -153,6 +153,10 @@ export default defineConfig({
               text: "Environment Substitution",
               link: "/guide/utilities/environment-substitution",
             },
+            {
+              text: "Plugin Metadata",
+              link: "/guide/utilities/plugin-metadata",
+            },
           ],
         },
         {
@@ -244,6 +248,7 @@ export default defineConfig({
             { text: "Bash ($)", link: "/api/utils/bash" },
             { text: "YAML Merging", link: "/api/utils/merge-yamls" },
             { text: "envsubst", link: "/api/utils/common" },
+            { text: "Plugin Metadata", link: "/api/utils/plugin-metadata" },
           ],
         },
         {

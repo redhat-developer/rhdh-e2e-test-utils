@@ -2,7 +2,11 @@ import { KubernetesClientHelper } from "../../utils/kubernetes-client.js";
 import { $ } from "../../utils/bash.js";
 import yaml from "js-yaml";
 import { test } from "@playwright/test";
-import { mergeYamlFilesIfExists } from "../../utils/merge-yamls.js";
+import { mergeYamlFilesIfExists, deepMerge } from "../../utils/merge-yamls.js";
+import {
+  loadAndInjectPluginMetadata,
+  generateDynamicPluginsConfigFromMetadata,
+} from "../../utils/plugin-metadata.js";
 import { envsubst } from "../../utils/common.js";
 import fs from "fs-extra";
 import boxen from "boxen";
@@ -85,16 +89,52 @@ export class RHDHDeployment {
     );
   }
 
-  private async _applyDynamicPlugins(): Promise<void> {
+  /**
+   * Builds the merged dynamic plugins configuration.
+   * Merges: package defaults + auth config + user config + metadata (for PR builds).
+   */
+  private async _buildDynamicPluginsConfig(): Promise<Record<string, unknown>> {
+    const userConfigPath = this.deploymentConfig.dynamicPlugins;
+    const userConfigExists = userConfigPath && fs.existsSync(userConfigPath);
     const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
-    const dynamicPluginsYaml = await mergeYamlFilesIfExists(
+
+    // If user's dynamic-plugins config doesn't exist, auto-generate from metadata
+    if (!userConfigExists) {
+      this._log(
+        `Dynamic plugins config not found at '${userConfigPath}', auto-generating from metadata...`,
+      );
+      const metadataConfig = await generateDynamicPluginsConfigFromMetadata();
+
+      // Merge with package defaults and auth config
+      const authPlugins = await mergeYamlFilesIfExists(
+        [DEFAULT_CONFIG_PATHS.dynamicPlugins, authConfig.dynamicPlugins],
+        { arrayMergeStrategy: { byKey: "package" } },
+      );
+      return deepMerge(metadataConfig, authPlugins, {
+        arrayMergeStrategy: { byKey: "package" },
+      });
+    }
+
+    // User config exists - merge provided configs and inject metadata for listed plugins only
+    let dynamicPluginsConfig = await mergeYamlFilesIfExists(
       [
         DEFAULT_CONFIG_PATHS.dynamicPlugins,
         authConfig.dynamicPlugins,
-        this.deploymentConfig.dynamicPlugins,
+        userConfigPath,
       ],
       { arrayMergeStrategy: { byKey: "package" } },
     );
+
+    // Inject plugin metadata configuration for plugins in the config
+    dynamicPluginsConfig =
+      await loadAndInjectPluginMetadata(dynamicPluginsConfig);
+
+    return dynamicPluginsConfig;
+  }
+
+  private async _applyDynamicPlugins(): Promise<void> {
+    const dynamicPluginsYaml = await this._buildDynamicPluginsConfig();
+
     this._logBoxen("Dynamic Plugins", dynamicPluginsYaml);
     await this.k8sClient.applyConfigMapFromObject(
       "dynamic-plugins",
@@ -116,18 +156,10 @@ export class RHDHDeployment {
     this._logBoxen("Value File", valueFileObject);
 
     // Merge dynamic plugins into the values file (including auth-specific plugins)
-    const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
     if (!valueFileObject.global) {
       valueFileObject.global = {};
     }
-    valueFileObject.global.dynamic = await mergeYamlFilesIfExists(
-      [
-        DEFAULT_CONFIG_PATHS.dynamicPlugins,
-        authConfig.dynamicPlugins,
-        this.deploymentConfig.dynamicPlugins,
-      ],
-      { arrayMergeStrategy: { byKey: "package" } },
-    );
+    valueFileObject.global.dynamic = await this._buildDynamicPluginsConfig();
 
     this._logBoxen("Dynamic Plugins", valueFileObject.global.dynamic);
 
@@ -319,6 +351,22 @@ export class RHDHDeployment {
   }
 
   private _logBoxen(title: string, data: unknown): void {
-    console.log(boxen(yaml.dump(data), { title, padding: 1 }));
+    console.log(
+      boxen(yaml.dump(data, { lineWidth: -1 }), {
+        title,
+        padding: 0,
+        width: 120,
+        borderStyle: {
+          topLeft: "┌",
+          topRight: "┐",
+          bottomLeft: "└",
+          bottomRight: "┘",
+          top: "─",
+          bottom: "─",
+          left: "",
+          right: "",
+        },
+      }),
+    );
   }
 }

@@ -83,6 +83,10 @@ myPlugin:
   enabled: true
 ```
 
+::: tip Automatic Plugin Configuration
+If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically generate configuration from metadata files during PR builds. See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
+:::
+
 ## Step 4: Write Tests
 
 **tests/specs/my-plugin.spec.ts:**

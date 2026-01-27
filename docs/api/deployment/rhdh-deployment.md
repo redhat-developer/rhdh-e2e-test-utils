@@ -75,9 +75,10 @@ async deploy(): Promise<void>
 
 Deploy RHDH to the cluster. This:
 1. Merges configuration files
-2. Applies ConfigMaps and Secrets
-3. Installs RHDH via Helm or Operator
-4. Waits for deployment to be ready
+2. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
+3. Applies ConfigMaps and Secrets
+4. Installs RHDH via Helm or Operator
+5. Waits for deployment to be ready
 
 ```typescript
 await rhdh.deploy();

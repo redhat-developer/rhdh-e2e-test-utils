@@ -13,8 +13,8 @@ hero:
       text: API Reference
       link: /api/
     - theme: alt
-      text: View on GitHub
-      link: https://github.com/redhat-developer/rhdh-e2e-test-utils
+      text: Overlay Testing
+      link: /overlay/
 
 features:
   - icon: 🚀
@@ -35,6 +35,9 @@ features:
   - icon: ⚙️
     title: Configuration Tools
     details: ESLint configuration factory with Playwright best practices and TypeScript base configuration.
+  - icon: 🔧
+    title: Overlay Repository Support
+    details: Dedicated documentation for writing E2E tests in the rhdh-plugin-export-overlays repository.
 ---
 
 ## Quick Example
@@ -82,3 +85,4 @@ test("verify catalog", async ({ uiHelper }) => {
 - [Installation](/guide/installation) - Install the package
 - [Quick Start](/guide/quick-start) - Create your first test
 - [API Reference](/api/) - Explore the full API
+- [Overlay Testing](/overlay/) - For tests in rhdh-plugin-export-overlays

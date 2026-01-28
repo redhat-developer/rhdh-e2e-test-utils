@@ -31,6 +31,7 @@ export default defineConfig({
       { text: "API Reference", link: "/api/" },
       { text: "Tutorials", link: "/tutorials/" },
       { text: "Examples", link: "/examples/" },
+      { text: "Overlay Testing", link: "/overlay/" },
       {
         text: "v1.1.6",
         items: [{ text: "Changelog", link: "/changelog" }],
@@ -305,6 +306,91 @@ export default defineConfig({
             { text: "API Operations", link: "/examples/api-operations" },
             { text: "Custom Deployment", link: "/examples/custom-deployment" },
             { text: "Serial Tests", link: "/examples/serial-tests" },
+          ],
+        },
+      ],
+
+      "/overlay/": [
+        {
+          text: "Overlay Testing",
+          items: [
+            { text: "Overview", link: "/overlay/" },
+            { text: "Getting Started", link: "/overlay/getting-started" },
+            {
+              text: "Repository Structure",
+              link: "/overlay/repository-structure",
+            },
+          ],
+        },
+        {
+          text: "Test Structure",
+          collapsed: false,
+          items: [
+            {
+              text: "Directory Layout",
+              link: "/overlay/test-structure/directory-layout",
+            },
+            {
+              text: "Configuration Files",
+              link: "/overlay/test-structure/configuration-files",
+            },
+            { text: "Spec Files", link: "/overlay/test-structure/spec-files" },
+          ],
+        },
+        {
+          text: "Tutorials",
+          collapsed: false,
+          items: [
+            {
+              text: "Adding Tests to New Workspace",
+              link: "/overlay/tutorials/new-workspace",
+            },
+            {
+              text: "Plugin Configuration",
+              link: "/overlay/tutorials/plugin-config",
+            },
+            {
+              text: "Pre-requisite Services",
+              link: "/overlay/tutorials/custom-deployment",
+            },
+            {
+              text: "Running Tests Locally",
+              link: "/overlay/tutorials/running-locally",
+            },
+            { text: "CI/CD Pipeline", link: "/overlay/tutorials/ci-pipeline" },
+          ],
+        },
+        {
+          text: "Examples",
+          collapsed: false,
+          items: [
+            {
+              text: "Tech Radar Plugin",
+              link: "/overlay/examples/tech-radar",
+            },
+            {
+              text: "Basic Plugin Test",
+              link: "/overlay/examples/basic-plugin",
+            },
+          ],
+        },
+        {
+          text: "Reference",
+          collapsed: true,
+          items: [
+            {
+              text: "Environment Variables",
+              link: "/overlay/reference/environment-variables",
+            },
+            {
+              text: "Package.json Scripts",
+              link: "/overlay/reference/scripts",
+            },
+            { text: "Common Patterns", link: "/overlay/reference/patterns" },
+            {
+              text: "Troubleshooting",
+              link: "/overlay/reference/troubleshooting",
+            },
           ],
         },
       ],

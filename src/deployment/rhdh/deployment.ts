@@ -187,9 +187,30 @@ export class RHDHDeployment {
       `/tmp/${this.deploymentConfig.namespace}-subscription.yaml`,
       yaml.dump(subscriptionObject),
     );
+
+    const version = this.deploymentConfig.version;
+    const isSemanticVersion = /^\d+(\.\d+)?$/.test(version);
+
+    // Use main branch for non-semantic versions (e.g., "next", "latest")
+    const branch = isSemanticVersion ? `release-${version}` : "main";
+
+    // Build version argument based on version type
+    let versionArg: string;
+    if (isSemanticVersion) {
+      versionArg = `-v ${version}`;
+    } else if (version === "next") {
+      versionArg = "--next";
+    } else {
+      throw new Error(
+        `Invalid RHDH version "${version}". Use semantic version (e.g., "1.5") or "next".`,
+      );
+    }
+
+    this._log(`Using operator branch: ${branch}, version arg: ${versionArg}`);
+
     await $`
       set -e;
-      curl -s https://raw.githubusercontent.com/redhat-developer/rhdh-operator/refs/heads/release-${this.deploymentConfig.version}/.rhdh/scripts/install-rhdh-catalog-source.sh | bash -s -- -v ${this.deploymentConfig.version} --install-operator rhdh
+      curl -sf https://raw.githubusercontent.com/redhat-developer/rhdh-operator/refs/heads/${branch}/.rhdh/scripts/install-rhdh-catalog-source.sh | bash -s -- ${versionArg} --install-operator rhdh
 
       timeout 300 bash -c '
         while ! oc get crd/backstages.rhdh.redhat.com -n "${this.deploymentConfig.namespace}" >/dev/null 2>&1; do
@@ -257,8 +278,16 @@ export class RHDHDeployment {
   }
 
   private async _resolveChartVersion(version: string): Promise<string> {
-    // Semantic versions (e.g., 1.2)
-    if (/^(\d+(\.\d+)?)$/.test(version)) {
+    let resolvedVersion = version;
+
+    // Handle "next" tag by looking up the corresponding version from downstream image
+    if (version === "next") {
+      resolvedVersion = await this._resolveVersionFromNextTag();
+      this._log(`Resolved "next" tag to version: ${resolvedVersion}`);
+    }
+
+    // Semantic versions (e.g., 1.2, 1.10)
+    if (/^(\d+(\.\d+)?)$/.test(resolvedVersion)) {
       const response = await fetch(
         "https://quay.io/api/v1/repository/rhdh/chart/tag/?onlyActiveTags=true&limit=600",
       );
@@ -271,28 +300,73 @@ export class RHDHDeployment {
       const data = (await response.json()) as { tags: Array<{ name: string }> };
       const matching = data.tags
         .map((t) => t.name)
-        .filter((name) => name.startsWith(`${version}-`))
+        .filter((name) => name.startsWith(`${resolvedVersion}-`))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
       const latest = matching.at(-1);
-      if (!latest) throw new Error(`No chart version found for ${version}`);
+      if (!latest)
+        throw new Error(`No chart version found for ${resolvedVersion}`);
       return latest;
     }
 
     // CI build versions (e.g., 1.2.3-CI)
-    if (version.endsWith("CI")) return version;
+    if (resolvedVersion.endsWith("CI")) return resolvedVersion;
 
     throw new Error(`Invalid Helm chart version format: "${version}"`);
   }
 
-  private _buildDeploymentConfig(input: DeploymentOptions): DeploymentConfig {
-    const version = input.version ?? process.env.RHDH_VERSION;
-    const method =
-      input.method ?? (process.env.INSTALLATION_METHOD as DeploymentMethod);
+  /**
+   * Resolve the semantic version from the "next" tag by looking up the
+   * downstream image (rhdh-hub-rhel9) and finding tags with the same digest.
+   */
+  private async _resolveVersionFromNextTag(): Promise<string> {
+    // Fetch all active tags in a single API call
+    const response = await fetch(
+      "https://quay.io/api/v1/repository/rhdh/rhdh-hub-rhel9/tag/?onlyActiveTags=true&limit=75",
+    );
 
-    if (!version) throw new Error("RHDH version is required");
-    if (!method)
-      throw new Error("Installation method (helm/operator) is required");
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image tags: ${response.statusText}`);
+    }
+
+    // Use Record to avoid snake_case linting issues with Quay API response
+    const data = (await response.json()) as {
+      tags: Array<Record<string, unknown>>;
+    };
+
+    // Find the "next" tag and get its digest
+    const nextTag = data.tags.find((t) => t["name"] === "next");
+    if (!nextTag) {
+      throw new Error('No "next" tag found in rhdh-hub-rhel9 repository');
+    }
+
+    const digest = nextTag["manifest_digest"] as string;
+    this._log(`"next" tag digest: ${digest}`);
+
+    // Find semantic version tag (e.g., "1.10") with the same digest
+    const semanticVersionTag = data.tags.find(
+      (t) =>
+        t["manifest_digest"] === digest &&
+        /^\d+\.\d+$/.test(t["name"] as string),
+    );
+
+    if (!semanticVersionTag) {
+      throw new Error(
+        `Could not find semantic version tag for "next" (digest: ${digest})`,
+      );
+    }
+
+    return semanticVersionTag["name"] as string;
+  }
+
+  private _buildDeploymentConfig(input: DeploymentOptions): DeploymentConfig {
+    // Default to "next" if RHDH_VERSION not set
+    const version = input.version ?? process.env.RHDH_VERSION ?? "next";
+    // Default to "helm" if INSTALLATION_METHOD not set
+    const method =
+      input.method ??
+      (process.env.INSTALLATION_METHOD as DeploymentMethod) ??
+      "helm";
 
     const base: DeploymentConfigBase = {
       version,

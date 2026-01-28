@@ -2,7 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.5] - Current
+## [1.1.6] - Current
+
+### Added
+- **"next" tag support**: Both Helm and Operator deployments now support `RHDH_VERSION=next`
+  - Helm: Resolves "next" to semantic version by querying `rhdh-hub-rhel9` image tags
+  - Operator: Uses `main` branch and `--next` flag instead of release branch
+
+### Changed
+- **Default values**: `RHDH_VERSION` defaults to `next` and `INSTALLATION_METHOD` defaults to `helm` when not set
+
+### Environment Variables
+- `RHDH_VERSION`: RHDH version to deploy (default: `next`)
+- `INSTALLATION_METHOD`: Deployment method - `helm` or `operator` (default: `helm`)
+
+## [1.1.5]
 
 ### Added
 - **Plugin metadata auto-generation**: When `dynamic-plugins.yaml` doesn't exist, configuration is automatically generated from `metadata/*.yaml` files

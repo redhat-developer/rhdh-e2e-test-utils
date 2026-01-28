@@ -32,7 +32,7 @@ export default defineConfig({
       { text: "Tutorials", link: "/tutorials/" },
       { text: "Examples", link: "/examples/" },
       {
-        text: "v1.1.2",
+        text: "v1.1.6",
         items: [{ text: "Changelog", link: "/changelog" }],
       },
     ],

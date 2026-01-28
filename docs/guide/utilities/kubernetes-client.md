@@ -95,6 +95,32 @@ const domain = await k8sClient.getClusterIngressDomain();
 // Returns: "apps.cluster.example.com"
 ```
 
+## Pod Operations
+
+### `waitForPodsWithFailureDetection(namespace, labelSelector, timeout?, pollInterval?)`
+
+Wait for pods to be ready with early failure detection. Unlike `oc rollout status`, this method detects unrecoverable failure states (CrashLoopBackOff, ImagePullBackOff, etc.) within seconds and fails fast with container logs:
+
+```typescript
+await k8sClient.waitForPodsWithFailureDetection(
+  "my-namespace",
+  "app.kubernetes.io/instance=my-app",
+  300,  // timeout in seconds (default: 300)
+  5000  // poll interval in ms (default: 5000)
+);
+```
+
+**Detected failure states:**
+- `CrashLoopBackOff` - container keeps crashing
+- `ImagePullBackOff` / `ErrImagePull` - can't pull image
+- `CreateContainerConfigError` - config issues (missing secrets, etc.)
+- `Init:*` variants - init container failures
+
+When a failure is detected, the method:
+1. Logs the failure reason
+2. Fetches container logs via `oc logs`
+3. Throws an error with the failure details
+
 ## Deployment Operations
 
 ### `scaleDeployment(namespace, name, replicas)`

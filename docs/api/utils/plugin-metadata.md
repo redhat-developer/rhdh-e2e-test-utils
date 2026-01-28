@@ -178,11 +178,27 @@ async function generateDynamicPluginsConfigFromMetadata(
 - Throws error if no valid metadata files found
 - All generated plugins have `disabled: false`
 
+**PR Build Behavior (when `GIT_PR_NUMBER` is set):**
+- Replaces local plugin paths with OCI URLs
+- Fetches plugin versions from source repo's `package.json`
+- Throws error if `source.json` or `plugins-list.yaml` not found
+- Throws error if version fetching fails
+
 **Example:**
 
 ```typescript
 const config = await generateDynamicPluginsConfigFromMetadata();
 console.log(`Generated config with ${config.plugins?.length} plugins`);
+```
+
+**Example Output (PR Build):**
+
+```yaml
+plugins:
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0
+    disabled: false
+    pluginConfig:
+      # ... from metadata
 ```
 
 ---

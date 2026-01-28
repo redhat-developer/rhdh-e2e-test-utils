@@ -170,6 +170,35 @@ on:
     - cron: "0 6 * * *"  # Daily at 6 AM
 ```
 
+## OpenShift CI / Prow Integration
+
+For OpenShift CI (Prow), the package supports automatic OCI URL generation for PR builds.
+
+### Environment Variables
+
+| Variable | Description | Set By |
+|----------|-------------|--------|
+| `GIT_PR_NUMBER` | PR number - enables OCI URL generation | OpenShift CI |
+| `JOB_NAME` | Job name (e.g., `pull-ci-...` or `periodic-...`) | OpenShift CI |
+
+### OCI URL Generation
+
+When `GIT_PR_NUMBER` is set, plugin paths are automatically replaced with OCI URLs:
+
+```yaml
+# Before
+- package: ./dynamic-plugins/dist/my-plugin
+
+# After (GIT_PR_NUMBER=1234)
+- package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0
+```
+
+### Periodic/Nightly Builds
+
+For periodic builds (when `JOB_NAME` contains `periodic-`), metadata injection is disabled automatically. Tests use default RHDH configuration.
+
+See [Plugin Metadata](/guide/utilities/plugin-metadata#oci-url-generation-for-pr-builds) for complete details.
+
 ## Best Practices
 
 1. **Use fail-fast: false** - Run all projects even if one fails

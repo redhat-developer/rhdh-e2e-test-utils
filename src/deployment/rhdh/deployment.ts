@@ -9,7 +9,6 @@ import {
 } from "../../utils/plugin-metadata.js";
 import { envsubst } from "../../utils/common.js";
 import fs from "fs-extra";
-import boxen from "boxen";
 import {
   DEFAULT_CONFIG_PATHS,
   AUTH_CONFIG_PATHS,
@@ -233,22 +232,22 @@ export class RHDHDeployment {
     this._log(
       `Waiting for RHDH deployment to be ready in namespace ${this.deploymentConfig.namespace}...`,
     );
+
+    const labelSelector =
+      "app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)";
+
     try {
-      await $`oc rollout status deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' -n ${this.deploymentConfig.namespace} --timeout=${timeout}s`;
+      await this.k8sClient.waitForPodsWithFailureDetection(
+        this.deploymentConfig.namespace,
+        labelSelector,
+        timeout,
+      );
       this._log(
         `RHDH deployment is ready in namespace ${this.deploymentConfig.namespace}`,
       );
     } catch (error) {
-      console.log(
-        "----------------------------------------------------------------",
-      );
-      console.log("Deployment Failed Logs");
-      console.log(
-        "----------------------------------------------------------------",
-      );
-      await $`oc logs -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' -n ${this.deploymentConfig.namespace} --tail=100`;
       throw new Error(
-        `Error waiting for RHDH deployment to be ready in timeout ${timeout}s in namespace ${this.deploymentConfig.namespace}: ${error}`,
+        `RHDH deployment failed in namespace ${this.deploymentConfig.namespace}: ${error instanceof Error ? error.message : error}`,
       );
     }
   }
@@ -351,22 +350,9 @@ export class RHDHDeployment {
   }
 
   private _logBoxen(title: string, data: unknown): void {
-    console.log(
-      boxen(yaml.dump(data, { lineWidth: -1 }), {
-        title,
-        padding: 0,
-        width: 120,
-        borderStyle: {
-          topLeft: "┌",
-          topRight: "┐",
-          bottomLeft: "└",
-          bottomRight: "┘",
-          top: "─",
-          bottom: "─",
-          left: "",
-          right: "",
-        },
-      }),
-    );
+    const content = yaml.dump(data, { lineWidth: -1 });
+    console.log(`\n┌─ ${title} ${"─".repeat(60)}`);
+    console.log(content);
+    console.log(`└${"─".repeat(60 + title.length + 3)}\n`);
   }
 }

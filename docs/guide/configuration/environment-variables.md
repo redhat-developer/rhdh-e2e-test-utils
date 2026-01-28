@@ -33,10 +33,23 @@ These control automatic plugin configuration injection from metadata files:
 
 | Variable | Description | Effect |
 |----------|-------------|--------|
+| `GIT_PR_NUMBER` | PR number (set by OpenShift CI) | Enables OCI URL generation for PR builds |
 | `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When set (any value), disables metadata injection | Opt-out |
 | `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
 
-See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
+### OCI URL Generation
+
+When `GIT_PR_NUMBER` is set, the package replaces local plugin paths with OCI URLs:
+
+```yaml
+# Before
+- package: ./dynamic-plugins/dist/my-plugin
+
+# After (with GIT_PR_NUMBER=1234)
+- package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0
+```
+
+See [Plugin Metadata](/guide/utilities/plugin-metadata#oci-url-generation-for-pr-builds) for complete details.
 
 ## Keycloak Variables
 

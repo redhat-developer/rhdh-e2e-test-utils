@@ -355,9 +355,10 @@ export class KeycloakHelper {
    */
   async waitUntilReady(timeout: number = 300): Promise<void> {
     this._log(`Waiting for Keycloak to be ready...`);
-    await this.k8sClient.waitForStatefulSetReady(
+    const labelSelector = `app.kubernetes.io/instance=${this.deploymentConfig.releaseName}`;
+    await this.k8sClient.waitForPodsWithFailureDetection(
       this.deploymentConfig.namespace,
-      this.deploymentConfig.releaseName,
+      labelSelector,
       timeout,
     );
   }

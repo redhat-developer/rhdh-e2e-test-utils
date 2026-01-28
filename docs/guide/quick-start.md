@@ -76,7 +76,11 @@ stringData:
 ```
 
 ::: tip Skip dynamic-plugins.yaml
-If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically generate configuration from metadata files. See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection).
+If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically generate configuration from metadata files.
+
+For PR builds in CI (when `GIT_PR_NUMBER` is set), the package also automatically replaces local plugin paths with OCI URLs pointing to the PR's built artifacts.
+
+See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
 :::
 
 ## Step 4: Create Environment File

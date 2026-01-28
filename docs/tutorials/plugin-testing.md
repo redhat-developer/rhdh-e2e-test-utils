@@ -84,7 +84,14 @@ myPlugin:
 ```
 
 ::: tip Automatic Plugin Configuration
-If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically generate configuration from metadata files during PR builds. See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
+If your workspace has a `metadata/` directory with Package CRD files, you can skip creating `dynamic-plugins.yaml`. The package will automatically:
+
+1. **Generate configuration** from all metadata files (all plugins enabled)
+2. **Replace paths with OCI URLs** for PR builds (when `GIT_PR_NUMBER` is set)
+
+Example OCI URL: `oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0`
+
+See [Plugin Metadata Injection](/guide/configuration/config-files#plugin-metadata-injection) for details.
 :::
 
 ## Step 4: Write Tests

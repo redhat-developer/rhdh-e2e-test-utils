@@ -205,6 +205,26 @@ When injection is enabled, deployment will fail if:
 - No valid metadata files are found in the directory
 :::
 
+### OCI URL Replacement for PR Builds
+
+When `GIT_PR_NUMBER` is set (by OpenShift CI), local plugin paths are automatically replaced with OCI URLs pointing to the PR's built artifacts:
+
+```yaml
+# Local development
+- package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
+
+# PR build (GIT_PR_NUMBER=1845)
+- package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:pr_1845__1.13.0
+```
+
+This allows E2E tests to run against the actual OCI images built for the PR.
+
+::: warning
+For PR builds, OCI URL generation is required. Deployment will fail if `source.json` or `plugins-list.yaml` doesn't exist, or if version fetching fails.
+:::
+
+See [Plugin Metadata - OCI URL Generation](/guide/utilities/plugin-metadata#oci-url-generation-for-pr-builds) for complete details.
+
 ### Package Reference Matching
 
 The package automatically matches plugins across different reference formats:

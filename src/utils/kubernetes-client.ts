@@ -456,6 +456,132 @@ class KubernetesClientHelper {
 
     return `${protocol}://${host}`;
   }
+
+  /**
+   * Failure states that indicate a pod will not recover without intervention
+   */
+  private static readonly failureReasons = new Set([
+    "CrashLoopBackOff",
+    "Error",
+    "ImagePullBackOff",
+    "ErrImagePull",
+    "InvalidImageName",
+    "CreateContainerConfigError",
+    "CreateContainerError",
+  ]);
+
+  /**
+   * Wait for pods matching a label selector to be ready, with early failure detection.
+   * Fails fast when it detects unrecoverable states like CrashLoopBackOff.
+   *
+   * @param namespace - Namespace to watch
+   * @param labelSelector - Label selector (e.g., "app=myapp")
+   * @param timeoutSeconds - Maximum time to wait (default: 300)
+   * @param pollIntervalMs - How often to check pod status (default: 5000)
+   */
+  async waitForPodsWithFailureDetection(
+    namespace: string,
+    labelSelector: string,
+    timeoutSeconds: number = 300,
+    pollIntervalMs: number = 5000,
+  ): Promise<void> {
+    const startTime = Date.now();
+    const timeoutMs = timeoutSeconds * 1000;
+
+    console.log(
+      `[K8sHelper] Waiting for pods (${labelSelector}) in ${namespace}...`,
+    );
+
+    while (Date.now() - startTime < timeoutMs) {
+      let pods: k8s.V1Pod[];
+      try {
+        pods = (
+          await this._k8sApi.listNamespacedPod({ namespace, labelSelector })
+        ).items;
+      } catch (err) {
+        console.log(`[K8sHelper] API error, retrying: ${err}`);
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+        continue;
+      }
+
+      if (pods.length === 0) {
+        await new Promise((r) => setTimeout(r, pollIntervalMs));
+        continue;
+      }
+
+      for (const pod of pods) {
+        const podName = pod.metadata?.name || "unknown";
+        const failure = this._checkPodFailure(pod);
+
+        if (failure) {
+          console.log(`[K8sHelper] Pod ${podName} failed: ${failure.reason}`);
+          try {
+            if (failure.container) {
+              await $`oc logs ${podName} -n ${namespace} -c ${failure.container} --tail=100`;
+            } else {
+              await $`oc logs ${podName} -n ${namespace} --tail=100`;
+            }
+          } catch {
+            // Ignore log fetch errors
+          }
+          throw new Error(`Pod ${podName} failed: ${failure.reason}`);
+        }
+      }
+
+      // Check if all pods are ready
+      const allReady = pods.every((pod) => {
+        const ready = pod.status?.conditions?.find((c) => c.type === "Ready");
+        return ready?.status === "True";
+      });
+
+      if (allReady) {
+        console.log(
+          `[K8sHelper] All ${pods.length} pod(s) ready in ${namespace}`,
+        );
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+    }
+
+    throw new Error(
+      `Timeout waiting for pods (${labelSelector}) after ${timeoutSeconds}s`,
+    );
+  }
+
+  /**
+   * Check if a pod is in a failure state. Returns failure info or null if healthy.
+   */
+  private _checkPodFailure(
+    pod: k8s.V1Pod,
+  ): { reason: string; container?: string } | null {
+    // Check init containers first
+    for (const cs of pod.status?.initContainerStatuses || []) {
+      const reason = cs.state?.waiting?.reason;
+      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
+        return { reason: `Init:${reason}`, container: cs.name };
+      }
+      if (
+        cs.state?.terminated?.exitCode &&
+        cs.state.terminated.exitCode !== 0
+      ) {
+        return {
+          reason: `Init:Error (exit ${cs.state.terminated.exitCode})`,
+          container: cs.name,
+        };
+      }
+    }
+
+    // Check main containers
+    for (const cs of pod.status?.containerStatuses || []) {
+      const reason = cs.state?.waiting?.reason;
+      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
+        return { reason, container: cs.name };
+      }
+    }
+
+    return null;
+  }
 }
 
 export { KubernetesClientHelper };

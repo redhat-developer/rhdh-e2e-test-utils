@@ -4,6 +4,119 @@ import yaml from "js-yaml";
 import { glob } from "zx";
 import { deepMerge } from "./merge-yamls.js";
 
+const OCI_REGISTRY_PREFIX =
+  "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
+
+/**
+ * Fetches plugin versions from source repo and builds OCI URL map.
+ * Only called when GIT_PR_NUMBER is set.
+ */
+async function getOCIUrlsForPR(
+  workspacePath: string,
+  prNumber: string,
+): Promise<Map<string, string>> {
+  const ociUrls = new Map<string, string>();
+
+  const sourceJsonPath = path.join(workspacePath, "source.json");
+  const pluginsListPath = path.join(workspacePath, "plugins-list.yaml");
+
+  if (!fs.existsSync(sourceJsonPath)) {
+    throw new Error(
+      `[PluginMetadata] PR build requires source.json but not found at: ${sourceJsonPath}`,
+    );
+  }
+
+  if (!fs.existsSync(pluginsListPath)) {
+    throw new Error(
+      `[PluginMetadata] PR build requires plugins-list.yaml but not found at: ${pluginsListPath}`,
+    );
+  }
+
+  const sourceJson = JSON.parse(await fs.readFile(sourceJsonPath, "utf-8"));
+  const { repo, "repo-ref": ref, "repo-flat": repoFlat } = sourceJson;
+
+  if (!repo) {
+    throw new Error(
+      `[PluginMetadata] source.json is missing required 'repo' field: ${sourceJsonPath}`,
+    );
+  }
+
+  if (!ref) {
+    throw new Error(
+      `[PluginMetadata] source.json is missing required 'repo-ref' field: ${sourceJsonPath}`,
+    );
+  }
+
+  // Parse owner/repo from URL
+  const match = repo.match(/github\.com\/(.+?)(?:\.git)?$/);
+  if (!match) {
+    throw new Error(
+      `[PluginMetadata] Failed to parse GitHub repo from source.json: ${repo}`,
+    );
+  }
+  const ownerRepo = match[1];
+
+  // Read plugins list
+  const pluginsList = await fs.readFile(pluginsListPath, "utf-8");
+  const pluginPaths = pluginsList
+    .trim()
+    .split("\n")
+    .map((l: string) => l.replace(/:$/, "").trim())
+    .filter(Boolean);
+
+  const workspaceName = path.basename(workspacePath);
+
+  console.log(
+    `[PluginMetadata] Fetching versions for ${pluginPaths.length} plugins from source...`,
+  );
+
+  for (const pluginPath of pluginPaths) {
+    const pkgJsonPath = repoFlat
+      ? `${pluginPath}/package.json`
+      : `workspaces/${workspaceName}/${pluginPath}/package.json`;
+
+    const rawUrl = `https://raw.githubusercontent.com/${ownerRepo}/${ref}/${pkgJsonPath}`;
+
+    const res = await fetch(rawUrl);
+    if (!res.ok) {
+      throw new Error(
+        `[PluginMetadata] Failed to fetch package.json for ${pluginPath}: ${res.status} ${res.statusText}\n` +
+          `  URL: ${rawUrl}`,
+      );
+    }
+
+    const pkgJson = (await res.json()) as { name?: string; version?: string };
+
+    if (!pkgJson.name) {
+      throw new Error(
+        `[PluginMetadata] package.json is missing 'name' field for ${pluginPath}\n` +
+          `  URL: ${rawUrl}`,
+      );
+    }
+
+    if (!pkgJson.version) {
+      throw new Error(
+        `[PluginMetadata] package.json is missing 'version' field for ${pluginPath}\n` +
+          `  URL: ${rawUrl}`,
+      );
+    }
+
+    const { name, version } = pkgJson;
+
+    // @backstage-community/plugin-tech-radar -> backstage-community-plugin-tech-radar
+    const displayName = name.replace(/^@/, "").replace(/\//g, "-");
+    // TODO(RHDHBUGS-2530): Remove !alias suffix once Konflux builds include
+    // io.backstage.dynamic-packages annotation. The suffix is a workaround
+    // because install-dynamic-plugins.py can't auto-detect plugin path without it.
+    const ociUrl = `${OCI_REGISTRY_PREFIX}/${displayName}:pr_${prNumber}__${version}!${displayName}`;
+
+    ociUrls.set(displayName, ociUrl);
+    console.log(`[PluginMetadata] ${displayName} -> ${ociUrl}`);
+  }
+
+  return ociUrls;
+}
+
 /**
  * Represents parsed plugin metadata from a Package CRD file.
  */
@@ -134,18 +247,11 @@ export async function parseMetadataFile(
       return null;
     }
 
-    if (!pluginConfig) {
-      console.log(
-        `[PluginMetadata] Skipping ${filePath}: no spec.appConfigExamples[0].content`,
-      );
-      return null;
-    }
-
     console.log(`[PluginMetadata] Loaded metadata for: ${packagePath}`);
 
     return {
       packagePath,
-      pluginConfig,
+      pluginConfig: pluginConfig || {},
       packageName: packageName || "",
       sourceFile: filePath,
     };
@@ -311,16 +417,55 @@ export async function generateDynamicPluginsConfigFromMetadata(
     );
   }
 
+  // If PR number is set, fetch OCI URLs
+  const prNumber = process.env.GIT_PR_NUMBER;
+  let ociUrls: Map<string, string> | null = null;
+  if (prNumber) {
+    console.log(
+      `[PluginMetadata] PR build detected (PR #${prNumber}), fetching OCI URLs...`,
+    );
+    const workspacePath = path.resolve(metadataPath, "..");
+    ociUrls = await getOCIUrlsForPR(workspacePath, prNumber);
+  }
+
   // Build plugin entries from metadata
   const plugins: PluginEntry[] = [];
 
   for (const [pluginName, metadata] of metadataMap) {
+    let packageRef = metadata.packagePath;
+
+    // Replace with OCI URL if available (required for PR builds)
+    if (ociUrls) {
+      if (!metadata.packageName) {
+        throw new Error(
+          `[PluginMetadata] PR build requires packageName in metadata but not found for: ${pluginName}\n` +
+            `  Source file: ${metadata.sourceFile}`,
+        );
+      }
+
+      const displayName = metadata.packageName
+        .replace(/^@/, "")
+        .replace(/\//g, "-");
+      const ociUrl = ociUrls.get(displayName);
+
+      if (!ociUrl) {
+        throw new Error(
+          `[PluginMetadata] PR build requires OCI URL but not found for: ${displayName}\n` +
+            `  Package name: ${metadata.packageName}\n` +
+            `  Source file: ${metadata.sourceFile}`,
+        );
+      }
+
+      console.log(`[PluginMetadata] Replacing ${packageRef} with ${ociUrl}`);
+      packageRef = ociUrl;
+    }
+
     console.log(
-      `[PluginMetadata] Adding plugin from metadata: ${pluginName} (${metadata.packagePath})`,
+      `[PluginMetadata] Adding plugin: ${pluginName} (${packageRef})`,
     );
 
     plugins.push({
-      package: metadata.packagePath,
+      package: packageRef,
       disabled: false,
       pluginConfig: metadata.pluginConfig,
     });

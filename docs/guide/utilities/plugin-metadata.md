@@ -178,3 +178,7 @@ See [Environment Variables](/guide/configuration/environment-variables#plugin-me
 ## API Reference
 
 For complete API documentation, see [Plugin Metadata API](/api/utils/plugin-metadata).
+
+::: tip For Overlay Repository
+If you're writing tests in the **rhdh-plugin-export-overlays** repository, see [Overlay Configuration Files](/overlay/test-structure/configuration-files) for how plugin metadata and OCI URL generation work in that context.
+:::

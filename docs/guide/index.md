@@ -72,3 +72,7 @@ The package simplifies end-to-end testing for RHDH plugins by providing:
 2. [Quick Start](/guide/quick-start) - Create your first E2E test
 3. [Requirements](/guide/requirements) - System and cluster requirements
 4. [Core Concepts](/guide/core-concepts/) - Understand the key concepts
+
+::: tip For Overlay Repository Contributors
+If you're writing tests in the **rhdh-plugin-export-overlays** repository, see the [Overlay Testing](/overlay/) documentation for repository-specific guidance including CI/CD integration, Vault secrets, and workspace structure.
+:::

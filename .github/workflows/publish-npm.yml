@@ -28,6 +28,9 @@ jobs:
       - name: Build
         run: yarn build
 
+      - name: Configure npm registry
+        run: yarn config set npmPublishRegistry "https://registry.npmjs.org"
+
       - name: Publish
         run: yarn npm publish
         env:

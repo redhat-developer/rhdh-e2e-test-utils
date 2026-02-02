@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.6] - Current
+## [1.1.7] - Current
+
+### Fixed
+- **Secrets with control characters**: Fixed `SyntaxError: Bad control character in string literal` when secrets contain newlines or special characters (e.g., GitHub App private keys)
+  - Replaced `JSON.parse(envsubst(JSON.stringify(obj)))` approach with `lodash.clonedeepwith` for safe environment variable substitution
+  - Now correctly handles private keys, tabs, carriage returns, and other control characters in secret values
+
+### Dependencies
+- Added `lodash.clonedeepwith@^4.5.0` for safe deep object traversal with custom value substitution
+
+## [1.1.6]
 
 ### Added
 - **"next" tag support**: Both Helm and Operator deployments now support `RHDH_VERSION=next`

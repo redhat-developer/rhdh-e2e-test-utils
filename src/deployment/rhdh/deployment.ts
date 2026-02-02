@@ -8,6 +8,7 @@ import {
   generateDynamicPluginsConfigFromMetadata,
 } from "../../utils/plugin-metadata.js";
 import { envsubst } from "../../utils/common.js";
+import cloneDeepWith from "lodash.clonedeepwith";
 import fs from "fs-extra";
 import {
   DEFAULT_CONFIG_PATHS,
@@ -81,9 +82,15 @@ export class RHDHDeployment {
       this.deploymentConfig.secrets,
     ]);
 
+    // Use cloneDeepWith to substitute env vars in-place, avoiding JSON.parse issues
+    // with control characters in secrets (e.g., private keys with newlines)
+    const substituted = cloneDeepWith(secretsYaml, (value: unknown) => {
+      if (typeof value === "string") return envsubst(value);
+    });
+
     await this.k8sClient.applySecretFromObject(
       "rhdh-secrets",
-      JSON.parse(envsubst(JSON.stringify(secretsYaml))),
+      substituted as { stringData?: Record<string, string> },
       this.deploymentConfig.namespace,
     );
   }

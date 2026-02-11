@@ -231,34 +231,32 @@ export function getMetadataDirectory(
  */
 export async function parseMetadataFile(
   filePath: string,
-): Promise<PluginMetadata | null> {
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    const parsed = yaml.load(content) as PackageCRD;
+): Promise<PluginMetadata> {
+  const content = await fs.readFile(filePath, "utf8");
+  const parsed = yaml.load(content) as PackageCRD;
 
-    const packagePath = parsed?.spec?.dynamicArtifact;
-    const packageName = parsed?.spec?.packageName;
-    const pluginConfig = parsed?.spec?.appConfigExamples?.[0]?.content;
+  const packagePath = parsed?.spec?.dynamicArtifact;
+  const packageName = parsed?.spec?.packageName;
+  const pluginConfig = parsed?.spec?.appConfigExamples?.[0]?.content;
 
-    if (!packagePath) {
-      console.log(
-        `[PluginMetadata] Skipping ${filePath}: no spec.dynamicArtifact`,
-      );
-      return null;
-    }
-
-    console.log(`[PluginMetadata] Loaded metadata for: ${packagePath}`);
-
-    return {
-      packagePath,
-      pluginConfig: pluginConfig || {},
-      packageName: packageName || "",
-      sourceFile: filePath,
-    };
-  } catch (error) {
-    console.error(`[PluginMetadata] Error parsing ${filePath}:`, error);
-    return null;
+  if (!packagePath) {
+    throw new Error(
+      `[PluginMetadata] Missing required field spec.dynamicArtifact in ${filePath}`,
+    );
   }
+
+  if (!packageName) {
+    throw new Error(
+      `[PluginMetadata] Missing required field spec.packageName in ${filePath}`,
+    );
+  }
+
+  return {
+    packagePath,
+    pluginConfig: pluginConfig || {},
+    packageName,
+    sourceFile: filePath,
+  };
 }
 
 /**
@@ -282,14 +280,11 @@ export async function parseAllMetadataFiles(
 
   for (const file of files) {
     const metadata = await parseMetadataFile(file);
-    if (metadata) {
-      // Use extracted plugin name as key for flexible matching
-      const pluginName = extractPluginName(metadata.packagePath);
-      metadataMap.set(pluginName, metadata);
-      console.log(
-        `[PluginMetadata] Mapped plugin: ${pluginName} <- ${metadata.packagePath}`,
-      );
-    }
+    const pluginName = extractPluginName(metadata.packagePath);
+    metadataMap.set(pluginName, metadata);
+    console.log(
+      `[PluginMetadata] Mapped plugin: ${pluginName} <- ${metadata.packagePath}`,
+    );
   }
 
   console.log(
@@ -316,6 +311,48 @@ export interface DynamicPluginsConfig {
   plugins?: PluginEntry[];
   includes?: string[];
   [key: string]: unknown;
+}
+
+/**
+ * Replaces local package paths with OCI URLs for plugins that have matching metadata.
+ * Only applies to plugins with metadata (workspace plugins). Plugins without metadata
+ * (e.g., keycloak, bulk-import from auth defaults) keep their original paths.
+ *
+ * @param plugins The plugin entries to process
+ * @param metadataMap Map of plugin names to plugin metadata
+ * @param metadataPath Path to the metadata directory (used to resolve workspace root)
+ * @returns Plugin entries with OCI URLs replaced where applicable
+ */
+async function replaceWithOCIUrls(
+  plugins: PluginEntry[],
+  metadataMap: Map<string, PluginMetadata>,
+  metadataPath: string,
+): Promise<PluginEntry[]> {
+  const prNumber = process.env.GIT_PR_NUMBER;
+  if (!prNumber) {
+    return plugins;
+  }
+
+  console.log(
+    `[PluginMetadata] PR build detected (PR #${prNumber}), fetching OCI URLs...`,
+  );
+  const workspacePath = path.resolve(metadataPath, "..");
+  const ociUrls = await getOCIUrlsForPR(workspacePath, prNumber);
+
+  return plugins.map((plugin) => {
+    const pluginName = extractPluginName(plugin.package);
+    const metadata = metadataMap.get(pluginName);
+    if (!metadata?.packageName) return plugin;
+
+    const displayName = metadata.packageName
+      .replace(/^@/, "")
+      .replace(/\//g, "-");
+    const ociUrl = ociUrls.get(displayName);
+    if (!ociUrl) return plugin;
+
+    console.log(`[PluginMetadata] Replacing ${plugin.package} with ${ociUrl}`);
+    return { ...plugin, package: ociUrl };
+  });
 }
 
 /**
@@ -417,59 +454,23 @@ export async function generateDynamicPluginsConfigFromMetadata(
     );
   }
 
-  // If PR number is set, fetch OCI URLs
-  const prNumber = process.env.GIT_PR_NUMBER;
-  let ociUrls: Map<string, string> | null = null;
-  if (prNumber) {
-    console.log(
-      `[PluginMetadata] PR build detected (PR #${prNumber}), fetching OCI URLs...`,
-    );
-    const workspacePath = path.resolve(metadataPath, "..");
-    ociUrls = await getOCIUrlsForPR(workspacePath, prNumber);
-  }
-
   // Build plugin entries from metadata
-  const plugins: PluginEntry[] = [];
+  let plugins: PluginEntry[] = [];
 
   for (const [pluginName, metadata] of metadataMap) {
-    let packageRef = metadata.packagePath;
-
-    // Replace with OCI URL if available (required for PR builds)
-    if (ociUrls) {
-      if (!metadata.packageName) {
-        throw new Error(
-          `[PluginMetadata] PR build requires packageName in metadata but not found for: ${pluginName}\n` +
-            `  Source file: ${metadata.sourceFile}`,
-        );
-      }
-
-      const displayName = metadata.packageName
-        .replace(/^@/, "")
-        .replace(/\//g, "-");
-      const ociUrl = ociUrls.get(displayName);
-
-      if (!ociUrl) {
-        throw new Error(
-          `[PluginMetadata] PR build requires OCI URL but not found for: ${displayName}\n` +
-            `  Package name: ${metadata.packageName}\n` +
-            `  Source file: ${metadata.sourceFile}`,
-        );
-      }
-
-      console.log(`[PluginMetadata] Replacing ${packageRef} with ${ociUrl}`);
-      packageRef = ociUrl;
-    }
-
     console.log(
-      `[PluginMetadata] Adding plugin: ${pluginName} (${packageRef})`,
+      `[PluginMetadata] Adding plugin: ${pluginName} (${metadata.packagePath})`,
     );
 
     plugins.push({
-      package: packageRef,
+      package: metadata.packagePath,
       disabled: false,
       pluginConfig: metadata.pluginConfig,
     });
   }
+
+  // Replace local paths with OCI URLs for PR builds
+  plugins = await replaceWithOCIUrls(plugins, metadataMap, metadataPath);
 
   console.log(
     `[PluginMetadata] Generated dynamic-plugins config with ${plugins.length} plugins`,
@@ -517,5 +518,16 @@ export async function loadAndInjectPluginMetadata(
   }
 
   // Inject metadata configs into the dynamic plugins config
-  return injectMetadataConfig(dynamicPluginsConfig, metadataMap);
+  const result = injectMetadataConfig(dynamicPluginsConfig, metadataMap);
+
+  // Replace local paths with OCI URLs for PR builds
+  if (result.plugins) {
+    result.plugins = await replaceWithOCIUrls(
+      result.plugins,
+      metadataMap,
+      metadataPath,
+    );
+  }
+
+  return result;
 }

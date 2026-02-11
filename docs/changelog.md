@@ -2,7 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.8] - Current
+## [1.1.9] - Current
+
+### Fixed
+- **OCI URL replacement with user-provided `dynamic-plugins.yaml`**: When a workspace provides its own `dynamic-plugins.yaml`, plugin package paths were not replaced with OCI URLs for PR builds. Extracted shared `replaceWithOCIUrls()` function so both `generateDynamicPluginsConfigFromMetadata()` and `loadAndInjectPluginMetadata()` code paths now perform OCI replacement when `GIT_PR_NUMBER` is set.
+
+## [1.1.8]
 
 ### Fixed
 - Fixed namespace deletion race condition during test retries

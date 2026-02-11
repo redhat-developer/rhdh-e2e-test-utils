@@ -60,14 +60,14 @@ workspaces/<plugin>/e2e-tests/
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "1.57.0",
     "@types/node": "^24.10.1",
     "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "eslint-plugin-check-file": "^3.3.1",
     "eslint-plugin-playwright": "^2.4.0",
     "prettier": "^3.7.4",
-    "rhdh-e2e-test-utils": "1.1.6",
+    "rhdh-e2e-test-utils": "1.1.8",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0"
   }

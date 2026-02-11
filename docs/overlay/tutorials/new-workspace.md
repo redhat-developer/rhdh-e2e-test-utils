@@ -56,14 +56,14 @@ Create `package.json` with the following content:
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "1.57.0",
     "@types/node": "^24.10.1",
     "dotenv": "^16.4.7",
     "eslint": "^9.39.2",
     "eslint-plugin-check-file": "^3.3.1",
     "eslint-plugin-playwright": "^2.4.0",
     "prettier": "^3.7.4",
-    "rhdh-e2e-test-utils": "1.1.6",
+    "rhdh-e2e-test-utils": "<latest-version>",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0"
   }
@@ -71,6 +71,7 @@ Create `package.json` with the following content:
 ```
 
 Replace `<your-plugin>` with your plugin name.
+Replate `<latest-version>` with the latest available version of this library.
 
 ## Step 4: Create Configuration Files
 

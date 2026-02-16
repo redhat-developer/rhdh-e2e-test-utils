@@ -32,7 +32,7 @@ jobs:
         run: yarn config set npmPublishRegistry "https://registry.npmjs.org"
 
       - name: Publish
-        run: yarn npm publish --access public
+        run: yarn npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.RHDH_NPM_TOKEN }}
           YARN_NPM_AUTH_TOKEN: ${{ secrets.RHDH_NPM_TOKEN }}

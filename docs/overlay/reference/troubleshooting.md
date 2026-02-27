@@ -123,9 +123,10 @@ oc login --token=<token> --server=<server>
 
 ### "Keycloak deployment failed"
 
-**Problem:** Keycloak fails to deploy.
+**Problem:** Keycloak fails to deploy (e.g. during global setup or when using `auth: "keycloak"`).
 
 **Solutions:**
+- **Check the build log for command output.** When the Keycloak deployment step fails, the test framework prints the failed command's stdout and stderr to the log. Look for **`[command stdout]:`** and **`[command stderr]:`** in the output — that shows the actual Helm (or other) command output and is the first place to look for the failure reason.
 - Check Keycloak namespace for errors:
   ```bash
   oc get pods -n rhdh-keycloak

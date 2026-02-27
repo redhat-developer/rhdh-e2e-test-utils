@@ -1,5 +1,5 @@
 export { envsubst } from "./common.js";
-export { $ } from "./bash.js";
+export { $, runQuietUnlessFailure } from "./bash.js";
 export {
   mergeYamlFiles,
   mergeYamlFilesIfExists,

@@ -23,7 +23,7 @@ export class APIHelper {
       method: method,
       headers: {
         Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${process.env.GH_RHDH_QE_USER_TOKEN}`,
+        Authorization: `Bearer ${process.env.GH_RHDH_QE_USER_TOKEN || process.env.VAULT_GITHUB_USER_TOKEN}`,
         "X-GitHub-Api-Version": this.githubAPIVersion,
       },
     };

@@ -57,6 +57,20 @@ export const AUTH_CONFIG_PATHS: Record<
       "dist/deployment/rhdh/config/auth/keycloak/dynamic-plugins.yaml",
     ),
   },
+  github: {
+    appConfig: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/app-config.yaml",
+    ),
+    secrets: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/secrets.yaml",
+    ),
+    dynamicPlugins: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/dynamic-plugins.yaml",
+    ),
+  },
 };
 
 export const CHART_URL = "oci://quay.io/rhdh/chart";

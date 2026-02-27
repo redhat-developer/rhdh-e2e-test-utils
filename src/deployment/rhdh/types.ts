@@ -1,5 +1,5 @@
 export type DeploymentMethod = "helm" | "operator";
-export type AuthProvider = "guest" | "keycloak";
+export type AuthProvider = "guest" | "keycloak" | "github";
 
 export type DeploymentOptions = {
   version?: string;

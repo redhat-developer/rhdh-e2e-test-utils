@@ -96,6 +96,13 @@ export class LoginHelper {
   }
 
   async loginAsGithubUser(userid: string = process.env.GH_USER_ID as string) {
+    // Load the defaults from vault if not set by the user
+    if (!userid) {
+      userid = process.env.VAULT_GH_USER_ID as string;
+      process.env.GH_USER_ID = userid;
+      process.env.GH_USER_PASS = process.env.VAULT_GH_USER_PASS;
+      process.env.GH_2FA_SECRET = process.env.VAULT_GH_2FA_SECRET;
+    }
     const sessionFileName = `authState_${userid}.json`;
 
     // Check if a session file for this specific user already exists

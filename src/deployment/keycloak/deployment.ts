@@ -1,6 +1,6 @@
 import KeycloakAdminClient from "@keycloak/keycloak-admin-client";
 import { KubernetesClientHelper } from "../../utils/kubernetes-client.js";
-import { $ } from "../../utils/bash.js";
+import { $, runQuietUnlessFailure } from "../../utils/bash.js";
 import {
   DEFAULT_KEYCLOAK_CONFIG,
   BITNAMI_CHART_REPO,
@@ -380,11 +380,11 @@ export class KeycloakHelper {
 
   private async _deployWithHelm(): Promise<void> {
     await $`helm repo add bitnami ${BITNAMI_CHART_REPO} || true`;
-    await $`helm repo update > /dev/null 2>&1`;
+    await runQuietUnlessFailure`helm repo update`;
 
-    await $`helm upgrade --install ${this.deploymentConfig.releaseName} ${BITNAMI_CHART_NAME} \
+    await runQuietUnlessFailure`helm upgrade --install ${this.deploymentConfig.releaseName} ${BITNAMI_CHART_NAME} \
       --namespace ${this.deploymentConfig.namespace} \
-      --values ${this.deploymentConfig.valuesFile} > /dev/null 2>&1`;
+      --values ${this.deploymentConfig.valuesFile}`;
 
     await this.waitUntilReady();
   }

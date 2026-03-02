@@ -64,11 +64,14 @@ export class RHDHDeployment {
 
   private async _applyAppConfig(): Promise<void> {
     const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
-    const appConfigYaml = await mergeYamlFilesIfExists([
-      DEFAULT_CONFIG_PATHS.appConfig,
-      authConfig.appConfig,
-      this.deploymentConfig.appConfig,
-    ]);
+    const appConfigYaml = await mergeYamlFilesIfExists(
+      [
+        DEFAULT_CONFIG_PATHS.appConfig,
+        authConfig.appConfig,
+        this.deploymentConfig.appConfig,
+      ],
+      authConfig.mergeStrategy,
+    );
     this._logBoxen("App Config", appConfigYaml);
 
     await this.k8sClient.applyConfigMapFromObject(

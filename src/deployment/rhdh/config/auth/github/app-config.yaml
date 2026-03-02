@@ -10,24 +10,8 @@ auth:
         callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
 signInPage: github
 catalog:
-  rules:
-    - allow: [User, Group]
-  providers:
-    github:
-      providerId:
-        organization: "${GITHUB_ORG}"
-    githubOrg:
-      id: production
-      githubUrl: ${GITHUB_URL}
-      orgs: ["${GITHUB_ORG}"]
-integrations:
-  github:
-    - host: github.com
-      apps:
-        - appId: ${GITHUB_APP_APP_ID}
-          clientId: ${GITHUB_APP_CLIENT_ID}
-          clientSecret: ${GITHUB_APP_CLIENT_SECRET}
-          webhookUrl: ${GITHUB_APP_WEBHOOK_URL}
-          webhookSecret: ${GITHUB_APP_WEBHOOK_SECRET}
-          privateKey: |
-            ${GITHUB_APP_PRIVATE_KEY}
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/test-user-entity/blob/main/user.yaml
+      rules:
+        - allow: [User]

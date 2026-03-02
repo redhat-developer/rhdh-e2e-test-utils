@@ -120,9 +120,9 @@ test.beforeAll(async ({ rhdh }) => {
 
 ## GitHub Authentication
 
-### Configuration
+Allows authentication using github OAuth application. 
 
-This will configure a github oauth application for authentication, as well as github integration and github org catalog provider:
+### Configuration
 
 ```typescript
 await rhdh.configure({ auth: "github" });
@@ -139,7 +139,6 @@ test.beforeEach(async ({ loginHelper }) => {
 });
 ```
 By default, test user credentials will be pulled from the global workspace in vault.
-If you want to override them, you need to set the following env variables: `GH_USER_ID`, `GH_USER_PASS`, `GH_2FA_SECRET`
 
 ::: warning
 GitHub authentication requires 2FA secret for automated logins. This is more complex to set up than guest or Keycloak auth.
@@ -172,12 +171,6 @@ Configuring github auth provider will populate the following variables from glob
 |----------|-------------|
 | `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` | GitHub OAuth application ID |
 | `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET` | GitHub OAuth application client secret |
-| `VAULT_GITHUB_OVERLAYS_APP_ID` | GitHub integration application ID |
-| `VAULT_GITHUB_OVERLAYS_APP_CLIENT_ID` | GitHub integration application client ID |
-| `VAULT_GITHUB_OVERLAYS_APP_CLIENT_SECRET` | GitHub integration application client secret |
-| `VAULT_GITHUB_OVERLAYS_APP_PRIVATE_KEY` | GitHub integration application private key |
-| `VAULT_GITHUB_OVERLAYS_APP_WEBHOOK_URL` | GitHub integration application webhook URL |
-| `VAULT_GITHUB_OVERLAYS_APP_WEBHOOK_SECRET` | GitHub integration application webhook secret |
 | `VAULT_GITHUB_ORG` | GitHub test organization for the catalog provider |
 | `VAULT_GH_USER_ID` | GitHub test user |
 | `VAULT_GH_USER_PASS` | Password for GitHub test user |

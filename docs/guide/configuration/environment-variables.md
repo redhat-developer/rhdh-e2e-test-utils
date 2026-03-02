@@ -83,10 +83,10 @@ For GitHub integration:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `GITHUB_TOKEN` | GitHub personal access token | For API/auth |
-| `GH_USER_NAME` | GitHub username | For login |
-| `GH_USER_PASSWORD` | GitHub password | For login |
-| `GH_2FA_SECRET` | 2FA secret for OTP | For login |
+| `VAULT_GITHUB_USER_TOKEN` | GitHub personal access token | For API/auth |
+| `VAULT_GH_USER_NAME` | GitHub username | For login |
+| `VAULT_GH_USER_PASSWORD` | GitHub password | For login |
+| `VAULT_GH_2FA_SECRET` | 2FA secret for OTP | For login |
 
 ## Custom Variables
 

@@ -72,10 +72,7 @@ export const AUTH_CONFIG_PATHS: Record<
       PACKAGE_ROOT,
       "dist/deployment/rhdh/config/auth/github/secrets.yaml",
     ),
-    dynamicPlugins: path.join(
-      PACKAGE_ROOT,
-      "dist/deployment/rhdh/config/auth/github/dynamic-plugins.yaml",
-    ),
+    dynamicPlugins: "",
     mergeStrategy: { arrayMergeStrategy: { byKey: "target" } },
   },
 };

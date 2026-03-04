@@ -171,7 +171,6 @@ Configuring github auth provider will populate the following variables from glob
 |----------|-------------|
 | `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` | GitHub OAuth application ID |
 | `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET` | GitHub OAuth application client secret |
-| `VAULT_GITHUB_ORG` | GitHub test organization for the catalog provider |
 | `VAULT_GH_USER_ID` | GitHub test user |
 | `VAULT_GH_USER_PASS` | Password for GitHub test user |
 | `VAULT_GH_2FA_SECRET` | Two-factor auth secret for GitHub test user |
@@ -196,7 +195,6 @@ Package configs:
     │   └── secrets.yaml
     └── github/                # Applied when auth: "github"
         ├── app-config.yaml
-        ├── dynamic-plugins.yaml
         └── secrets.yaml
 ```
 

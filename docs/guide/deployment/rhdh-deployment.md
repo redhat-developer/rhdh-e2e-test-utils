@@ -85,12 +85,29 @@ await deployment.configure({
 });
 ```
 
-### `deploy()`
+### `deploy(options?)`
 
 Deploy RHDH to the cluster:
 
 ```typescript
 await deployment.deploy();
+```
+
+The `deploy()` method accepts an optional `{ timeout }` parameter to control the Playwright test timeout during deployment. By default, it sets the timeout to 600 seconds (10 minutes).
+
+```typescript
+// Default (600s)
+await rhdh.deploy();
+
+// Custom timeout (15 minutes)
+await rhdh.deploy({ timeout: 900_000 });
+
+// No timeout (infinite)
+await rhdh.deploy({ timeout: 0 });
+
+// Skip — let the consumer control the timeout
+test.setTimeout(900_000);
+await rhdh.deploy({ timeout: null });
 ```
 
 This method:

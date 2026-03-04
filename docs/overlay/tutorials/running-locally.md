@@ -192,7 +192,7 @@ test.beforeEach(async ({ page }) => {
 ### Type Checking
 
 ```bash
-yarn tsc --noEmit
+yarn tsc:check
 ```
 
 ### Linting

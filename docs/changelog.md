@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.10] - Current
+## [1.1.12] - Current
+
+### Changed
+- **`deploy()` timeout is now configurable**: `deploy()` accepts an optional `{ timeout }` parameter to control the Playwright test timeout during deployment. Defaults to `600_000` (600s). Pass a custom number to override, `0` for no timeout (infinite), or `null` to skip setting the timeout entirely and let the consumer control it.
+
+## [1.1.11]
+
+### Added
+- **`runQuietUnlessFailure()`**: New utility that captures command output silently on success and displays full output on failure for better debugging. Used in Keycloak deployment for `helm repo update` and `helm upgrade --install`.
+
+## [1.1.10]
 
 ### Fixed
 - **`plugins-list.yaml` parsing**: Parse as proper YAML instead of text splitting, correctly handling entries with build flags (e.g., `--embed-package`, `--suppress-native-package`) and YAML comments.

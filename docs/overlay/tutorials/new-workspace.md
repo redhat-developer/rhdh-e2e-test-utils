@@ -52,7 +52,8 @@ Create `package.json` with the following content:
     "lint:fix": "eslint . --fix",
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "check": "tsc --noEmit && yarn lint:check && yarn prettier:check"
+    "tsc:check": "tsc --noEmit",
+    "check": "yarn tsc:check && yarn lint:check && yarn prettier:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

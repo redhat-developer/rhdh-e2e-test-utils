@@ -56,7 +56,8 @@ Defines the test package with dependencies and scripts:
     "lint:fix": "eslint . --fix",
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "check": "tsc --noEmit && yarn lint:check && yarn prettier:check"
+    "tsc:check": "tsc --noEmit",
+    "check": "yarn tsc:check && yarn lint:check && yarn prettier:check"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -67,7 +68,7 @@ Defines the test package with dependencies and scripts:
     "eslint-plugin-check-file": "^3.3.1",
     "eslint-plugin-playwright": "^2.4.0",
     "prettier": "^3.7.4",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.10",
+    "@red-hat-developer-hub/e2e-test-utils": "1.1.12",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0"
   }

@@ -37,9 +37,13 @@ export class RHDHDeployment {
     console.table(this.deploymentConfig);
   }
 
-  async deploy(): Promise<void> {
+  async deploy(options?: { timeout?: number | null }): Promise<void> {
     this._log("Starting RHDH deployment...");
-    test.setTimeout(600_000);
+    // Default 600s, custom number to override, null to skip and let consumer control the timeout
+    const timeout = options?.timeout === undefined ? 600_000 : options.timeout;
+    if (timeout !== null) {
+      test.setTimeout(timeout);
+    }
 
     await this.k8sClient.createNamespaceIfNotExists(
       this.deploymentConfig.namespace,

@@ -110,6 +110,14 @@ Auto-format code:
 yarn prettier:fix
 ```
 
+### yarn tsc:check
+
+Run TypeScript type checking:
+
+```bash
+yarn tsc:check
+```
+
 ### yarn check
 
 Run all quality checks:
@@ -120,7 +128,7 @@ yarn check
 
 Equivalent to:
 ```bash
-tsc --noEmit && yarn lint:check && yarn prettier:check
+yarn tsc:check && yarn lint:check && yarn prettier:check
 ```
 
 ## Script Definitions
@@ -138,7 +146,8 @@ Standard `package.json` scripts section:
     "lint:fix": "eslint . --fix",
     "prettier:check": "prettier --check .",
     "prettier:fix": "prettier --write .",
-    "check": "tsc --noEmit && yarn lint:check && yarn prettier:check"
+    "tsc:check": "tsc --noEmit",
+    "check": "yarn tsc:check && yarn lint:check && yarn prettier:check"
   }
 }
 ```

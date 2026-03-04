@@ -1,5 +1,6 @@
 import path from "path";
 import type { AuthProvider } from "./types.js";
+import { MergeOptions } from "../../utils/merge-yamls.js";
 
 // Navigate from dist/deployment/rhdh/ to package root
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -33,7 +34,12 @@ export const DEFAULT_CONFIG_PATHS = {
 
 export const AUTH_CONFIG_PATHS: Record<
   AuthProvider,
-  { appConfig: string; secrets: string; dynamicPlugins: string }
+  {
+    appConfig: string;
+    secrets: string;
+    dynamicPlugins: string;
+    mergeStrategy?: MergeOptions;
+  }
 > = {
   guest: {
     appConfig: path.join(
@@ -56,6 +62,18 @@ export const AUTH_CONFIG_PATHS: Record<
       PACKAGE_ROOT,
       "dist/deployment/rhdh/config/auth/keycloak/dynamic-plugins.yaml",
     ),
+  },
+  github: {
+    appConfig: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/app-config.yaml",
+    ),
+    secrets: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/secrets.yaml",
+    ),
+    dynamicPlugins: "",
+    mergeStrategy: { arrayMergeStrategy: { byKey: "target" } },
   },
 };
 

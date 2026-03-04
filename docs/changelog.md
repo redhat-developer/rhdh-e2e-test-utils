@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.13] - Current
+
+### Added
+- Support for GitHub authentication provider
+
+### Changed
+- `LoginHelper.loginAsGithubUser` now pulls default user credentials from the following vault keys: `VAULT_GH_USER_ID`, `VAULT_GH_USER_PASS`, `VAULT_GH_2FA_SECRET` 
+- `APIHelper.githubRequest` pulls default user token from vault key `VAULT_GITHUB_USER_TOKEN`
+
+### Environment Variables
+-  `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` - ID for GitHub OAuth application used as auth provider
+-  `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET`- Client secret for GitHub OAuth application
+-  `VAULT_GH_USER_ID` - GitHub user name
+-  `VAULT_GH_USER_PASS` - GitHub user password
+-  `VAULT_GH_2FA_SECRET` - GitHub user secret for 2 factor authentication
+-  `VAULT_GITHUB_USER_TOKEN` - Github user token
+
 ## [1.1.12] - Current
 
 ### Changed

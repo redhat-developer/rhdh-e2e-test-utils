@@ -43,11 +43,17 @@ export class LoginHelper {
     await this.page.fill("#login_field", userid);
 
     switch (userid) {
-      case process.env.GH_USER_ID:
-        await this.page.fill("#password", process.env.GH_USER_PASS as string);
+      case process.env.VAULT_GH_USER_ID:
+        await this.page.fill(
+          "#password",
+          process.env.VAULT_GH_USER_PASS as string,
+        );
         break;
-      case process.env.GH_USER2_ID:
-        await this.page.fill("#password", process.env.GH_USER2_PASS as string);
+      case process.env.VAULT_GH_USER2_ID:
+        await this.page.fill(
+          "#password",
+          process.env.VAULT_GH_USER2_PASS as string,
+        );
         break;
       default:
         throw new Error("Invalid User ID");
@@ -95,7 +101,9 @@ export class LoginHelper {
     await this.page.waitForSelector("nav a", { timeout: 10_000 });
   }
 
-  async loginAsGithubUser(userid: string = process.env.GH_USER_ID as string) {
+  async loginAsGithubUser(
+    userid: string = process.env.VAULT_GH_USER_ID as string,
+  ) {
     const sessionFileName = `authState_${userid}.json`;
 
     // Check if a session file for this specific user already exists
@@ -207,8 +215,9 @@ export class LoginHelper {
 
   getGitHub2FAOTP(userid: string): string {
     const secrets: { [key: string]: string | undefined } = {
-      [process.env.GH_USER_ID as string]: process.env.GH_2FA_SECRET,
-      [process.env.GH_USER2_ID as string]: process.env.GH_USER2_2FA_SECRET,
+      [process.env.VAULT_GH_USER_ID as string]: process.env.VAULT_GH_2FA_SECRET,
+      [process.env.VAULT_GH_USER2_ID as string]:
+        process.env.VAULT_GH_USER2_2FA_SECRET,
     };
 
     const secret = secrets[userid];

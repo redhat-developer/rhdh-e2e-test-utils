@@ -8,6 +8,7 @@ The package supports modular authentication configuration, allowing you to switc
 |----------|-------------|----------|
 | `guest` | Simple guest authentication | Development, simple tests |
 | `keycloak` | OIDC via Keycloak | Production-like auth testing |
+| `github` | OAuth via GitHub | Testing where github authentication is needed |
 
 ## Guest Authentication
 
@@ -116,6 +117,33 @@ test.beforeAll(async ({ rhdh }) => {
 - Production-like testing scenarios
 - Testing logout/session flows
 
+
+## GitHub Authentication
+
+Allows authentication using github OAuth application. 
+
+### Configuration
+
+```typescript
+await rhdh.configure({ auth: "github" });
+await rhdh.deploy();
+```
+
+### Logging in to GitHub
+
+GitHub login is available via `LoginHelper`:
+
+```typescript
+test.beforeEach(async ({ loginHelper }) => {
+  await loginHelper.loginAsGithubUser();
+});
+```
+By default, test user credentials will be pulled from the global workspace in vault.
+
+::: warning
+GitHub authentication requires 2FA secret for automated logins. This is more complex to set up than guest or Keycloak auth.
+:::
+
 ## Environment Variables
 
 ### Guest Auth
@@ -135,9 +163,22 @@ These are automatically set by `KeycloakHelper.configureForRHDH()`:
 | `KEYCLOAK_METADATA_URL` | OIDC discovery URL |
 | `KEYCLOAK_LOGIN_REALM` | Login realm name |
 
+### GitHub Auth
+
+Configuring github auth provider will populate the following variables from global workspace in the vault:
+
+| Variable | Description |
+|----------|-------------|
+| `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` | GitHub OAuth application ID |
+| `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET` | GitHub OAuth application client secret |
+| `VAULT_GH_USER_ID` | GitHub test user |
+| `VAULT_GH_USER_PASS` | Password for GitHub test user |
+| `VAULT_GH_2FA_SECRET` | Two-factor auth secret for GitHub test user |
+| `VAULT_GITHUB_USER_TOKEN` | Token for GitHub test user |
+
 ## Configuration Merging
 
-When you set `auth: "guest"` or `auth: "keycloak"`, the package automatically includes auth-specific configurations:
+When you set `auth: "guest"`, `auth: "keycloak"`, or `auth: "github"`, the package automatically includes auth-specific configurations:
 
 ```
 Package configs:
@@ -149,29 +190,15 @@ Package configs:
     ├── guest/                 # Applied when auth: "guest"
     │   └── app-config.yaml
     └── keycloak/              # Applied when auth: "keycloak"
+    │   ├── app-config.yaml
+    │   ├── dynamic-plugins.yaml
+    │   └── secrets.yaml
+    └── github/                # Applied when auth: "github"
         ├── app-config.yaml
-        ├── dynamic-plugins.yaml
         └── secrets.yaml
 ```
 
 Your project configs are merged on top, so you only need to override what's different.
-
-## GitHub Authentication
-
-GitHub authentication is available via `LoginHelper`:
-
-```typescript
-// Requires environment variables:
-// GH_USER_NAME, GH_USER_PASSWORD, GH_2FA_SECRET
-
-test.beforeEach(async ({ loginHelper }) => {
-  await loginHelper.loginAsGithubUser();
-});
-```
-
-::: warning
-GitHub authentication requires 2FA secret for automated logins. This is more complex to set up than guest or Keycloak auth.
-:::
 
 ## Switching Auth Providers
 
@@ -187,6 +214,12 @@ test.beforeAll(async ({ rhdh }) => {
 // keycloak-tests.spec.ts
 test.beforeAll(async ({ rhdh }) => {
   await rhdh.configure({ auth: "keycloak" });
+  await rhdh.deploy();
+});
+
+// github-tests.spec.ts
+test.beforeAll(async ({ rhdh }) => {
+  await rhdh.configure({ auth: "github" });
   await rhdh.deploy();
 });
 ```
@@ -205,6 +238,10 @@ export default defineConfig({
       name: "keycloak-tests",
       testMatch: "**/keycloak-*.spec.ts",
     },
+    {
+      name: "github-tests",
+      testMatch: "**/github-*.spec.ts",
+    },
   ],
 });
 ```
@@ -215,6 +252,7 @@ Each project gets its own namespace and deployment with different auth.
 
 1. **Use guest auth for speed** - Faster to set up and run
 2. **Use Keycloak for RBAC testing** - When you need user roles
-3. **Create test users per test suite** - Avoid shared state
-4. **Clean up custom users** - Remove users created during tests
-5. **Use environment variables** - Don't hardcode credentials
+3. **Use GitHub for tests that connect to Github** - When you need authentication to GitHub
+4. **Create test users per test suite** - Avoid shared state
+5. **Clean up custom users** - Remove users created during tests
+6. **Use environment variables** - Don't hardcode credentials

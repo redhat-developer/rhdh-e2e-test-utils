@@ -46,9 +46,9 @@ async loginAsGithubUser(): Promise<void>
 Login using GitHub OAuth.
 
 **Required environment variables:**
-- `GH_USER_NAME`
-- `GH_USER_PASSWORD`
-- `GH_2FA_SECRET`
+- `VAULT_GH_USER_NAME`
+- `VAULT_GH_USER_PASSWORD`
+- `VAULT_GH_2FA_SECRET`
 
 ### `signOut()`
 

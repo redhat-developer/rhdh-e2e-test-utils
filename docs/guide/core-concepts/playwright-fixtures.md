@@ -251,11 +251,15 @@ test.describe("Feature B", () => {
 
 ### Key: Unique Identifier
 
-The `key` parameter must be unique across all `runOnce` calls in your test run. Use a descriptive name that reflects the operation:
+The `key` must be globally unique across **all spec files and projects** in the same Playwright run. If two `runOnce` calls in different files use the same key, only the first one will execute. Use a prefix that includes the workspace or project name:
 
 ```typescript
+// In tech-radar.spec.ts
 await test.runOnce("tech-radar-deploy", async () => { ... });
 await test.runOnce("tech-radar-data-provider", async () => { ... });
+
+// In catalog.spec.ts
+await test.runOnce("catalog-deploy", async () => { ... });
 await test.runOnce("catalog-seed-data", async () => { ... });
 ```
 

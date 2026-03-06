@@ -31,11 +31,6 @@ export class RHDHDeployment {
   constructor(namespace: string) {
     this.deploymentConfig = this._buildDeploymentConfig({ namespace });
     this.rhdhUrl = this._buildBaseUrl();
-    this._log(
-      `RHDH deployment initialized (namespace: ${this.deploymentConfig.namespace})`,
-    );
-    this._log("RHDH Base URL: " + this.rhdhUrl);
-    console.table(this.deploymentConfig);
   }
 
   async deploy(options?: { timeout?: number | null }): Promise<void> {
@@ -49,6 +44,8 @@ export class RHDHDeployment {
       `deploy-${this.deploymentConfig.namespace}`,
       async () => {
         this._log("Starting RHDH deployment...");
+        this._log("RHDH Base URL: " + this.rhdhUrl);
+        console.table(this.deploymentConfig);
 
         await this.k8sClient.createNamespaceIfNotExists(
           this.deploymentConfig.namespace,
@@ -426,10 +423,6 @@ export class RHDHDeployment {
     if (deploymentOptions) {
       this.deploymentConfig = this._buildDeploymentConfig(deploymentOptions);
       this.rhdhUrl = this._buildBaseUrl();
-      this._log(
-        `RHDH deployment initialized (namespace: ${this.deploymentConfig.namespace})`,
-      );
-      console.table(this.deploymentConfig);
     }
     await this.k8sClient.createNamespaceIfNotExists(
       this.deploymentConfig.namespace,

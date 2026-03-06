@@ -222,28 +222,30 @@ const setupScript = path.join(
 );
 
 test.describe("Test tech-radar plugin", () => {
-  // beforeAll runs once per worker before any tests
+  // Wrap in runOnce — the external service deployment is expensive
+  // and should not re-run when Playwright restarts the worker after a test failure
   test.beforeAll(async ({ rhdh }) => {
-    // Get the namespace from deployment config
-    const project = rhdh.deploymentConfig.namespace;
+    await test.runOnce("tech-radar-setup", async () => {
+      const project = rhdh.deploymentConfig.namespace;
 
-    // Configure RHDH with Keycloak authentication
-    await rhdh.configure({ auth: "keycloak" });
+      // Configure RHDH with Keycloak authentication
+      await rhdh.configure({ auth: "keycloak" });
 
-    // Deploy the external data provider service
-    await $`bash ${setupScript} ${project}`;
+      // Deploy the external data provider service
+      await $`bash ${setupScript} ${project}`;
 
-    // Get the route URL and set as environment variable
-    // Remove http:// prefix as the config expects just the host
-    process.env.TECH_RADAR_DATA_URL = (
-      await rhdh.k8sClient.getRouteLocation(
-        project,
-        "test-backstage-customization-provider",
-      )
-    ).replace("http://", "");
+      // Get the route URL and set as environment variable
+      // Remove http:// prefix as the config expects just the host
+      process.env.TECH_RADAR_DATA_URL = (
+        await rhdh.k8sClient.getRouteLocation(
+          project,
+          "test-backstage-customization-provider",
+        )
+      ).replace("http://", "");
 
-    // Now deploy RHDH (will use the TECH_RADAR_DATA_URL env var)
-    await rhdh.deploy();
+      // Deploy RHDH (will use the TECH_RADAR_DATA_URL env var)
+      await rhdh.deploy();
+    });
   });
 
   // beforeEach runs before each test

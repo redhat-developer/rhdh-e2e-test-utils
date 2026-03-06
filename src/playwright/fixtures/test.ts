@@ -20,10 +20,6 @@ const baseTest = base.extend<
   rhdhDeploymentWorker: [
     // eslint-disable-next-line no-empty-pattern
     async ({}, use, workerInfo) => {
-      console.log(
-        `Deploying rhdh for plugin ${workerInfo.project.name} in namespace ${workerInfo.project.name}`,
-      );
-
       const rhdhDeployment = new RHDHDeployment(workerInfo.project.name);
 
       await rhdhDeployment.configure();

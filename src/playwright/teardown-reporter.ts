@@ -43,17 +43,7 @@ export default class TeardownReporter implements Reporter {
         console.log(
           `[TeardownReporter] Deleting namespace "${ns}" (project: ${projectName})`,
         );
-        try {
-          await k8sClient.deleteNamespace(ns);
-          console.log(
-            `[TeardownReporter] Namespace "${ns}" deleted successfully`,
-          );
-        } catch (error) {
-          console.error(
-            `[TeardownReporter] Failed to delete namespace "${ns}":`,
-            error,
-          );
-        }
+        await k8sClient.deleteNamespace(ns);
       }
     }
   }

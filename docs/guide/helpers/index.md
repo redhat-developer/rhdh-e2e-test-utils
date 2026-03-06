@@ -9,6 +9,8 @@ The package provides helper classes for common testing operations in RHDH.
 | [UIhelper](/guide/helpers/ui-helper) | Material-UI component interactions |
 | [LoginHelper](/guide/helpers/login-helper) | Authentication flows |
 | [APIHelper](/guide/helpers/api-helper) | GitHub and Backstage API operations |
+| [AuthApiHelper](/guide/helpers/auth-api-helper) | Retrieve Backstage identity tokens |
+| [RbacApiHelper](/guide/helpers/rbac-api-helper) | Manage RBAC roles and policies |
 
 ## Importing Helpers
 
@@ -22,7 +24,7 @@ test("example", async ({ uiHelper, loginHelper }) => {
 });
 
 // Direct import
-import { UIhelper, LoginHelper, APIHelper, setupBrowser } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+import { UIhelper, LoginHelper, APIHelper, AuthApiHelper, RbacApiHelper, setupBrowser } from "@red-hat-developer-hub/e2e-test-utils/helpers";
 
 const uiHelper = new UIhelper(page);
 const loginHelper = new LoginHelper(page);
@@ -96,6 +98,44 @@ const groups = await apiHelper.getAllCatalogGroupsFromAPI();
 
 [Learn more about APIHelper →](/guide/helpers/api-helper)
 
+## AuthApiHelper
+
+Retrieves Backstage identity tokens from RHDH's auth API:
+
+```typescript
+import { AuthApiHelper } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+
+const authApiHelper = new AuthApiHelper(page);
+
+// Using default OIDC provider
+const token = await authApiHelper.getToken();
+
+// Using a specific provider
+const token = await authApiHelper.getToken("github");
+```
+
+[Learn more about AuthApiHelper →](/guide/helpers/auth-api-helper)
+
+## RbacApiHelper
+
+Manages RBAC roles and policies via the RHDH Permission API. Built with an async factory method that requires a Backstage identity token:
+
+```typescript
+import { AuthApiHelper, RbacApiHelper, Response, type Policy } from "@red-hat-developer-hub/e2e-test-utils/helpers";
+
+const authApiHelper = new AuthApiHelper(page);
+const token = await authApiHelper.getToken();
+const rbacApiHelper = await RbacApiHelper.build(token);
+
+// Retrieve policies and clean up
+const apiResponse = await rbacApiHelper.getPoliciesByRole("my-role");
+const policies = await Response.removeMetadataFromResponse(apiResponse) as Policy[];
+await rbacApiHelper.deletePolicy("my-role", policies);
+await rbacApiHelper.deleteRole("my-role");
+```
+
+[Learn more about RbacApiHelper →](/guide/helpers/rbac-api-helper)
+
 ## setupBrowser
 
 Utility for shared browser context in serial tests:
@@ -138,3 +178,5 @@ test("first test", async () => {
 | Query Backstage catalog | APIHelper |
 | Interact with tables | UIhelper |
 | Fill forms | UIhelper |
+| Retrieve a Backstage identity token | AuthApiHelper |
+| Clean up RBAC roles/policies after tests | RbacApiHelper |

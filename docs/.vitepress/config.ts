@@ -116,6 +116,8 @@ export default defineConfig({
             { text: "UIhelper", link: "/guide/helpers/ui-helper" },
             { text: "LoginHelper", link: "/guide/helpers/login-helper" },
             { text: "APIHelper", link: "/guide/helpers/api-helper" },
+            { text: "AuthApiHelper", link: "/guide/helpers/auth-api-helper" },
+            { text: "RbacApiHelper", link: "/guide/helpers/rbac-api-helper" },
           ],
         },
         {
@@ -219,6 +221,8 @@ export default defineConfig({
             { text: "UIhelper", link: "/api/helpers/ui-helper" },
             { text: "LoginHelper", link: "/api/helpers/login-helper" },
             { text: "APIHelper", link: "/api/helpers/api-helper" },
+            { text: "AuthApiHelper", link: "/api/helpers/auth-api-helper" },
+            { text: "RbacApiHelper", link: "/api/helpers/rbac-api-helper" },
           ],
         },
         {

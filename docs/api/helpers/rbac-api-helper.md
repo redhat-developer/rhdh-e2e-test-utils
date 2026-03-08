@@ -1,6 +1,6 @@
 # RbacApiHelper API
 
-Manages RBAC roles and policies via the RHDH Permission API.
+Manages RBAC roles, policies, and conditional permission policies via the RHDH Permission API.
 
 ## Import
 
@@ -53,6 +53,30 @@ async getPoliciesByRole(role: string): Promise<APIResponse>
 | --------- | -------- | ------------------------------------ |
 | `role`    | `string` | Role name in the `default` namespace |
 
+#### `getConditions()`
+
+```typescript
+async getConditions(): Promise<APIResponse>
+```
+
+Fetches all conditional policies across every role.
+
+#### `getConditionsByRole()`
+
+```typescript
+async getConditionsByRole(
+  role: string,
+  remainingConditions: RoleConditionalPolicyDecision<PermissionAction>[]
+): Promise<RoleConditionalPolicyDecision<PermissionAction>[]>
+```
+
+| Parameter             | Type                                                | Description                                               |
+| --------------------- | --------------------------------------------------- | --------------------------------------------------------- |
+| `role`                | `string`                                            | Full role entity reference, e.g. `"role:default/my-role"` |
+| `remainingConditions` | `RoleConditionalPolicyDecision<PermissionAction>[]` | Conditions array fetched from `getConditions()`           |
+
+Filters locally — no additional HTTP request is made.
+
 #### `deleteRole()`
 
 ```typescript
@@ -73,6 +97,16 @@ async deletePolicy(role: string, policies: Policy[]): Promise<APIResponse>
 | ---------- | ---------- | ------------------------------------ |
 | `role`     | `string`   | Role name in the `default` namespace |
 | `policies` | `Policy[]` | Array of policy objects to delete    |
+
+#### `deleteCondition()`
+
+```typescript
+async deleteCondition(id: string): Promise<APIResponse>
+```
+
+| Parameter | Type     | Description                                                  |
+| --------- | -------- | ------------------------------------------------------------ |
+| `id`      | `string` | The `id` field from a `RoleConditionalPolicyDecision` object |
 
 ## `Response`
 
@@ -104,13 +138,22 @@ const authApiHelper = new AuthApiHelper(page);
 const token = await authApiHelper.getToken();
 const rbacApiHelper = await RbacApiHelper.build(token);
 
-// Get policies for a role
+// Delete conditional policies for a role
+const conditionsResponse = await rbacApiHelper.getConditions();
+const allConditions = await conditionsResponse.json();
+const roleConditions = await rbacApiHelper.getConditionsByRole(
+  'role:default/my-role',
+  allConditions,
+);
+for (const condition of roleConditions) {
+  await rbacApiHelper.deleteCondition(condition.id);
+}
+
+// Delete standard policies and role
 const apiResponse = await rbacApiHelper.getPoliciesByRole('my-role');
 const policies = (await Response.removeMetadataFromResponse(
   apiResponse,
 )) as Policy[];
-
-// Delete policies and role
 await rbacApiHelper.deletePolicy('my-role', policies);
 await rbacApiHelper.deleteRole('my-role');
 ```

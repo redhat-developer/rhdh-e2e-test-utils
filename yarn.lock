@@ -16,6 +16,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@backstage-community/plugin-rbac-common@npm:1.23.0":
+  version: 1.23.0
+  resolution: "@backstage-community/plugin-rbac-common@npm:1.23.0"
+  peerDependencies:
+    "@backstage/errors": ^1.2.7
+    "@backstage/plugin-permission-common": ^0.9.5
+  checksum: 8cbb67a4854b9a72d329459cf37d05628da4ca4c665fb1e9c34e2dcbcd8d4399264b00bab8e4ee786717e2c0c5b0e3db7ee4eee6705424047a799fbf311eb5f4
+  languageName: node
+  linkType: hard
+
 "@backstage/catalog-model@npm:1.7.5":
   version: 1.7.5
   resolution: "@backstage/catalog-model@npm:1.7.5"
@@ -327,6 +337,7 @@ __metadata:
   resolution: "@red-hat-developer-hub/e2e-test-utils@workspace:."
   dependencies:
     "@axe-core/playwright": ^4.11.0
+    "@backstage-community/plugin-rbac-common": 1.23.0
     "@backstage/catalog-model": 1.7.5
     "@eslint/js": ^9.39.1
     "@keycloak/keycloak-admin-client": ^26.0.0

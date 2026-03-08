@@ -82,6 +82,7 @@
     "@playwright/test": "^1.57.0"
   },
   "devDependencies": {
+    "@backstage-community/plugin-rbac-common": "1.23.0",
     "@backstage/catalog-model": "1.7.5",
     "@playwright/test": "^1.57.0",
     "@types/fs-extra": "^11.0.4",

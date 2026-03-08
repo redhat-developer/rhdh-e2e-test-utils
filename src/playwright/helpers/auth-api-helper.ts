@@ -1,5 +1,6 @@
 import { Page } from "@playwright/test";
 
+// here, we spy on the request to get the Backstage token to use APIs
 export class AuthApiHelper {
   private readonly page: Page;
 

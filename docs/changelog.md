@@ -2,65 +2,85 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.14] - Current
+## [1.1.15] - Current
 
 ### Added
+
+- **`RbacApiHelper`**: New HTTP client for the RHDH RBAC permission API (`/api/permission/`). Uses a static `build(token)` factory to asynchronously initialise a Playwright `APIRequestContext`. Provides `getPoliciesByRole()`, `getConditions()`, `getConditionsByRole()`, `deleteRole()`, `deletePolicy()`, and `deleteCondition()` for managing roles, policies, and conditional permission policies — primarily intended for `afterAll` cleanup. Exported from `@red-hat-developer-hub/e2e-test-utils/helpers`.
+- **`AuthApiHelper`**: New helper for retrieving Backstage identity tokens from a running RHDH instance via the auth refresh endpoint (`/api/auth/{provider}/refresh`). Accepts an existing Playwright `Page` and exposes a single `getToken(provider?, environment?)` method. Defaults to the `oidc` provider and `production` environment. Typically used in `beforeAll` to obtain a token for `RbacApiHelper.build()`. Exported from `@red-hat-developer-hub/e2e-test-utils/helpers`.
+- **`Response`** utility class (exported alongside `RbacApiHelper`): provides `Response.removeMetadataFromResponse(apiResponse)` to strip server-added `metadata` fields from policy arrays before passing them to delete endpoints.
+
+## [1.1.14]
+
+### Added
+
 - **`deploy()` built-in protection**: `rhdh.deploy()` now automatically skips if the deployment already succeeded in the current test run. No code changes needed — existing `beforeAll` patterns work as before, but deployments are no longer repeated when Playwright restarts workers after test failures.
 - **`test.runOnce(key, fn)`**: Execute any function exactly once per test run, even across worker restarts. Use for expensive pre-deploy operations (external services, setup scripts, data seeding) that `deploy()` alone doesn't cover. Safe to nest with `deploy()`'s built-in protection.
 - **Teardown reporter**: Built-in Playwright reporter that automatically deletes Kubernetes namespaces after all tests complete. Active only in CI (`process.env.CI`).
 - **`registerTeardownNamespace(projectName, namespace)`**: Register custom namespaces for automatic cleanup. Import from `@red-hat-developer-hub/e2e-test-utils/teardown`.
 
 ### Changed
+
 - Namespace cleanup moved from worker fixture to teardown reporter to prevent premature deletion on test failures.
 
 ## [1.1.13]
 
 ### Added
+
 - Support for GitHub authentication provider
 
 ### Changed
-- `LoginHelper.loginAsGithubUser` now pulls default user credentials from the following vault keys: `VAULT_GH_USER_ID`, `VAULT_GH_USER_PASS`, `VAULT_GH_2FA_SECRET` 
+
+- `LoginHelper.loginAsGithubUser` now pulls default user credentials from the following vault keys: `VAULT_GH_USER_ID`, `VAULT_GH_USER_PASS`, `VAULT_GH_2FA_SECRET`
 - `APIHelper.githubRequest` pulls default user token from vault key `VAULT_GITHUB_USER_TOKEN`
 
 ### Environment Variables
--  `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` - ID for GitHub OAuth application used as auth provider
--  `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET`- Client secret for GitHub OAuth application
--  `VAULT_GH_USER_ID` - GitHub user name
--  `VAULT_GH_USER_PASS` - GitHub user password
--  `VAULT_GH_2FA_SECRET` - GitHub user secret for 2 factor authentication
--  `VAULT_GITHUB_USER_TOKEN` - Github user token
+
+- `VAULT_GITHUB_OAUTH_OVERLAYS_APP_ID` - ID for GitHub OAuth application used as auth provider
+- `VAULT_GITHUB_OAUTH_OVERLAYS_APP_SECRET`- Client secret for GitHub OAuth application
+- `VAULT_GH_USER_ID` - GitHub user name
+- `VAULT_GH_USER_PASS` - GitHub user password
+- `VAULT_GH_2FA_SECRET` - GitHub user secret for 2 factor authentication
+- `VAULT_GITHUB_USER_TOKEN` - Github user token
 
 ## [1.1.12] - Current
 
 ### Changed
+
 - **`deploy()` timeout is now configurable**: `deploy()` accepts an optional `{ timeout }` parameter to control the Playwright test timeout during deployment. Defaults to `600_000` (600s). Pass a custom number to override, `0` for no timeout (infinite), or `null` to skip setting the timeout entirely and let the consumer control it.
 
 ## [1.1.11]
 
 ### Added
+
 - **`runQuietUnlessFailure()`**: New utility that captures command output silently on success and displays full output on failure for better debugging. Used in Keycloak deployment for `helm repo update` and `helm upgrade --install`.
 
 ## [1.1.10]
 
 ### Fixed
+
 - **`plugins-list.yaml` parsing**: Parse as proper YAML instead of text splitting, correctly handling entries with build flags (e.g., `--embed-package`, `--suppress-native-package`) and YAML comments.
 
 ### Changed
+
 - **Video recording**: Changed mode from `"on"` to `"retain-on-failure"` and reduced size from `1920x1080` to `1280x720` to save disk space.
 - **Workers and retries**: Now configurable via `PLAYWRIGHT_WORKERS` (default: `"50%"`) and `PLAYWRIGHT_RETRIES` (default: `0`) environment variables.
 
 ## [1.1.9]
 
 ### Fixed
+
 - **OCI URL replacement with user-provided `dynamic-plugins.yaml`**: When a workspace provides its own `dynamic-plugins.yaml`, plugin package paths were not replaced with OCI URLs for PR builds. Extracted shared `replaceWithOCIUrls()` function so both `generateDynamicPluginsConfigFromMetadata()` and `loadAndInjectPluginMetadata()` code paths now perform OCI replacement when `GIT_PR_NUMBER` is set.
 
 ## [1.1.8]
 
 ### Fixed
+
 - Fixed namespace deletion race condition during test retries
 - Improved 404 error detection for different Kubernetes client versions
 
 ### Changed
+
 - Increased default timeouts (300s → 500s) and test timeout (600s)
 - Reduced CI retries from 2 to 1
 - Added pod diagnostics logging on timeout and periodic status updates
@@ -68,28 +88,34 @@ All notable changes to this project will be documented in this file.
 ## [1.1.7]
 
 ### Fixed
+
 - **Secrets with control characters**: Fixed `SyntaxError: Bad control character in string literal` when secrets contain newlines or special characters (e.g., GitHub App private keys)
 
 ### Dependencies
+
 - Added `lodash.clonedeepwith@^4.5.0` for safe environment variable substitution
 
 ## [1.1.6]
 
 ### Added
+
 - **"next" tag support**: Both Helm and Operator deployments now support `RHDH_VERSION=next`
   - Helm: Resolves "next" to semantic version by querying `rhdh-hub-rhel9` image tags
   - Operator: Uses `main` branch and `--next` flag instead of release branch
 
 ### Changed
+
 - **Default values**: `RHDH_VERSION` defaults to `next` and `INSTALLATION_METHOD` defaults to `helm` when not set
 
 ### Environment Variables
+
 - `RHDH_VERSION`: RHDH version to deploy (default: `next`)
 - `INSTALLATION_METHOD`: Deployment method - `helm` or `operator` (default: `helm`)
 
 ## [1.1.5]
 
 ### Added
+
 - **Plugin metadata auto-generation**: When `dynamic-plugins.yaml` doesn't exist, configuration is automatically generated from `metadata/*.yaml` files
 - **OCI URL generation for PR builds**: When `GIT_PR_NUMBER` is set, local plugin paths are replaced with OCI URLs (e.g., `oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0`)
 - Plugin metadata injection into existing `dynamic-plugins.yaml` configurations
@@ -97,6 +123,7 @@ All notable changes to this project will be documented in this file.
 - **Early pod failure detection**: `waitForPodsWithFailureDetection()` in KubernetesClientHelper detects CrashLoopBackOff, ImagePullBackOff, init container failures, etc. within seconds instead of waiting for full timeout
 
 ### Changed
+
 - Plugin versions for OCI URLs are fetched from source repo's `package.json` using `source.json` commit ref
 - Metadata handling disabled for periodic builds (when `JOB_NAME` contains `periodic-`)
 - Strict error handling for PR builds (fails if source files missing or fetch fails)
@@ -104,29 +131,35 @@ All notable changes to this project will be documented in this file.
 - RHDH and Keycloak deployments now use early failure detection for faster error reporting
 
 ### Environment Variables
+
 - `GIT_PR_NUMBER`: Enables OCI URL generation for PR builds
 - `RHDH_SKIP_PLUGIN_METADATA_INJECTION`: Disables all metadata handling
 
 ## [1.1.4]
 
 ### Fixed
+
 - Keycloak: Use plain HTTP route to avoid certificate issues (#19)
 
 ### Security
+
 - Bump `lodash` from 4.17.21 to 4.17.23
 - Bump `tar` from 7.5.2 to 7.5.6
 
 ## [1.1.3]
 
 ### Added
+
 - Comprehensive VitePress documentation site (#14)
 
 ### Fixed
+
 - Corepack setup for Yarn 3 in CI workflow (#16)
 
 ## [1.1.2]
 
 ### Added
+
 - Keycloak integration with modular auth configuration (#8)
 - KeycloakHelper class for Keycloak deployment and management
 - Support for guest and Keycloak authentication providers
@@ -135,6 +168,7 @@ All notable changes to this project will be documented in this file.
 - Keycloak integration documentation (#9)
 
 ### Changed
+
 - Improved RHDHDeployment class with `configure()` method
 - Enhanced configuration merging for auth-specific configs
 - Better environment variable handling
@@ -142,12 +176,14 @@ All notable changes to this project will be documented in this file.
 ## [1.1.1]
 
 ### Added
+
 - Playwright helpers: UIHelper, LoginHelper, APIHelper (#7)
 - Page objects: CatalogPage, HomePage, CatalogImportPage, ExtensionsPage, NotificationPage
 
 ## [1.1.0]
 
 ### Added
+
 - Initial release of `@red-hat-developer-hub/e2e-test-utils`
 - RHDHDeployment class for RHDH deployment
 - Playwright test fixtures (rhdh, uiHelper, loginHelper, baseURL)
@@ -160,11 +196,13 @@ All notable changes to this project will be documented in this file.
 - Support for Helm and Operator deployment methods
 
 ### Fixed
+
 - Config file resolution for published package (#6)
 
 ## [1.0.0]
 
 ### Added
+
 - Initial project setup
 - Basic deployment functionality
 - Playwright integration
@@ -178,21 +216,23 @@ All notable changes to this project will be documented in this file.
 1. **Update imports** - No changes required
 2. **Configure authentication** - Use the new `auth` option:
    ```typescript
-   await rhdh.configure({ auth: "keycloak" });
+   await rhdh.configure({ auth: 'keycloak' });
    ```
 3. **Keycloak auto-deployment** - Keycloak is now automatically deployed unless `SKIP_KEYCLOAK_DEPLOYMENT=true`
 
 ### New Authentication Configuration
 
 Before (1.0.x):
+
 ```typescript
 // Manual Keycloak setup required
 await rhdh.deploy();
 ```
 
 After (1.1.x):
+
 ```typescript
 // Keycloak is auto-deployed and configured
-await rhdh.configure({ auth: "keycloak" });
+await rhdh.configure({ auth: 'keycloak' });
 await rhdh.deploy();
 ```

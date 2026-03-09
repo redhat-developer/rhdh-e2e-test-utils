@@ -24,6 +24,40 @@ test.describe("Plugin tests", () => {
 });
 ```
 
+### Fetching a Token to Use with RbacApiHelper
+
+A common pattern is to retrieve a Backstage identity token after login and pass it to `RbacApiHelper` (or another API helper) to make authenticated API calls:
+
+```typescript
+import { test } from '@red-hat-developer-hub/e2e-test-utils/test';
+import {
+  AuthApiHelper,
+  RbacApiHelper,
+} from '@red-hat-developer-hub/e2e-test-utils/helpers';
+
+test.describe('RBAC policy management', () => {
+  let rbacApiHelper: RbacApiHelper;
+
+  test.beforeAll(async ({ page, loginHelper }) => {
+    // Log in first so the page session is authenticated
+    await page.goto('/');
+    await loginHelper.loginAsKeycloakUser();
+
+    // Retrieve the Backstage identity token
+    const authApiHelper = new AuthApiHelper(page);
+    const token = await authApiHelper.getToken();
+
+    // Build the RBAC helper with the token
+    rbacApiHelper = await RbacApiHelper.build(token);
+  });
+
+  test('verify role policies exist', async () => {
+    const response = await rbacApiHelper.getPoliciesByRole('my-role');
+    // assert on response...
+  });
+});
+```
+
 ## Project and Spec Best Practices
 
 Each Playwright project name creates a **separate namespace**. To keep deployments fast and predictable:

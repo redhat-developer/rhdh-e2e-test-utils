@@ -51,6 +51,19 @@ export class KeycloakHelper {
   }
 
   /**
+   * Deploy Keycloak configured with realm, client, groups and users for RHDH
+   */
+  async deployAndConfigure(options?: {
+    realm?: string;
+    client?: Partial<KeycloakClientConfig>;
+    groups?: KeycloakGroupConfig[];
+    users?: KeycloakUserConfig[];
+  }): Promise<void> {
+    await this.deploy();
+    await this.configureForRHDH(options);
+  }
+
+  /**
    * Check if Keycloak is already running
    */
   async isRunning(): Promise<boolean> {
@@ -105,6 +118,8 @@ export class KeycloakHelper {
     // Create users
     const users = options?.users ?? DEFAULT_USERS;
     for (const user of users) {
+      // delete user if already exists
+      await this.deleteUser(realmName, user.username);
       await this.createUser(realmName, user);
     }
   }

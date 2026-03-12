@@ -14,8 +14,8 @@ import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 new KeycloakHelper(options?: KeycloakDeploymentOptions)
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter | Type                        | Description                       |
+| --------- | --------------------------- | --------------------------------- |
 | `options` | `KeycloakDeploymentOptions` | Optional deployment configuration |
 
 ## Properties
@@ -77,6 +77,14 @@ async deploy(): Promise<void>
 ```
 
 Deploy Keycloak using Bitnami Helm chart.
+
+### `deployAndConfigureForRHDH()`
+
+```typescript
+async deployAndConfigureForRHDH(options?: object): Promise<void>
+```
+
+Deploy Keycloak and then configure it for RHDH (realm + client + groups + users).
 
 ### `configureForRHDH()`
 

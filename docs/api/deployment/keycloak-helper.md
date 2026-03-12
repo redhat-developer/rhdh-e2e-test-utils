@@ -78,14 +78,6 @@ async deploy(): Promise<void>
 
 Deploy Keycloak using Bitnami Helm chart.
 
-### `deployAndConfigureForRHDH()`
-
-```typescript
-async deployAndConfigureForRHDH(options?: object): Promise<void>
-```
-
-Deploy Keycloak and then configure it for RHDH (realm + client + groups + users).
-
 ### `configureForRHDH()`
 
 ```typescript
@@ -109,6 +101,22 @@ async connect(config: KeycloakConnectionConfig): Promise<void>
 ```
 
 Connect to an existing Keycloak instance.
+
+### `createUsersAndGroups()`
+
+```typescript
+async createUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[]; groups?: KeycloakGroupConfig[]; }): Promise<void>
+```
+
+Create new users and groups in a realm.
+
+### `deleteUsersAndGroups()`
+
+```typescript
+async deleteUsersAndGroups(realm: string, options?: { users?: Array<KeycloakUserConfig | string>; groups?: Array<KeycloakGroupConfig | string> }): Promise<void>
+```
+
+Delete users and groups from a realm.
 
 ### `createRealm()`
 

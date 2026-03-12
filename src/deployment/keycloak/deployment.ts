@@ -51,19 +51,6 @@ export class KeycloakHelper {
   }
 
   /**
-   * Deploy Keycloak configured with realm, client, groups and users for RHDH
-   */
-  async deployAndConfigure(options?: {
-    realm?: string;
-    client?: Partial<KeycloakClientConfig>;
-    groups?: KeycloakGroupConfig[];
-    users?: KeycloakUserConfig[];
-  }): Promise<void> {
-    await this.deploy();
-    await this.configureForRHDH(options);
-  }
-
-  /**
    * Check if Keycloak is already running
    */
   async isRunning(): Promise<boolean> {
@@ -286,6 +273,28 @@ export class KeycloakHelper {
   }
 
   /**
+   * Create users and groups in a realm.
+   */
+  async createUsersAndGroups(
+    realm: string,
+    options: {
+      users?: KeycloakUserConfig[];
+      groups?: KeycloakGroupConfig[];
+    },
+  ): Promise<void> {
+    await this._ensureAdminClient();
+    const { groups = [], users = [] } = options;
+
+    for (const group of groups) {
+      await this.createGroup(realm, group);
+    }
+
+    for (const user of users) {
+      await this.createUser(realm, user);
+    }
+  }
+
+  /**
    * Get all users in a realm
    */
   async getUsers(realm: string): Promise<KeycloakUserConfig[]> {
@@ -361,6 +370,33 @@ export class KeycloakHelper {
     if (group) {
       await this._adminClient!.groups.del({ id: group.id! });
       this._log(`Deleted group: ${groupName}`);
+    }
+  }
+
+  /**
+   * Delete users and groups from a realm.
+   */
+  async deleteUsersAndGroups(
+    realm: string,
+    options: {
+      users?: Array<KeycloakUserConfig | string>;
+      groups?: Array<KeycloakGroupConfig | string>;
+    },
+  ): Promise<void> {
+    await this._ensureAdminClient();
+    const { groups = [], users = [] } = options;
+
+    const usernames = users.map((u) =>
+      typeof u === "string" ? u : u.username,
+    );
+    const groupNames = groups.map((g) => (typeof g === "string" ? g : g.name));
+
+    for (const username of usernames) {
+      await this.deleteUser(realm, username);
+    }
+
+    for (const groupName of groupNames) {
+      await this.deleteGroup(realm, groupName);
     }
   }
 

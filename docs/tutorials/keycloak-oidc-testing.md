@@ -66,8 +66,8 @@ test.beforeAll(async ({ rhdh }) => {
   // Connect to existing Keycloak
   await keycloak.connect({
     baseUrl: process.env.KEYCLOAK_BASE_URL!,
-    username: "admin",
-    password: "admin123",
+    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
   });
 
   // Create admin user
@@ -88,6 +88,56 @@ test.beforeAll(async ({ rhdh }) => {
   await rhdh.configure({ auth: "keycloak" });
   await rhdh.deploy();
 });
+```
+
+## Creating Custom Users and Groups in Bulk
+
+```typescript
+import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
+import type {
+  KeycloakGroupConfig,
+  KeycloakUserConfig,
+} from "@red-hat-developer-hub/e2e-test-utils/keycloak";
+
+const TEST_GROUPS: KeycloakGroupConfig[] = [
+  { name: "writers" },
+  { name: "readers" },
+];
+
+const TEST_USERS: Record<string, KeycloakUserConfig> = {
+  reader: {
+    username: "catalog-reader",
+    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    groups: ["readers"],
+  },
+  writer: {
+    username: "catalog-writer",
+    password: crypto.randomUUID().substring(0, 21).replaceAll("-", "0"),
+    groups: ["writers"],
+  },
+};
+
+test.beforeAll(async ({ rhdh }) => {
+  const keycloak = new KeycloakHelper();
+  await keycloak.connect({
+    baseUrl: process.env.KEYCLOAK_BASE_URL!,
+    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+  });
+  await keycloak.createUsersAndGroups(process.env.KEYCLOAK_REALM!, {
+    users: Object.values(TEST_USERS),
+    groups: TEST_GROUPS,
+  });
+
+  await rhdh.configure({ auth: "keycloak" });
+  await rhdh.deploy();
+});
+
+test.describe("Writer access", () => {
+  test.beforeEach(async ({ page, loginHelper }) => {
+    await page.goto("/");
+    await loginHelper.loginAsKeycloakUser(TEST_USERS.writer.username, TEST_USERS.writer.password);
+  });
 ```
 
 ## Testing Role-Based Access
@@ -160,13 +210,34 @@ test.afterAll(async () => {
   const keycloak = new KeycloakHelper();
   await keycloak.connect({
     baseUrl: process.env.KEYCLOAK_BASE_URL!,
-    username: "admin",
-    password: "admin123",
+    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
   });
 
   // Cleanup custom users
   await keycloak.deleteUser("rhdh", "admin-user");
   await keycloak.deleteUser("rhdh", "viewer-user");
+});
+```
+
+## Cleanup in Bulk
+
+```typescript
+import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
+
+test.afterAll(async () => {
+  const keycloak = new KeycloakHelper();
+  await keycloak.connect({
+    baseUrl: process.env.KEYCLOAK_BASE_URL!,
+    username: process.env.VAULT_KEYCLOAK_ADMIN_USERNAME!,
+    password: process.env.VAULT_KEYCLOAK_ADMIN_PASSWORD!,
+  });
+
+  // Cleanup custom users and groups
+  await keycloak.deleteUsersAndGroups("rhdh", {
+    users: TEST_USERS,
+    groups: TEST_GROUPS,
+  });
 });
 ```
 

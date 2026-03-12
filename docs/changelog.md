@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.16] - Current
+## [1.1.17] - Current
+
+### Added
+
+- **KeycloakHelper.getGroupsOfUser(realm, username)**: Returns groups for a user in a realm; the user is resolved by `username` (id is resolved internally). Intended for e2e assertions that compare Backstage UI to Keycloak data (e.g. catalog users page).
+
+## [1.1.16]
 
 ### Fixed
 

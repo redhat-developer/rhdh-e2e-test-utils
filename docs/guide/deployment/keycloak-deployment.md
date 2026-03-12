@@ -171,6 +171,25 @@ const groups = await keycloak.getGroups("rhdh");
 await keycloak.deleteGroup("rhdh", "testers");
 ```
 
+### Using getUsers and getGroupsOfUser in tests
+
+When testing against an existing Keycloak (e.g. RHDH with Keycloak auth), use `connect(config)` with base URL, realm, and client id/secret (or username/password). Then use `getUsers(realm)` to get the list of users and `getGroupsOfUser(realm, user.username)` to get each user's groups for UI assertions (e.g. catalog users page):
+
+```typescript
+await keycloak.connect({
+  baseUrl: process.env.KEYCLOAK_BASE_URL!,
+  realm: process.env.KEYCLOAK_REALM!,
+  clientId: process.env.KEYCLOAK_CLIENT_ID!,
+  clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
+});
+
+const users = await keycloak.getUsers(realm);
+for (const user of users) {
+  const groups = await keycloak.getGroupsOfUser(realm, user.username);
+  // Assert Backstage UI shows same groups for this user
+}
+```
+
 ### Realm Management
 
 ```typescript

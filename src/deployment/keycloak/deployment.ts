@@ -300,6 +300,27 @@ export class KeycloakHelper {
   }
 
   /**
+   * Get groups for a user in a realm (user resolved by username).
+   */
+  async getGroupsOfUser(
+    realm: string,
+    username: string,
+  ): Promise<KeycloakGroupConfig[]> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const users = await this._adminClient!.users.find({ username });
+    if (users.length === 0) {
+      return [];
+    }
+    const user = users[0];
+    const groups = await this._adminClient!.users.listGroups({
+      id: user.id!,
+    });
+    return groups.map((g) => ({ name: g.name! }));
+  }
+
+  /**
    * Delete a user from a realm
    */
   async deleteUser(realm: string, username: string): Promise<void> {

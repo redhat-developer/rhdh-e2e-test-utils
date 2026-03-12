@@ -150,6 +150,23 @@ async getGroups(realm: string): Promise<GroupRepresentation[]>
 
 Get all groups in a realm.
 
+### `getGroupsOfUser()`
+
+```typescript
+async getGroupsOfUser(realm: string, username: string): Promise<KeycloakGroupConfig[]>
+```
+
+Get the list of groups for a user in a realm. The user is resolved by `username`; no user id is exposed. Useful for assertions in e2e tests (e.g. verifying Backstage user page shows the same groups as Keycloak).
+
+| Parameter | Type     | Description                    |
+| --------- | -------- | ------------------------------ |
+| `realm`   | `string` | Realm name                     |
+| `username`| `string` | Username of the user           |
+
+**Returns:** `KeycloakGroupConfig[]` (at least `name`).
+
+Requires `connect()` or `deploy()` to have been called first.
+
 ### `deleteUser()`
 
 ```typescript

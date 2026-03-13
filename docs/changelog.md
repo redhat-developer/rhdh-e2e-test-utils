@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.17] - Current
+## [1.1.18] - Current
+
+### Added
+
+- **KeycloakHelper.createUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[]; groups?: KeycloakGroupConfig[];})**: Create users and groups in a realm.
+- **KeycloakHelper.deleteUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[] | string; groups?: KeycloakGroupConfig[] | string;})**: Delete users and groups in a realm by their usernames / names or by their KeycloakConfigs. Intended for user and group cleanup in bulk.
+
+### Fixed
+
+- **KeycloakHelper.deleteUser** and **KeycloakHelper.deleteGroup**: Default Keycloak users/groups (see `DEFAULT_USERS` / `DEFAULT_GROUPS`) can no longer be deleted; attempting to delete them throws an error.
+
+## [1.1.17]
 
 ### Added
 
@@ -14,7 +25,7 @@ All notable changes to this project will be documented in this file.
 
 - **Duplicate plugin when no user `dynamic-plugins.yaml` (Keycloak auth, PR build)**: When the workspace had no `dynamic-plugins.yaml`, auto-generated config (with OCI URL) was merged with auth config (with local path). Because merge used exact `package` string match, the same plugin appeared twice and the backend failed with `ExtensionPoint with ID 'keycloak.transformer' is already registered`. The merge now uses a normalized plugin key so OCI and local path for the same logical plugin are deduplicated; the metadata-derived entry (e.g. OCI URL) wins.
 
-## [1.1.15] - Current
+## [1.1.15]
 
 ### Added
 
@@ -228,7 +239,7 @@ All notable changes to this project will be documented in this file.
 1. **Update imports** - No changes required
 2. **Configure authentication** - Use the new `auth` option:
    ```typescript
-   await rhdh.configure({ auth: 'keycloak' });
+   await rhdh.configure({ auth: "keycloak" });
    ```
 3. **Keycloak auto-deployment** - Keycloak is now automatically deployed unless `SKIP_KEYCLOAK_DEPLOYMENT=true`
 
@@ -245,6 +256,6 @@ After (1.1.x):
 
 ```typescript
 // Keycloak is auto-deployed and configured
-await rhdh.configure({ auth: 'keycloak' });
+await rhdh.configure({ auth: "keycloak" });
 await rhdh.deploy();
 ```

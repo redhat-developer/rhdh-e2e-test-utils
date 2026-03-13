@@ -105,8 +105,6 @@ export class KeycloakHelper {
     // Create users
     const users = options?.users ?? DEFAULT_USERS;
     for (const user of users) {
-      // delete user if already exists
-      await this.deleteUser(realmName, user.username);
       await this.createUser(realmName, user);
     }
   }

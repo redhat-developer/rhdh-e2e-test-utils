@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **KeycloakHelper.createUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[]; groups?: KeycloakGroupConfig[];})**: Create users and groups in a realm.
-- **KeycloakHelper.deleteUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[] | string; groups?: KeycloakGroupConfig[] | string;})**: Delete users and groups in a realm by their usernames / names or by their KeycloakConfigs. Intended for user and group cleanup in bulk.
+- **KeycloakHelper.deleteUsersAndGroups(realm: string, options?: { users?: Array<KeycloakUserConfig | string>; groups?: Array<KeycloakGroupConfig | string>;})**: Delete users and groups in a realm by their usernames / names or by their KeycloakConfigs. Intended for user and group cleanup in bulk.
 
 ### Fixed
 

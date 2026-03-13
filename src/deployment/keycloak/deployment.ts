@@ -346,6 +346,12 @@ export class KeycloakHelper {
    * Delete a user from a realm
    */
   async deleteUser(realm: string, username: string): Promise<void> {
+    if (DEFAULT_USERS.some((u) => u.username === username)) {
+      throw new Error(
+        `Deleting default Keycloak user "${username}" is not permitted.`,
+      );
+    }
+
     await this._ensureAdminClient();
     this._adminClient!.setConfig({ realmName: realm });
 
@@ -360,6 +366,12 @@ export class KeycloakHelper {
    * Delete a group from a realm
    */
   async deleteGroup(realm: string, groupName: string): Promise<void> {
+    if (DEFAULT_GROUPS.some((g) => g.name === groupName)) {
+      throw new Error(
+        `Deleting default Keycloak group "${groupName}" is not permitted.`,
+      );
+    }
+
     await this._ensureAdminClient();
     this._adminClient!.setConfig({ realmName: realm });
 

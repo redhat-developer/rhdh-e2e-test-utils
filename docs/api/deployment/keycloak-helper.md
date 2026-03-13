@@ -191,6 +191,10 @@ async deleteUser(realm: string, username: string): Promise<void>
 
 Delete a user.
 
+::: warning
+Deleting default Keycloak users (see DEFAULT_USERS in [constants](https://github.com/redhat-developer/rhdh-e2e-test-utils/blob/main/src/deployment/keycloak/constants.ts), e.g. `test1`, `test2`) is **not permitted** and will throw an error.
+:::
+
 ### `deleteGroup()`
 
 ```typescript
@@ -198,6 +202,10 @@ async deleteGroup(realm: string, groupName: string): Promise<void>
 ```
 
 Delete a group.
+
+::: warning
+Deleting default Keycloak groups (see `DEFAULT_GROUPS` in [constants](https://github.com/redhat-developer/rhdh-e2e-test-utils/blob/main/src/deployment/keycloak/constants.ts), e.g. `developers`, `admins`, `viewers`) is **not permitted** and will throw an error.
+:::
 
 ### `deleteRealm()`
 

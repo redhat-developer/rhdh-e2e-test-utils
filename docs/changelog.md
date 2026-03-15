@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.17] - Current
+## [1.1.19] - Current
+
+### Added
+
+- **`OrchestratorPage`**: New page object for orchestrator e2e tests. Provides methods for selecting, running, and re-running Greeting and FailSwitch workflows, validating workflow table columns and row data, inspecting run details and status (Running / Completed / Failed), verifying all-runs filters and status icons, aborting running workflows, and checking entity-workflow integration (Workflows tab and linked workflow names). Exported from `@red-hat-developer-hub/e2e-test-utils/pages`.
+- **`workflowsTable` locator helper**: Reusable Playwright locator for the workflows table, shared by `OrchestratorPage`.
+- **`RbacApiHelper` — role & policy CRUD methods**: `createRoles(role)`, `getRoles()`, `updateRole(role, oldRole, newRole)`, and `createPolicies(policy)` join the existing delete helpers, giving full CRUD coverage for roles and policies.
+- **`Role` interface**: Exported alongside `Policy` from `@red-hat-developer-hub/e2e-test-utils/helpers`.
+
+## [1.1.17]
 
 ### Added
 

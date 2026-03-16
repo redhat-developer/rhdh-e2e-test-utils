@@ -33,6 +33,61 @@ jobs:
       - name: Run Tests
         run: yarn test
 
+  docs-check:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for docs changes
+        id: docs-changes
+        working-directory: .
+        run: |
+          DOCS_CHANGED=$(git diff --name-only origin/main...HEAD -- docs/ | grep '\.md$' || true)
+          if [ -z "$DOCS_CHANGED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No markdown changes in docs/"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            DELIM=$(openssl rand -hex 8)
+            echo "changed_files<<$DELIM" >> "$GITHUB_OUTPUT"
+            echo "$DOCS_CHANGED" >> "$GITHUB_OUTPUT"
+            echo "$DELIM" >> "$GITHUB_OUTPUT"
+            echo "Changed docs files:"
+            echo "$DOCS_CHANGED"
+          fi
+
+      - name: Setup Node.js
+        if: steps.docs-changes.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable Corepack
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: corepack enable
+
+      - name: Install docs dependencies
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: yarn install --immutable
+
+      - name: Build documentation (validates internal links)
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: yarn build
+
+      - name: Check external links in changed files
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: |
+          FILES=$(echo "${{ steps.docs-changes.outputs.changed_files }}" | sed 's|^docs/||' | xargs)
+          echo "Checking files: $FILES"
+          yarn markdown-link-check --config .markdown-link-check.json $FILES
+
   version-check:
     name: Version Bump Check
     runs-on: ubuntu-latest

@@ -1,0 +1,5 @@
+{
+  "src/**/*.ts": ["eslint", "prettier --check"],
+  "{*.{js,ts,json,yml,yaml},.github/**/*.yml}": "prettier --check --ignore-unknown",
+  "docs/**/*.md": "yarn markdown-link-check --config docs/.markdown-link-check.json"
+}

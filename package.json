@@ -59,6 +59,7 @@
   ],
   "scripts": {
     "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/",
+    "prepare": "husky",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",
     "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
@@ -90,7 +91,10 @@
     "@types/lodash.clonedeepwith": "^4.5.9",
     "@types/lodash.mergewith": "^4.6.9",
     "@types/node": "^24.10.1",
-    "@types/proper-lockfile": "^4.1.4"
+    "@types/proper-lockfile": "^4.1.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "markdown-link-check": "^3.13.6"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.11.0",

@@ -7,9 +7,11 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "lint:links": "markdown-link-check --config .markdown-link-check.json"
   },
   "devDependencies": {
+    "markdown-link-check": "^3.13.6",
     "vitepress": "^1.5.0"
   },
   "engines": {

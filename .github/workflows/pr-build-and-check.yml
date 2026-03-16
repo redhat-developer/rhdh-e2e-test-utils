@@ -102,4 +102,3 @@ jobs:
             exit 1
           fi
           echo "Changelog updated for version bump"
-          

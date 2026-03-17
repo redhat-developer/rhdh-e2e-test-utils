@@ -103,16 +103,6 @@ log::success() {
 }
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-# Escape double quotes for yq string values (yq v4 mikefarah)
-escape_yq() {
-  local input="$1"
-  printf '%s' "$input" | sed 's/"/\\"/g'
-  return 0
-}
-
-# ---------------------------------------------------------------------------
 # Operator subscription and status
 # ---------------------------------------------------------------------------
 install_subscription() {
@@ -443,63 +433,6 @@ deploy_orchestrator_workflows_operator() {
   fi
 }
 
-deploy_workflows() {
-  local namespace=$1
-
-  local pqsl_secret_name pqsl_svc_name pqsl_user_key pqsl_password_key sonataflow_db
-  pqsl_secret_name=$(oc get secrets -n "$namespace" -o name 2>/dev/null | grep "backstage-psql" | grep "secret" | head -1 | sed 's|secret\/||')
-  pqsl_svc_name='backstage-psql'
-  pqsl_user_key="POSTGRES_USER"
-  pqsl_password_key="POSTGRES_PASSWORD"
-  sonataflow_db="backstage_plugin_orchestrator"
-
-  local workflow_repo="https://github.com/AndrienkoAleksandr/serverless-workflows.git"
-  local workflow_dir="/tmp/serverless-workflows"
-  local local_manifests="${SCRIPT_DIR}/yaml"
-
-  # Prefer local yaml/ if it exists and has content
-  if [[ -d "${local_manifests}" ]] && [[ -n "$(ls -A "${local_manifests}" 2>/dev/null)" ]]; then
-    log::info "Using local workflow manifests from ${local_manifests}"
-    # Apply all YAMLs in yaml/ with correct namespace
-    for f in "${local_manifests}"/*.yaml "${local_manifests}"/*.yml; do
-      [[ -e "$f" ]] && oc apply -f "$f" -n "$namespace" && log::info "Applied $(basename "$f")"
-    done
-  else
-    log::info "Cloning workflow repo..."
-    rm -rf "${workflow_dir}"
-    git clone --single-branch --branch bulk-import-workflow-sample  "${workflow_repo}" "${workflow_dir}"
-    local workflow_manifests="${workflow_dir}/workflows/experimentals/bulk-import-git-repos/manifests"
-    if [[ -d "${workflow_manifests}" ]]; then
-      log::info "Applying workflow manifests from repo..."
-
-      snToDbPatch="${workflow_manifests}/04-sonataflow_universal-pr.yaml"
-      yq eval -i '.spec.persistence.postgresql.secretRef.name = "'"$(escape_yq "$pqsl_secret_name")"'"' "$snToDbPatch"
-      yq eval -i '.spec.persistence.postgresql.secretRef.userKey = "'"$(escape_yq "$pqsl_user_key")"'"' "$snToDbPatch"
-      yq eval -i '.spec.persistence.postgresql.secretRef.passwordKey = "'"$(escape_yq "$pqsl_password_key")"'"' "$snToDbPatch"
-      yq eval -i '.spec.persistence.postgresql.serviceRef.name = "'"$(escape_yq "$pqsl_svc_name")"'"' "$snToDbPatch"
-      yq eval -i '.spec.persistence.postgresql.serviceRef.namespace = "'"$(escape_yq "$namespace")"'"' "$snToDbPatch"
-      yq eval -i '.spec.persistence.postgresql.serviceRef.databaseName = "'"$(escape_yq "$sonataflow_db")"'"' "$snToDbPatch"
-
-      oc apply -f "${workflow_manifests}" -n "$namespace"
-    else
-      log::warn "Manifests path not found in repo: ${workflow_manifests}"
-    fi
-  fi
-
-  log::info "Waiting for SonataFlow resources..."
-  timeout 30s bash -c "
-    until [[ \$(oc get sf -n $namespace --no-headers 2>/dev/null | wc -l) -ge 1 ]]; do
-      echo \"Waiting for sf resources... \$(oc get sf -n $namespace --no-headers 2>/dev/null | wc -l)\"
-      sleep 5
-    done
-  "
-
-  wait_for_deployment "$namespace" universal-pr 5 || true
-  log::info "Orchestrator workflows deployment done."
-}
-
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -534,7 +467,6 @@ main() {
   configure_namespace "${NAME_SPACE}"
   log::info "Deploying orchestrator workflows..."
   deploy_orchestrator_workflows_operator "${NAME_SPACE}"
-  deploy_workflows "${NAME_SPACE}"
   print_orchestrator_connection_info "${NAME_SPACE}"
 
   log::success "Orchestrator deployment completed successfully!"

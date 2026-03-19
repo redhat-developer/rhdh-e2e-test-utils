@@ -413,14 +413,14 @@ deploy_orchestrator_workflows_operator() {
     fi
   fi
 
-  local pqsl_secret_name pqsl_svc_name
-  pqsl_secret_name=$(oc get secrets -n "$namespace" -o name 2>/dev/null | grep "backstage-psql" | grep "secret" | head -1 | sed 's|secret\/||')
-  pqsl_svc_name='backstage-psql'
+  local psql_secret_name psql_svc_name
+  psql_secret_name=$(oc get secrets -n "$namespace" -o name 2>/dev/null | grep "backstage-psql" | grep "secret" | head -1 | sed 's|secret\/||')
+  psql_svc_name='backstage-psql'
 
-  log::info "PostgreSQL secret: $pqsl_secret_name, service: $pqsl_svc_name"
+  log::info "PostgreSQL secret: $psql_secret_name, service: $psql_svc_name"
 
   if ! oc get sonataflowplatform sonataflow-platform -n "$namespace" &>/dev/null && ! oc get sfp sonataflow-platform -n "$namespace" &>/dev/null; then
-    create_sonataflow_platform "$namespace" "$pqsl_secret_name" "$pqsl_svc_name"
+    create_sonataflow_platform "$namespace" "$psql_secret_name" "$psql_svc_name"
   else
     log::info "SonataFlowPlatform already exists"
     wait_for_deployment "$namespace" sonataflow-platform-data-index-service 20 || true

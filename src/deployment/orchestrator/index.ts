@@ -6,3 +6,5 @@ const scriptPath = resolve(import.meta.dirname, "install-orchestrator.sh");
 export async function installOrchestrator(namespace = "orchestrator") {
   await $`bash ${scriptPath} ${namespace}`;
 }
+
+export default installOrchestrator;

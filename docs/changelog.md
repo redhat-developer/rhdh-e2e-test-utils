@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.18] - Current
+## [1.1.19] - Current
+
+### Added
+
+- **installOrchestrator(namespace?: string)**: Runs the orchestrator install script via a TypeScript wrapper; creates or reuses the given namespace (default `"orchestrator"`). Exported from `@red-hat-developer-hub/e2e-test-utils/orchestrator`.
+
+## [1.1.18]
 
 ### Added
 

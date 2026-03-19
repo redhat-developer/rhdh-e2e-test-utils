@@ -48,6 +48,10 @@
     "./teardown": {
       "types": "./dist/playwright/teardown-namespaces.d.ts",
       "default": "./dist/playwright/teardown-namespaces.js"
+    },
+    "./orchestrator": {
+      "types": "./dist/deployment/orchestrator/index.d.ts",
+      "default": "./dist/deployment/orchestrator/index.js"
     }
   },
   "publishConfig": {
@@ -55,11 +59,10 @@
   },
   "files": [
     "dist",
-    "scripts",
     "tsconfig.base.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/",
+    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/ && cp src/deployment/orchestrator/install-orchestrator.sh dist/deployment/orchestrator/",
     "prepare": "husky",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",

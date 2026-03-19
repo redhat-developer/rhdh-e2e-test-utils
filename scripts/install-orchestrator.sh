@@ -9,7 +9,6 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export NAME_SPACE="${1:-${NAME_SPACE:-orchestrator}}"
 
 LOWER_CASE_CLASS='[:lower:]'
@@ -183,9 +182,12 @@ delete_namespace() {
 
 configure_namespace() {
   local project=$1
-  log::warn "Recreating namespace: $project"
-  delete_namespace "$project"
-  oc create namespace "${project}" || { log::error "Failed to create namespace ${project}"; exit 1; }
+  if oc get namespace "$project" &>/dev/null; then
+    log::info "Namespace ${project} already exists, reusing it."
+  else
+    log::info "Creating namespace: ${project}"
+    oc create namespace "${project}" || { log::error "Failed to create namespace ${project}"; exit 1; }
+  fi
   oc config set-context --current --namespace="${project}" || { log::error "Failed to set context"; exit 1; }
   log::info "Namespace ${project} is ready."
   return 0

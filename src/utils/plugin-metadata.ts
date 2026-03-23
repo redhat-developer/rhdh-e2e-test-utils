@@ -437,6 +437,28 @@ export function injectMetadataConfig(
 }
 
 /**
+ * Generates dynamic-plugins configuration for wrapper plugins
+ * that need to be disabled. Each plugin entry contains:
+ *  - package: ./dynamic-plugins/dist/$plugin-name
+ *  - disabled: true
+ *
+ * @param plugins list of wrapper plugin names
+ * @returns Dynamic plugins configuration that disables listed wrapper plugins
+ */
+export function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig {
+  const pluginConfig: DynamicPluginsConfig = {
+    plugins: [],
+  };
+  for (const plugin of plugins) {
+    pluginConfig.plugins!.push({
+      package: `./dynamic-plugins/dist/${plugin}`,
+      disabled: true,
+    });
+  }
+  return pluginConfig;
+}
+
+/**
  * Generates a complete dynamic-plugins configuration from metadata files.
  * Iterates through all metadata files and creates plugin entries with:
  * - package: the dynamicArtifact path

@@ -7,6 +7,7 @@ import {
   loadAndInjectPluginMetadata,
   generateDynamicPluginsConfigFromMetadata,
   getNormalizedPluginMergeKey,
+  disablePluginWrappers,
 } from "../../utils/plugin-metadata.js";
 import { envsubst } from "../../utils/common.js";
 import { runOnce } from "../../playwright/run-once.js";
@@ -121,6 +122,9 @@ export class RHDHDeployment {
     const userConfigPath = this.deploymentConfig.dynamicPlugins;
     const userConfigExists = userConfigPath && fs.existsSync(userConfigPath);
     const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
+    const wrapperPlugins = disablePluginWrappers(
+      this.deploymentConfig.disableWrappers,
+    );
 
     // If user's dynamic-plugins config doesn't exist, auto-generate from metadata
     if (!userConfigExists) {
@@ -136,12 +140,16 @@ export class RHDHDeployment {
         [DEFAULT_CONFIG_PATHS.dynamicPlugins, authConfig.dynamicPlugins],
         { arrayMergeStrategy: { byKey: "package" } },
       );
-      return deepMerge(authPlugins, metadataConfig, {
+      const dynamicPlugins = deepMerge(authPlugins, metadataConfig, {
         arrayMergeStrategy: {
           byKey: "package",
           normalizeKey: (item) =>
             getNormalizedPluginMergeKey(item as Record<string, unknown>),
         },
+      });
+
+      return deepMerge(dynamicPlugins, wrapperPlugins, {
+        arrayMergeStrategy: "concat",
       });
     }
 
@@ -158,6 +166,10 @@ export class RHDHDeployment {
     // Inject plugin metadata configuration for plugins in the config
     dynamicPluginsConfig =
       await loadAndInjectPluginMetadata(dynamicPluginsConfig);
+
+    dynamicPluginsConfig = deepMerge(dynamicPluginsConfig, wrapperPlugins, {
+      arrayMergeStrategy: "concat",
+    });
 
     return dynamicPluginsConfig;
   }
@@ -407,6 +419,7 @@ export class RHDHDeployment {
       secrets: input.secrets ?? `tests/config/rhdh-secrets.yaml`,
       dynamicPlugins:
         input.dynamicPlugins ?? `tests/config/dynamic-plugins.yaml`,
+      disableWrappers: input.disableWrappers ?? [],
     };
 
     if (method === "helm") {

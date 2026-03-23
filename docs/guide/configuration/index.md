@@ -10,6 +10,7 @@ The package provides configuration tools for ESLint, TypeScript, and RHDH deploy
 | [ESLint Configuration](/guide/configuration/eslint-config) | Pre-configured ESLint rules |
 | [TypeScript Configuration](/guide/configuration/typescript-config) | Base TypeScript settings |
 | [Environment Variables](/guide/configuration/environment-variables) | All environment variables |
+| [Disabling Conflicting Wrappers](/guide/configuration/disable-wrappers) | Disabling pre-enabled wrappers that may cause configuration conflicts |
 
 ## Project Configuration
 

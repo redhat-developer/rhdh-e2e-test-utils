@@ -11,6 +11,7 @@ export type DeploymentOptions = {
   method?: DeploymentMethod;
   valueFile?: string;
   subscription?: string;
+  disableWrappers?: string[];
 };
 
 export type HelmDeploymentConfig = {
@@ -30,6 +31,7 @@ export type DeploymentConfigBase = {
   appConfig: string;
   secrets: string;
   dynamicPlugins: string;
+  disableWrappers: string[];
 };
 
 export type DeploymentConfig = DeploymentConfigBase &

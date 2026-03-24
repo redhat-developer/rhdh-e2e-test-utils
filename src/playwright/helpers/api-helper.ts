@@ -339,7 +339,7 @@ export class APIHelper {
    * @returns The UID string if found, otherwise undefined.
    */
   static async getEntityUidByName(name: string): Promise<string | undefined> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/entities/by-name/template/default/${name}`;
     const context = await request.newContext();
     const response = await context.get(url);
@@ -357,7 +357,7 @@ export class APIHelper {
    * @returns The status code of the delete operation.
    */
   static async deleteLocationByUid(uid: string): Promise<number> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/locations/${uid}`;
     const context = await request.newContext();
     const response = await context.delete(url);
@@ -375,7 +375,7 @@ export class APIHelper {
     name: string,
     namespace: string = "default",
   ): Promise<string | undefined> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/locations/by-entity/template/${namespace}/${name}`;
     const context = await request.newContext();
     const response = await context.get(url);
@@ -396,7 +396,7 @@ export class APIHelper {
    * @returns The status code of the delete operation.
    */
   static async deleteEntityLocationById(id: string): Promise<number> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/locations/${id}`;
     const context = await request.newContext();
     const response = await context.delete(url);
@@ -410,7 +410,7 @@ export class APIHelper {
    * @returns The status code of the registration operation.
    */
   static async registerLocation(target: string): Promise<number> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/locations`;
     const context = await request.newContext();
     const response = await context.post(url, {
@@ -434,7 +434,7 @@ export class APIHelper {
   static async getLocationIdByTarget(
     target: string,
   ): Promise<string | undefined> {
-    const baseUrl = process.env.BASE_URL;
+    const baseUrl = process.env.RHDH_BASE_URL;
     const url = `${baseUrl}/api/catalog/locations`;
     const context = await request.newContext();
     const response = await context.get(url);

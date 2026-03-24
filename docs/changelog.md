@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.18] - Current
+## [1.1.19] - Current
+
+### Fixed
+
+- Updated occurrences of `BASE_URL` to `RHDH_BASE_URL`
+
+## [1.1.18]
 
 ### Added
 

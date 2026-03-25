@@ -166,4 +166,5 @@ Later configurations override earlier ones, allowing you to customize only what 
 - [Keycloak Deployment](/guide/deployment/keycloak-deployment) - KeycloakHelper class
 - [Helm Deployment](/guide/deployment/helm-deployment) - Helm-specific guide
 - [Operator Deployment](/guide/deployment/operator-deployment) - Operator-specific guide
+- [Orchestrator Deployment](/guide/deployment/orchestrator-deployment) - installOrchestrator script
 - [Authentication](/guide/deployment/authentication) - Auth providers

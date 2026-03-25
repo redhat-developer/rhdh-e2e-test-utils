@@ -11,6 +11,11 @@ export interface Policy {
   effect: string;
 }
 
+export interface Role {
+  memberReferences: string[];
+  name: string;
+}
+
 /**
  * Thin HTTP client for the RHDH RBAC permission API.
  * Uses a static factory (`build`) because the Playwright `APIRequestContext`
@@ -43,9 +48,47 @@ export class RbacApiHelper {
     return instance;
   }
 
+  // Roles:
+
+  public async createRoles(role: Role): Promise<APIResponse> {
+    return await this.myContext.post("roles", { data: role });
+  }
+
+  public async getRoles(): Promise<APIResponse> {
+    return await this.myContext.get("roles");
+  }
+
+  public async updateRole(
+    role: string,
+    oldRole: Role,
+    newRole: Role,
+  ): Promise<APIResponse> {
+    return await this.myContext.put(`roles/role/default/${role}`, {
+      data: { oldRole, newRole },
+    });
+  }
+
+  public async deleteRole(role: string): Promise<APIResponse> {
+    return await this.myContext.delete(`roles/role/default/${role}`);
+  }
+
+  // Policies:
+
   public async getPoliciesByRole(policy: string): Promise<APIResponse> {
     return await this.myContext.get(`policies/role/default/${policy}`);
   }
+
+  public async createPolicies(policy: Policy[]): Promise<APIResponse> {
+    return await this.myContext.post("policies", { data: policy });
+  }
+
+  public async deletePolicy(policy: string, policies: Policy[]) {
+    return await this.myContext.delete(`policies/role/default/${policy}`, {
+      data: policies,
+    });
+  }
+
+  // Conditions:
 
   /** Fetches all conditional policies across all roles. */
   public async getConditions(): Promise<APIResponse> {
@@ -60,16 +103,6 @@ export class RbacApiHelper {
     return remainingConditions.filter(
       (condition) => condition.roleEntityRef === role,
     );
-  }
-
-  public async deleteRole(role: string): Promise<APIResponse> {
-    return await this.myContext.delete(`roles/role/default/${role}`);
-  }
-
-  public async deletePolicy(policy: string, policies: Policy[]) {
-    return await this.myContext.delete(`policies/role/default/${policy}`, {
-      data: policies,
-    });
   }
 
   /** `id` comes from the `RoleConditionalPolicyDecision.id` field returned by the API. */

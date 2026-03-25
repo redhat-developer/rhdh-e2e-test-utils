@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.21] - Current
+## [1.1.22] - Current
+
+### Added
+
+- **disableWrappers option for rhdh.configure**: Allows listing plugins whose wrappers will be disabled in the dynamic plugins config to allow the use of PR images when a wrapper is enabled by default for the same plugin. This option is ignored if the `GIT_PR_NUMBER` environment variable is not set.
+
+## [1.1.21]
 
 ### Fixed
 
@@ -87,7 +93,7 @@ All notable changes to this project will be documented in this file.
 - `VAULT_GH_2FA_SECRET` - GitHub user secret for 2 factor authentication
 - `VAULT_GITHUB_USER_TOKEN` - Github user token
 
-## [1.1.12] - Current
+## [1.1.12]
 
 ### Changed
 

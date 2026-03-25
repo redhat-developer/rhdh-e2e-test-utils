@@ -33,7 +33,7 @@ export default defineConfig({
       { text: "Examples", link: "/examples/" },
       { text: "Overlay Testing", link: "/overlay/" },
       {
-        text: "v1.1.13",
+        text: "v1.1.22",
         items: [{ text: "Changelog", link: "/changelog" }],
       },
     ],

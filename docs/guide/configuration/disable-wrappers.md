@@ -34,3 +34,5 @@ await rhdh.deploy();
 
 Wrapper plugin packages are defined as `./dynamic-plugins/dist/$plugin-name`. Use the `$plugin-name` in `disableWrappers` list.
 Make sure that the plugin name matches the dynamic plugins default config.
+
+Note that this option is ignored outside of PR checks, since there is no metadata injection enabled in such case.

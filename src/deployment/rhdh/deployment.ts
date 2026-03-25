@@ -148,6 +148,9 @@ export class RHDHDeployment {
         },
       });
 
+      if (!process.env.GIT_PR_NUMBER) {
+        return dynamicPlugins;
+      }
       return deepMerge(dynamicPlugins, wrapperPlugins, {
         arrayMergeStrategy: "concat",
       });
@@ -167,9 +170,11 @@ export class RHDHDeployment {
     dynamicPluginsConfig =
       await loadAndInjectPluginMetadata(dynamicPluginsConfig);
 
-    dynamicPluginsConfig = deepMerge(dynamicPluginsConfig, wrapperPlugins, {
-      arrayMergeStrategy: "concat",
-    });
+    if (process.env.GIT_PR_NUMBER) {
+      dynamicPluginsConfig = deepMerge(dynamicPluginsConfig, wrapperPlugins, {
+        arrayMergeStrategy: "concat",
+      });
+    }
 
     return dynamicPluginsConfig;
   }

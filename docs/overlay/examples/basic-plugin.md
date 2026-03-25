@@ -68,7 +68,7 @@ workspaces/<plugin>/e2e-tests/
     "eslint-plugin-check-file": "^3.3.1",
     "eslint-plugin-playwright": "^2.4.0",
     "prettier": "^3.7.4",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.13",
+    "@red-hat-developer-hub/e2e-test-utils": "1.1.22",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.50.0"
   }

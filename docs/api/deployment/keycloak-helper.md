@@ -14,8 +14,8 @@ import { KeycloakHelper } from "@red-hat-developer-hub/e2e-test-utils/keycloak";
 new KeycloakHelper(options?: KeycloakDeploymentOptions)
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter | Type                        | Description                       |
+| --------- | --------------------------- | --------------------------------- |
 | `options` | `KeycloakDeploymentOptions` | Optional deployment configuration |
 
 ## Properties
@@ -102,6 +102,22 @@ async connect(config: KeycloakConnectionConfig): Promise<void>
 
 Connect to an existing Keycloak instance.
 
+### `createUsersAndGroups()`
+
+```typescript
+async createUsersAndGroups(realm: string, options?: { users?: KeycloakUserConfig[]; groups?: KeycloakGroupConfig[]; }): Promise<void>
+```
+
+Create new users and groups in a realm.
+
+### `deleteUsersAndGroups()`
+
+```typescript
+async deleteUsersAndGroups(realm: string, options?: { users?: Array<KeycloakUserConfig | string>; groups?: Array<KeycloakGroupConfig | string> }): Promise<void>
+```
+
+Delete users and groups from a realm.
+
 ### `createRealm()`
 
 ```typescript
@@ -175,6 +191,10 @@ async deleteUser(realm: string, username: string): Promise<void>
 
 Delete a user.
 
+::: warning
+Deleting default Keycloak users (see DEFAULT_USERS in [constants](https://github.com/redhat-developer/rhdh-e2e-test-utils/blob/main/src/deployment/keycloak/constants.ts), e.g. `test1`, `test2`) is **not permitted** and will throw an error.
+:::
+
 ### `deleteGroup()`
 
 ```typescript
@@ -182,6 +202,10 @@ async deleteGroup(realm: string, groupName: string): Promise<void>
 ```
 
 Delete a group.
+
+::: warning
+Deleting default Keycloak groups (see `DEFAULT_GROUPS` in [constants](https://github.com/redhat-developer/rhdh-e2e-test-utils/blob/main/src/deployment/keycloak/constants.ts), e.g. `developers`, `admins`, `viewers`) is **not permitted** and will throw an error.
+:::
 
 ### `deleteRealm()`
 

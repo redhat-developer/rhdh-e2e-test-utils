@@ -32,3 +32,128 @@ jobs:
 
       - name: Run Tests
         run: yarn test
+
+  docs-check:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for docs changes
+        id: docs-changes
+        working-directory: .
+        run: |
+          DOCS_CHANGED=$(git diff --name-only origin/main...HEAD -- docs/ | grep '\.md$' || true)
+          if [ -z "$DOCS_CHANGED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "No markdown changes in docs/"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            DELIM=$(openssl rand -hex 8)
+            echo "changed_files<<$DELIM" >> "$GITHUB_OUTPUT"
+            echo "$DOCS_CHANGED" >> "$GITHUB_OUTPUT"
+            echo "$DELIM" >> "$GITHUB_OUTPUT"
+            echo "Changed docs files:"
+            echo "$DOCS_CHANGED"
+          fi
+
+      - name: Setup Node.js
+        if: steps.docs-changes.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable Corepack
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: corepack enable
+
+      - name: Install docs dependencies
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: yarn install --immutable
+
+      - name: Build documentation (validates internal links)
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: yarn build
+
+      - name: Check external links in changed files
+        if: steps.docs-changes.outputs.skip != 'true'
+        run: |
+          FILES=$(echo "${{ steps.docs-changes.outputs.changed_files }}" | sed 's|^docs/||' | xargs)
+          echo "Checking files: $FILES"
+          yarn markdown-link-check --config .markdown-link-check.json $FILES
+
+  version-check:
+    name: Version Bump Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for source changes requiring version bump
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          NEEDS_BUMP=false
+          while IFS= read -r file; do
+            case "$file" in
+              src/*|tsconfig.build.json|tsconfig.base.json)
+                NEEDS_BUMP=true
+                break
+                ;;
+              package.json)
+                # Check if anything other than "version" changed
+                OTHER_CHANGES=$(git diff origin/main...HEAD -- package.json | grep -E '^[+-]\s' | grep -v -E '^\+\+\+|^---' | grep -v '"version"' || true)
+                if [ -n "$OTHER_CHANGES" ]; then
+                  NEEDS_BUMP=true
+                  break
+                fi
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          echo "needs_bump=$NEEDS_BUMP" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version bump and changelog
+        if: steps.changes.outputs.needs_bump == 'true'
+        run: |
+          PR_VERSION=$(node -p "require('./package.json').version")
+          MAIN_VERSION=$(git show origin/main:package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version")
+
+          echo "Main version: $MAIN_VERSION"
+          echo "PR version:   $PR_VERSION"
+
+          if [ "$PR_VERSION" = "$MAIN_VERSION" ]; then
+            echo "::error::Source files or dependencies changed but package version was not bumped. Please update the version in package.json."
+            exit 1
+          fi
+
+          HIGHER=$(node -e "
+            const [a, b] = ['$PR_VERSION', '$MAIN_VERSION'].map(v => v.split('.').map(Number));
+            const isHigher = a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) || (a[0] === b[0] && a[1] === b[1] && a[2] > b[2]);
+            process.exit(isHigher ? 0 : 1);
+          " && echo "true" || echo "false")
+
+          if [ "$HIGHER" != "true" ]; then
+            echo "::error::PR version ($PR_VERSION) must be higher than main version ($MAIN_VERSION)."
+            exit 1
+          fi
+
+          echo "Version bumped from $MAIN_VERSION to $PR_VERSION"
+
+          CHANGELOG_CHANGED=$(git diff --name-only origin/main...HEAD -- docs/changelog.md)
+          if [ -z "$CHANGELOG_CHANGED" ]; then
+            echo "::error::Version was bumped but docs/changelog.md was not updated. Please add a changelog entry for version $PR_VERSION."
+            exit 1
+          fi
+          echo "Changelog updated for version bump"

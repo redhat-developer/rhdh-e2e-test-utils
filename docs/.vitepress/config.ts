@@ -103,6 +103,10 @@ export default defineConfig({
               link: "/guide/deployment/operator-deployment",
             },
             {
+              text: "Orchestrator Deployment",
+              link: "/guide/deployment/orchestrator-deployment",
+            },
+            {
               text: "Authentication Providers",
               link: "/guide/deployment/authentication",
             },
@@ -203,6 +207,7 @@ export default defineConfig({
             },
             { text: "KeycloakHelper", link: "/api/deployment/keycloak-helper" },
             { text: "Keycloak Types", link: "/api/deployment/keycloak-types" },
+            { text: "installOrchestrator", link: "/api/deployment/orchestrator" },
           ],
         },
         {

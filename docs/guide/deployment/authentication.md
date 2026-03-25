@@ -152,16 +152,18 @@ No additional environment variables required.
 
 ### Keycloak Auth
 
-These are automatically set by `KeycloakHelper.configureForRHDH()`:
+These are automatically set by `KeycloakHelper.configureForRHDH()` or populated from global workspace in the vault:
 
-| Variable | Description |
-|----------|-------------|
-| `KEYCLOAK_BASE_URL` | Keycloak instance URL |
-| `KEYCLOAK_REALM` | Realm name |
-| `KEYCLOAK_CLIENT_ID` | OIDC client ID |
-| `KEYCLOAK_CLIENT_SECRET` | OIDC client secret |
-| `KEYCLOAK_METADATA_URL` | OIDC discovery URL |
-| `KEYCLOAK_LOGIN_REALM` | Login realm name |
+| Variable                        | Description           |
+| ------------------------------- | --------------------- |
+| `KEYCLOAK_BASE_URL`             | Keycloak instance URL |
+| `KEYCLOAK_REALM`                | Realm name            |
+| `KEYCLOAK_CLIENT_ID`            | OIDC client ID        |
+| `KEYCLOAK_CLIENT_SECRET`        | OIDC client secret    |
+| `KEYCLOAK_METADATA_URL`         | OIDC discovery URL    |
+| `KEYCLOAK_LOGIN_REALM`          | Login realm name      |
+| `VAULT_KEYCLOAK_ADMIN_USERNAME` | Admin username        |
+| `VAULT_KEYCLOAK_ADMIN_PASSWORD` | Admin password        |
 
 ### GitHub Auth
 

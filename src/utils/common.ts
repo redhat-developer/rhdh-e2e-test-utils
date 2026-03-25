@@ -9,4 +9,13 @@ function envsubst(str: string, env = process.env) {
   return out;
 }
 
-export { envsubst };
+function requireEnv(...varNames: [string, ...string[]]): void {
+  for (const varName of varNames) {
+    const value = process.env[varName];
+    if (!value) {
+      throw new Error(`Required variable ${varName} is not set`);
+    }
+  }
+}
+
+export { envsubst, requireEnv };

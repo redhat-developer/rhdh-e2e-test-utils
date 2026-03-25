@@ -1,4 +1,4 @@
-export { envsubst } from "./common.js";
+export { envsubst, requireEnv } from "./common.js";
 export { $, runQuietUnlessFailure } from "./bash.js";
 export {
   mergeYamlFiles,

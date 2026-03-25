@@ -92,7 +92,7 @@ await keycloak.configureForRHDH({
     clientId: "my-client",
     clientSecret: "my-secret",
   },
-  groups: ["developers", "admins"],
+  groups: [{ name: "developers" }, { name: "admins" }],
   users: [
     { username: "user1", password: "pass1", groups: ["developers"] },
     { username: "user2", password: "pass2", groups: ["admins"] },
@@ -156,6 +156,18 @@ const users = await keycloak.getUsers("rhdh");
 
 // Delete user
 await keycloak.deleteUser("rhdh", "username");
+
+// Create multiple users
+await keycloak.createUsersAndGroups("rhdh", {
+  users: [
+    { username: "user1", password: "pass1" },
+    { username: "user2", password: "pass2", groups: ["developers"] },
+  ],
+});
+
+// Delete multiple users - by objects or by usernames
+await keycloak.deleteUsersAndGroups("rhdh", { users });
+await keycloak.deleteUsersAndGroups("rhdh", { users: ["user1", "user2"] });
 ```
 
 ### Group Management
@@ -169,6 +181,15 @@ const groups = await keycloak.getGroups("rhdh");
 
 // Delete group
 await keycloak.deleteGroup("rhdh", "testers");
+
+// Create multiple groups
+await keycloak.createUsersAndGroups("rhdh", {
+  groups: [{ name: "admins" }, { name: "viewers" }],
+});
+
+// Delete multiple groups - by objects or by group names
+await keycloak.deleteUsersAndGroups("rhdh", { groups });
+await keycloak.deleteUsersAndGroups("rhdh", { groups: ["admins", "viewers"] });
 ```
 
 ### Using getUsers and getGroupsOfUser in tests

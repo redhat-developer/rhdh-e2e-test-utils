@@ -1,6 +1,6 @@
 {
   "name": "@red-hat-developer-hub/e2e-test-utils",
-  "version": "1.1.18",
+  "version": "1.1.20",
   "description": "Test utilities for RHDH E2E tests",
   "license": "Apache-2.0",
   "repository": {
@@ -48,6 +48,10 @@
     "./teardown": {
       "types": "./dist/playwright/teardown-namespaces.d.ts",
       "default": "./dist/playwright/teardown-namespaces.js"
+    },
+    "./orchestrator": {
+      "types": "./dist/deployment/orchestrator/index.d.ts",
+      "default": "./dist/deployment/orchestrator/index.js"
     }
   },
   "publishConfig": {
@@ -58,7 +62,8 @@
     "tsconfig.base.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/",
+    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/ && cp src/deployment/orchestrator/install-orchestrator.sh dist/deployment/orchestrator/",
+    "prepare": "husky",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",
     "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
@@ -90,7 +95,10 @@
     "@types/lodash.clonedeepwith": "^4.5.9",
     "@types/lodash.mergewith": "^4.6.9",
     "@types/node": "^24.10.1",
-    "@types/proper-lockfile": "^4.1.4"
+    "@types/proper-lockfile": "^4.1.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "markdown-link-check": "^3.13.6"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.11.0",

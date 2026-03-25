@@ -215,13 +215,10 @@ test.beforeAll(async ({ rhdh }) => {
 ### Validating Required Variables
 
 ```typescript
+import { requireEnv } from "@red-hat-developer-hub/e2e-test-utils/utils";
+
 test.beforeAll(async ({ rhdh }) => {
-  const requiredVars = ["VAULT_API_KEY", "VAULT_SECRET"];
-  for (const varName of requiredVars) {
-    if (!process.env[varName]) {
-      throw new Error(`Required variable ${varName} is not set`);
-    }
-  }
+  requireEnv("VAULT_API_KEY", "VAULT_SECRET");
 
   await rhdh.configure({ auth: "keycloak" });
   await rhdh.deploy();

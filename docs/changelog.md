@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.20] - Current
+## [1.1.21] - Current
+
+### Fixed
+
+- Updated occurrences of `BASE_URL` to `RHDH_BASE_URL`
+
+## [1.1.20]
 
 ### Added
 
@@ -12,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - **`Role` interface**: Exported alongside `Policy` from `@red-hat-developer-hub/e2e-test-utils/helpers`.
 
 ## [1.1.19]
+
+### Added
 
 - **installOrchestrator(namespace?: string)**: Runs the orchestrator install script via a TypeScript wrapper; creates or reuses the given namespace (default `"orchestrator"`). Exported from `@red-hat-developer-hub/e2e-test-utils/orchestrator`.
 

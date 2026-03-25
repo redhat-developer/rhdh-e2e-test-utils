@@ -1,7 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { UIhelper } from "../helpers/ui-helper.js";
 
-//${BASE_URL}/catalog page
+//${RHDH_BASE_URL}/catalog page
 export class CatalogPage {
   private page: Page;
   private uiHelper: UIhelper;
@@ -36,7 +36,9 @@ export class CatalogPage {
   async search(s: string) {
     await this.searchField.clear();
     const searchResponse = this.page.waitForResponse(
-      new RegExp(`${process.env.BASE_URL}/api/catalog/entities/by-query/*`),
+      new RegExp(
+        `${process.env.RHDH_BASE_URL}/api/catalog/entities/by-query/*`,
+      ),
     );
     await this.searchField.fill(s);
     await searchResponse;

@@ -360,7 +360,7 @@ export class LoginHelper {
 
     await popup.waitForLoadState("domcontentloaded");
 
-    if (popup.url().startsWith(process.env.BASE_URL as string)) {
+    if (popup.url().startsWith(process.env.RHDH_BASE_URL as string)) {
       // an active microsoft session is already logged in and the popup will automatically close
       return "Already logged in";
     } else {

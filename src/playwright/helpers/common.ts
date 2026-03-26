@@ -78,16 +78,11 @@ export class LoginHelper {
     await this.page.waitForTimeout(3_000);
   }
 
-  async logintoKeycloak(userid: string, password: string) {
-    await new Promise<void>((resolve) => {
-      this.page.once("popup", async (popup) => {
-        await popup.waitForLoadState();
-        await popup.locator("#username").fill(userid);
-        await popup.locator("#password").fill(password);
-        await popup.locator("#kc-login").click();
-        resolve();
-      });
-    });
+  async logintoKeycloak(popup: Page, userid: string, password: string) {
+    await popup.waitForLoadState();
+    await popup.locator("#username").fill(userid);
+    await popup.locator("#password").fill(password);
+    await popup.locator("#kc-login").click();
   }
 
   async loginAsKeycloakUser(
@@ -96,8 +91,10 @@ export class LoginHelper {
   ) {
     await this.page.goto("/");
     await this.uiHelper.waitForLoad(240000);
+    const popupPromise = this.page.waitForEvent("popup");
     await this.uiHelper.clickButton("Sign In");
-    await this.logintoKeycloak(userid, password);
+    const popup = await popupPromise;
+    await this.logintoKeycloak(popup, userid, password);
     await this.page.waitForSelector("nav a", { timeout: 10_000 });
   }
 

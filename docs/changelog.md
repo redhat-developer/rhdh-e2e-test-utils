@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.22] - Current
+## [1.1.23] - Current
+
+### Fixed
+
+- Fixed popup flow for Keycloak sign in. Before, if the popup opened fast, the "popup" event could fire before the listener was attached resulting in test hanging and timeouts.
+
+## [1.1.22]
 
 ### Added
 

@@ -86,6 +86,7 @@ yarn report
 ### Report Location
 
 Reports are saved to `playwright-report/`:
+
 - `playwright-report/index.html` - HTML report
 - Test artifacts (screenshots, videos, traces)
 
@@ -136,6 +137,50 @@ For failed tests, traces are automatically captured:
 npx playwright show-trace playwright-report/trace.zip
 ```
 
+## Test local changes to e2e-test-utils in Overlays
+
+If you want to try your local changes to `@red-hat-developer-hub/e2e-test-utils` work for [Overlays](https://github.com/redhat-developer/rhdh-plugin-export-overlays):
+
+1. Build the utils package:
+
+```bash
+cd /Your/Path/Projects/rhdh-e2e-test-utils
+yarn build
+```
+
+1. Point the Overlays workspace `e2e-test-utils` dependency to your local checkout:
+
+```bash
+cd /Your/Path/Projects/rhdh-plugin-export-overlays/workspaces/<plugin>/e2e-tests
+```
+
+Update `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@red-hat-developer-hub/e2e-test-utils": "file:/Your/Path/Projects/rhdh-e2e-test-utils"
+  }
+}
+```
+
+1. Reinstall dependencies and run tests:
+
+```bash
+yarn install
+yarn test:headed
+```
+
+When you change the utils package again, re-run `yarn build` in `rhdh-e2e-test-utils`, then run `yarn install` again in the overlay `e2e-tests` workspace.
+
+### Troubleshooting local linking
+
+If you see odd module-resolution issues while testing a locally linked `e2e-test-utils` package, try running the Overlays tests with:
+
+```bash
+NODE_PRESERVE_SYMLINKS=1 yarn test:headed
+```
+
 ## Environment Variables
 
 ### Using .env File
@@ -151,11 +196,11 @@ SKIP_KEYCLOAK_DEPLOYMENT=false
 
 ### Common Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RHDH_VERSION` | RHDH version to deploy | `next` (latest) |
-| `INSTALLATION_METHOD` | `helm` or `operator` | `helm` |
-| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak deployment entirely (for guest auth) | `false` |
+| Variable                   | Description                                        | Default         |
+| -------------------------- | -------------------------------------------------- | --------------- |
+| `RHDH_VERSION`             | RHDH version to deploy                             | `next` (latest) |
+| `INSTALLATION_METHOD`      | `helm` or `operator`                               | `helm`          |
+| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak deployment entirely (for guest auth) | `false`         |
 
 See [Environment Variables Reference](/overlay/reference/environment-variables) for all available variables.
 
@@ -251,7 +296,7 @@ test("screenshot test", async ({ page }) => {
 
 ```typescript
 test("console test", async ({ page }) => {
-  page.on("console", msg => console.log(msg.text()));
+  page.on("console", (msg) => console.log(msg.text()));
   await page.goto("/");
 });
 ```

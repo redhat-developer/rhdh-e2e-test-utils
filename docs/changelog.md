@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.23] - Current
+## [1.1.24] - Current
+
+### Fixed
+
+- **`KubernetesClientHelper.createNamespaceIfNotExists`**: Handle 409 AlreadyExists race when multiple Playwright workers concurrently create the same namespace.
+
+## [1.1.23]
 
 ### Fixed
 

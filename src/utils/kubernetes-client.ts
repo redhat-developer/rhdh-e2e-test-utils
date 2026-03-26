@@ -130,6 +130,14 @@ class KubernetesClientHelper {
         console.log(`✓ Created namespace ${namespace}`);
         return response;
       } catch (createError) {
+        const msg =
+          createError instanceof Error
+            ? createError.message
+            : String(createError);
+        if (msg.includes("409") || msg.includes("AlreadyExists")) {
+          console.log(`✓ Namespace ${namespace} already exists`);
+          return await this._k8sApi.readNamespace({ name: namespace });
+        }
         console.error(
           `✗ Failed to create namespace ${namespace}:`,
           createError instanceof Error ? createError.message : createError,

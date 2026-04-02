@@ -80,6 +80,8 @@ export class APIHelper {
     // Create the repository
     await APIHelper.createGitHubRepo(owner, repoName);
 
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     // Add the specified file
     await APIHelper.createFileInRepo(
       owner,

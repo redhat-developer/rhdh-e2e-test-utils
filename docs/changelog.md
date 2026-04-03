@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.24] - Current
+## [1.1.25] - Current
+
+### Added
+
+- **`UIhelper.dismissQuickstartIfVisible()`**: Optionally closes the RHDH quickstart drawer when its **Hide** control is visible, so e2e tests are not blocked by the overlay. Optional `waitHiddenMs` (default `5000`) controls how long to wait for the button to become hidden after click.
+
+## [1.1.24]
 
 ### Added
 

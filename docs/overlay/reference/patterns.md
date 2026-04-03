@@ -205,6 +205,16 @@ await uiHelper.searchInputPlaceholder("Search...", "query");
 await uiHelper.selectMuiBox("Category", "Option 1");
 ```
 
+### Dismiss quickstart drawer
+
+When the RHDH quickstart plugin shows its drawer, it can cover catalog search and other controls. Call this after login or navigation if needed (it is a no-op when **Hide** is not visible):
+
+```typescript
+await uiHelper.dismissQuickstartIfVisible();
+```
+
+See [UIhelper](/guide/helpers/ui-helper) and [UIhelper API](/api/helpers/ui-helper).
+
 ## Table Patterns
 
 ### Verify Table Rows

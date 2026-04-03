@@ -24,6 +24,14 @@ async waitForLoad(timeout?: number): Promise<void>
 ```
 Wait for page to fully load.
 
+#### `dismissQuickstartIfVisible()`
+```typescript
+async dismissQuickstartIfVisible(options?: {
+  waitHiddenMs?: number;
+}): Promise<void>
+```
+If the RHDH quickstart drawer is open, clicks its **Hide** button and waits for the control to disappear. Does nothing when the button is not visible. Use before catalog search or other UI that the drawer can cover. Default `waitHiddenMs` is `5000`.
+
 ### Verification Methods
 
 #### `verifyHeading()`

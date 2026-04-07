@@ -57,7 +57,7 @@ export class RHDHDeployment {
           this.deploymentConfig.namespace,
         );
 
-        await this._applyAppConfig();
+        await this.applyAppConfig();
         await this._applySecrets();
 
         if (this.deploymentConfig.method === "helm") {
@@ -81,7 +81,7 @@ export class RHDHDeployment {
     }
   }
 
-  private async _applyAppConfig(): Promise<void> {
+  async applyAppConfig(): Promise<void> {
     const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
     const appConfigYaml = await mergeYamlFilesIfExists(
       [

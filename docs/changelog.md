@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.25] - Current
+## [1.1.26] - Current
+
+### Added
+
+- **`RHDHDeployment.applyAppConfig()`** (exposes the former private `_applyAppConfig`): Applies the merged app-config ConfigMap without a full `deploy()`, using the same merge path as `deploy()` after you change `configure()` options (for example a different `appConfig` file).
+- **Use with restarts**: Call **`scaleDownAndRestart()`** or **`rolloutRestart()`** afterward when Helm does not reload config by itself; finish with **`waitUntilReady()`**. Typical pattern: `configure({ auth, appConfig, valueFile, ... })` → `applyAppConfig()` → `scaleDownAndRestart()` → `waitUntilReady()`.
+
+## [1.1.25]
 
 ### Added
 

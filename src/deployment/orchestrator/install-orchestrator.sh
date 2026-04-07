@@ -139,7 +139,7 @@ check_operator_status() {
 }
 
 install_serverless_logic_ocp_operator() {
-  install_subscription logic-operator openshift-operators stable logic-operator redhat-operators openshift-marketplace logic-operator.v1.37.2
+  install_subscription logic-operator openshift-operators stable logic-operator redhat-operators openshift-marketplace
   return 0
 }
 waitfor_serverless_logic_ocp_operator() {

@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.25] - Current
+## [1.1.26] - Current
+
+### Fixed
+
+- **OSL operator switched to stable/logic-operator**: Switched from `alpha`/`logic-operator-rhel8` (legacy pre-1.37 package) to `stable`/`logic-operator` (GA package), matching the OS operator channel and avoiding version skew that caused Knative API incompatibilities.
+
+## [1.1.25]
 
 ### Added
 

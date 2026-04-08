@@ -123,13 +123,19 @@ EOD
 }
 
 check_operator_status() {
-  local timeout=${1:-300} namespace=$2 operator_name=$3 expected_status=${4:-Succeeded}
-  log::info "Checking operator '${operator_name}' in '${namespace}' (timeout ${timeout}s, expected: ${expected_status})"
+  local timeout=${1:-300} namespace=$2 csv_name_prefix=$3 expected_status=${4:-Succeeded}
+  log::info "Checking operator CSV '${csv_name_prefix}*' in '${namespace}' (timeout ${timeout}s, expected: ${expected_status})"
   timeout "${timeout}" bash -c "
     while true; do
-      CURRENT_PHASE=\$(oc get csv -n '${namespace}' -o jsonpath='{.items[?(@.spec.displayName==\"${operator_name}\")].status.phase}')
-      echo \"[check_operator_status] Phase: \${CURRENT_PHASE}\" >&2
+      CSV_NAME=\$(oc get csv -n '${namespace}' -o name 2>/dev/null | grep \"/${csv_name_prefix}\" | head -1 | cut -d'/' -f2)
+      if [[ -n \"\${CSV_NAME}\" ]]; then
+        CURRENT_PHASE=\$(oc get csv \"\${CSV_NAME}\" -n '${namespace}' -o jsonpath='{.status.phase}' 2>/dev/null)
+      else
+        CURRENT_PHASE=\"\"
+      fi
+      echo \"[check_operator_status] CSV: \${CSV_NAME}, Phase: \${CURRENT_PHASE}\" >&2
       [[ \"\${CURRENT_PHASE}\" == \"${expected_status}\" ]] && echo \"[check_operator_status] Operator reached ${expected_status}\" >&2 && break
+      [[ -z \"\${CSV_NAME}\" ]] && echo \"[check_operator_status] No CSV found matching '${csv_name_prefix}'\" >&2
       sleep 10
     done
   " || { log::error "Operator did not reach ${expected_status} in time."; return 1; }
@@ -140,7 +146,7 @@ install_serverless_logic_ocp_operator() {
   return 0
 }
 waitfor_serverless_logic_ocp_operator() {
-  check_operator_status 500 openshift-operators "Red Hat OpenShift Serverless Logic" Succeeded
+  check_operator_status 500 openshift-operators "logic-operator" Succeeded
   return 0
 }
 
@@ -149,7 +155,7 @@ install_serverless_ocp_operator() {
   return 0
 }
 waitfor_serverless_ocp_operator() {
-  check_operator_status 300 openshift-operators "Red Hat OpenShift Serverless" Succeeded
+  check_operator_status 300 openshift-operators "serverless-operator" Succeeded
   return 0
 }
 

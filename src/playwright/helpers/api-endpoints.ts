@@ -16,6 +16,8 @@ export const GITHUB_API_ENDPOINTS = {
 
   workflowRuns: `${backstageShowcaseAPI}/actions/runs?per_page=${perPage}`,
 
+  getOrg: getOrgUrl,
+
   createRepo: (owner: string) => `${getOrgUrl(owner)}/repos`,
 
   getRepo: getRepoUrl,

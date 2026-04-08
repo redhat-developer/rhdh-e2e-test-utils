@@ -16,12 +16,14 @@ export const GITHUB_API_ENDPOINTS = {
 
   workflowRuns: `${backstageShowcaseAPI}/actions/runs?per_page=${perPage}`,
 
+  createRepo: (owner: string) => `${getOrgUrl(owner)}/repos`,
+
+  getRepo: getRepoUrl,
+
   deleteRepo: getRepoUrl,
 
   mergePR: (owner: string, repoName: string, pullNumber: number) =>
     `${getRepoUrl(owner, repoName)}/pulls/${pullNumber}/merge`,
-
-  createRepo: (owner: string) => `${getOrgUrl(owner)}/repos`,
 
   pullFiles: (owner: string, repoName: string, pr: number) =>
     `${getRepoUrl(owner, repoName)}/pulls/${pr}/files`,

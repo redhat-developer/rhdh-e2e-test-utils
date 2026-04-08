@@ -92,7 +92,7 @@ export class APIHelper {
         },
         {
           timeout: 30_000,
-          intervals: [1000, 2000],
+          intervals: [5000],
         },
       )
       .toBe(200);

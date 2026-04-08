@@ -105,7 +105,9 @@ log::success() {
 # Operator subscription and status
 # ---------------------------------------------------------------------------
 install_subscription() {
-  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6
+  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6 starting_csv=${7:-}
+  local spec_extra=""
+  [[ -n "$starting_csv" ]] && spec_extra="  startingCSV: $starting_csv"
   oc apply -f - << EOD
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -118,6 +120,7 @@ spec:
   name: $package
   source: $source_name
   sourceNamespace: $source_namespace
+${spec_extra}
 EOD
   return 0
 }
@@ -136,11 +139,11 @@ check_operator_status() {
 }
 
 install_serverless_logic_ocp_operator() {
-  install_subscription logic-operator-rhel8 openshift-operators alpha logic-operator-rhel8 redhat-operators openshift-marketplace
+  install_subscription logic-operator openshift-operators stable logic-operator redhat-operators openshift-marketplace
   return 0
 }
 waitfor_serverless_logic_ocp_operator() {
-  check_operator_status 500 openshift-operators "OpenShift Serverless Logic Operator (Alpha)" Succeeded
+  check_operator_status 500 openshift-operators "Red Hat OpenShift Serverless Logic" Succeeded
   return 0
 }
 
@@ -454,11 +457,12 @@ main() {
     log::info "OpenShift Serverless Operator already installed"
   fi
 
-  if ! oc get subscription logic-operator-rhel8 -n openshift-operators &>/dev/null; then
+  if oc get subscription logic-operator -n openshift-operators &>/dev/null || \
+     oc get subscription logic-operator-rhel8 -n openshift-operators &>/dev/null; then
+    log::info "OpenShift Serverless Logic Operator already installed"
+  else
     log::info "Installing OpenShift Serverless Logic Operator..."
     install_serverless_logic_ocp_operator
-  else
-    log::info "OpenShift Serverless Logic Operator already installed"
   fi
 
   log::info "Waiting for operators to be ready..."

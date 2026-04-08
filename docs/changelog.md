@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.28] - Current
+## [1.1.29] - Current
+
+### Fixed
+
+- **Orchestrator installation script operator status check**: Fixed `install-orchestrator.sh` timeout issue caused by incorrect operator display name. The script was searching for "Red Hat OpenShift Serverless Logic" but the actual display name is "OpenShift Serverless Logic Operator", causing empty Phase values and 500-second timeout.
+- **Robust operator status checking**: Refactored `check_operator_status()` to query by CSV name prefix (e.g., `logic-operator`) instead of display name, making it more stable across operator version updates and preventing similar issues in the future.
+
+## [1.1.28]
 
 - **APIHelper.createGitHubRepoWithFile**: Ensure file creation happens after repository creation.
 

@@ -68,6 +68,7 @@
     "clean": "rm -rf dist",
     "lint:check": "eslint . --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
     "lint:fix": "eslint . --fix --ignore-pattern dist --ignore-pattern README.md --ignore-pattern docs",
+    "prepack": "yarn build",
     "prepublishOnly": "yarn build",
     "prettier:check": "prettier --check . '!dist' '!README.md' '!docs' '!.github/workflows/deploy-docs.yml'",
     "prettier:fix": "prettier --write . '!dist' '!README.md' '!docs' '!.github/workflows/deploy-docs.yml'",
@@ -120,5 +121,5 @@
     "typescript-eslint": "^8.48.1",
     "zx": "^8.8.5"
   },
-  "packageManager": "yarn@3.8.7"
+  "packageManager": "yarn@3.8.7+sha512.bbe7e310ff7fd20dc63b111110f96fe18192234bb0d4f10441fa6b85d2b644c8923db8fbe6d7886257ace948440ab1f83325ad02af457a1806cdc97f03d2508e"
 }

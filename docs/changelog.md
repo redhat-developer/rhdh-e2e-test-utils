@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.26] - Current
+## [1.1.27] - Current
+
+### Fixed
+
+- **Pin `@keycloak/keycloak-admin-client` to 26.5.6**: Version 26.6.0 has a broken postinstall script that fails in CI environments with a `packageManager` field. Pinned to last known-good version.
+
+## [1.1.26]
 
 ### Fixed
 

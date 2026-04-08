@@ -217,13 +217,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@keycloak/keycloak-admin-client@npm:^26.0.0":
-  version: 26.4.7
-  resolution: "@keycloak/keycloak-admin-client@npm:26.4.7"
+"@keycloak/keycloak-admin-client@npm:26.5.6":
+  version: 26.5.6
+  resolution: "@keycloak/keycloak-admin-client@npm:26.5.6"
   dependencies:
     camelize-ts: ^3.0.0
     url-template: ^3.1.1
-  checksum: 973af8c11fb61d648fac7e7b767d52849dd409d1fcee33b36e72c7096e266943cbd2f8f00ebcb47bca59b2a3c106e7853ba7179c730c3eb429cbea39f7c53171
+  checksum: 1e996590de8f191dbe616622102895b358c4e31274a7770b3bba2039fc2e64ce9a67ca6cbf6e823d39e061891c25c29b4342b199f20cc3e04937509cf3975843
   languageName: node
   linkType: hard
 
@@ -377,7 +377,7 @@ __metadata:
     "@backstage-community/plugin-rbac-common": 1.23.0
     "@backstage/catalog-model": 1.7.5
     "@eslint/js": ^9.39.1
-    "@keycloak/keycloak-admin-client": ^26.0.0
+    "@keycloak/keycloak-admin-client": 26.5.6
     "@kubernetes/client-node": ^1.4.0
     "@playwright/test": ^1.57.0
     "@types/fs-extra": ^11.0.4

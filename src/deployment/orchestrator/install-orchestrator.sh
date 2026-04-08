@@ -105,9 +105,7 @@ log::success() {
 # Operator subscription and status
 # ---------------------------------------------------------------------------
 install_subscription() {
-  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6 starting_csv=${7:-}
-  local spec_extra=""
-  [[ -n "$starting_csv" ]] && spec_extra="  startingCSV: $starting_csv"
+  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6
   oc apply -f - << EOD
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -120,7 +118,6 @@ spec:
   name: $package
   source: $source_name
   sourceNamespace: $source_namespace
-${spec_extra}
 EOD
   return 0
 }

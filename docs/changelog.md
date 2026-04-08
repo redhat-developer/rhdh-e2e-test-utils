@@ -2,9 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.27] - Current
-
-### Fixed
+## [1.1.28] - Current
 
 - **APIHelper.createGitHubRepoWithFile**: Ensure file creation happens after repository creation.
 
@@ -12,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 - **`GITHUB_API_ENDPOINTS.getOrg(owner)`**: Get GitHub organization
 - **`GITHUB_API_ENDPOINTS.getRepo(owner, repo)`**: Get GitHub repository
+
+## [1.1.27]
+
+### Fixed
+
+- **Pin `@keycloak/keycloak-admin-client` to 26.5.6**: Version 26.6.0 has a broken postinstall script that fails in CI environments with a `packageManager` field. Pinned to last known-good version.
 
 ## [1.1.26]
 

@@ -206,8 +206,41 @@ deploy_external_service "$1"
 | Deployment scripts | `deploy-<service>.sh` | `deploy-customization-provider.sh` |
 | Config files | Standard names | `app-config-rhdh.yaml` |
 
+## Path Resolution (WorkspacePaths)
+
+Tests in this repo can run from two different working directories:
+
+| Context | CWD | How |
+|---------|-----|-----|
+| Individual workspace | `workspaces/<plugin>/e2e-tests/` | `cd workspaces/tech-radar/e2e-tests && yarn test` |
+| Repo root (unified runner) | Repository root | `./run-e2e.sh -w tech-radar` |
+
+Configuration files live under `tests/config/` relative to each workspace's `e2e-tests/` directory. If paths were resolved from `process.cwd()`, they would break when running from the repo root.
+
+### How It Works
+
+The `WorkspacePaths` utility resolves all config file paths from Playwright's `test.info().project.testDir` — an **absolute path** set by Playwright itself — instead of relying on CWD. This makes path resolution correct regardless of where the process was launched.
+
+```
+test.info().project.testDir
+  → /abs/path/workspaces/tech-radar/e2e-tests/tests
+    → e2eRoot:  /abs/path/workspaces/tech-radar/e2e-tests
+    → configDir: /abs/path/workspaces/tech-radar/e2e-tests/tests/config
+    → appConfig: /abs/path/workspaces/tech-radar/e2e-tests/tests/config/app-config-rhdh.yaml
+    → metadataDir: /abs/path/workspaces/tech-radar/metadata
+```
+
+### Complementary CWD Fix
+
+The worker fixture also sets `process.chdir(e2eRoot)` and `$.cwd = e2eRoot` when the test worker starts. This ensures that any code using relative paths (e.g., shell scripts, `fs.readFileSync`) also resolves correctly. WorkspacePaths handles the framework-level paths; the CWD change covers everything else.
+
+::: info No Action Required
+WorkspacePaths is used internally by `RHDHDeployment`. You don't need to use it directly unless you're resolving custom file paths in your test setup. See [WorkspacePaths API](/guide/utilities/#workspacepaths) for available properties.
+:::
+
 ## Related Pages
 
 - [Configuration Files](./configuration-files) - Detailed YAML configuration
 - [Spec Files](./spec-files) - Writing test specifications
 - [Pre-requisite Services](/overlay/tutorials/custom-deployment) - Deploy dependencies before RHDH
+- [Unified Test Runner](/overlay/reference/run-e2e) - Running tests from repo root

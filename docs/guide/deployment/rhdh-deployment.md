@@ -143,7 +143,10 @@ Any other value will throw an error during deployment.
 
 ### `waitUntilReady(timeout?)`
 
-Wait for the RHDH deployment to be ready:
+Wait for the RHDH deployment to be ready. Performs two-phase readiness check:
+
+1. **Pod readiness** — Waits for all pods to have `Ready=True` with early failure detection (CrashLoopBackOff, ImagePullBackOff, etc.)
+2. **Route readiness** — HTTP health check against the RHDH route, closing the gap between pod readiness and the OpenShift Router actually serving traffic
 
 ```typescript
 // Default timeout: 500 seconds (~8 minutes)

@@ -33,7 +33,7 @@ export default defineConfig({
       { text: "Examples", link: "/examples/" },
       { text: "Overlay Testing", link: "/overlay/" },
       {
-        text: "v1.1.22",
+        text: "v1.1.25",
         items: [{ text: "Changelog", link: "/changelog" }],
       },
     ],
@@ -394,6 +394,10 @@ export default defineConfig({
             {
               text: "Environment Variables",
               link: "/overlay/reference/environment-variables",
+            },
+            {
+              text: "Unified Test Runner (run-e2e.sh)",
+              link: "/overlay/reference/run-e2e",
             },
             {
               text: "Local OCI Testing",

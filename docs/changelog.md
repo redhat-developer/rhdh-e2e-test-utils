@@ -2,11 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.25] - Current
+## [1.1.27] - Current
 
 ### Fixed
 
 - **APIHelper.createGitHubRepoWithFile**: Ensure file creation happens after repository creation.
+
+### Added
+
+- **`GITHUB_API_ENDPOINTS.getOrg(owner)`**: Get GitHub organization
+- **`GITHUB_API_ENDPOINTS.getRepo(owner, repo)`**: Get GitHub repository
+
+## [1.1.26]
+
+### Fixed
+
+- **OSL operator switched to stable/logic-operator**: Switched from `alpha`/`logic-operator-rhel8` (legacy pre-1.37 package) to `stable`/`logic-operator` (GA package), matching the OS operator channel and avoiding version skew that caused Knative API incompatibilities.
+
+## [1.1.25]
+
+### Added
+
+- **`UIhelper.dismissQuickstartIfVisible()`**: Optionally closes the RHDH quickstart drawer when its **Hide** control is visible, so e2e tests are not blocked by the overlay. Optional `waitHiddenMs` (default `5000`) controls how long to wait for the button to become hidden after click.
 
 ## [1.1.24]
 
@@ -197,7 +214,7 @@ All notable changes to this project will be documented in this file.
 - **Plugin metadata auto-generation**: When `dynamic-plugins.yaml` doesn't exist, configuration is automatically generated from `metadata/*.yaml` files
 - **OCI URL generation for PR builds**: When `GIT_PR_NUMBER` is set, local plugin paths are replaced with OCI URLs (e.g., `oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0`)
 - Plugin metadata injection into existing `dynamic-plugins.yaml` configurations
-- New utilities: `shouldInjectPluginMetadata()`, `generateDynamicPluginsConfigFromMetadata()`, `loadAndInjectPluginMetadata()`, `extractPluginName()`
+- New utilities: `extractPluginName()`, `generatePluginsFromMetadata()`, `processPluginsForDeployment()`, `isNightlyJob()`
 - **Early pod failure detection**: `waitForPodsWithFailureDetection()` in KubernetesClientHelper detects CrashLoopBackOff, ImagePullBackOff, init container failures, etc. within seconds instead of waiting for full timeout
 
 ### Changed

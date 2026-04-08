@@ -105,7 +105,12 @@ await rhdh.deploy({ timeout: null });
 async waitUntilReady(timeout?: number): Promise<void>
 ```
 
-Wait for RHDH deployment to be ready.
+Wait for RHDH deployment to be ready. Performs two checks:
+
+1. **Pod readiness** — Waits for all pods to have `Ready=True`, with early failure detection for `CrashLoopBackOff`, `ImagePullBackOff`, etc.
+2. **Route readiness** — HTTP health check against the RHDH route URL using Playwright's `request.newContext({ ignoreHTTPSErrors: true })`. This closes the gap between pod `Ready=True` and the OpenShift Router/HAProxy actually serving traffic.
+
+The remaining timeout after pod readiness is used for the route check (minimum 30 seconds).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -133,7 +138,11 @@ await rhdh.rolloutRestart();
 async scaleDownAndRestart(): Promise<void>
 ```
 
-Scale down to 0, then back to 1 replica.
+Scale down to 0, wait for pod termination, then scale back to 1 replica. Prevents `MigrationLocked` errors when two backstage instances try to run database migrations simultaneously.
+
+::: info
+Called automatically during `deploy()` only on **helm upgrades** (when an existing deployment is detected). Skipped on fresh installs to avoid unnecessary pod cycling.
+:::
 
 ```typescript
 await rhdh.scaleDownAndRestart();

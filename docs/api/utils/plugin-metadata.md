@@ -1,48 +1,12 @@
 # Plugin Metadata
 
-Utilities for loading and injecting plugin metadata from Package CRD files into dynamic plugins configuration.
+Utilities for loading and processing plugin metadata from Package CRD files. These functions are used **internally** by `RHDHDeployment.deploy()` — most consumers don't need to call them directly.
 
-## Import
-
-```typescript
-import {
-  shouldInjectPluginMetadata,
-  extractPluginName,
-  getNormalizedPluginMergeKey,
-  getMetadataDirectory,
-  parseAllMetadataFiles,
-  injectMetadataConfig,
-  generateDynamicPluginsConfigFromMetadata,
-  loadAndInjectPluginMetadata,
-} from "@red-hat-developer-hub/e2e-test-utils/utils";
-```
+::: info
+Plugin metadata handling is fully automatic during `rhdh.deploy()`. The functions documented here are exported from the module for advanced use cases and testing, but are not part of the `./utils` public export path. They are imported internally by the deployment layer.
+:::
 
 ## Functions
-
-### shouldInjectPluginMetadata()
-
-Checks if plugin metadata handling should be enabled.
-
-```typescript
-function shouldInjectPluginMetadata(): boolean
-```
-
-**Returns:** `true` if metadata handling is enabled, `false` otherwise.
-
-**Behavior:**
-- Returns `false` if `RHDH_SKIP_PLUGIN_METADATA_INJECTION` environment variable is set
-- Returns `false` if `JOB_NAME` contains `periodic-` (nightly/periodic builds)
-- Returns `true` otherwise (default for local dev and PR builds)
-
-**Example:**
-
-```typescript
-if (shouldInjectPluginMetadata()) {
-  // Load and inject metadata
-}
-```
-
----
 
 ### extractPluginName()
 
@@ -110,6 +74,24 @@ getNormalizedPluginMergeKey({
 
 ---
 
+### isNightlyJob()
+
+Determines whether the current execution is a nightly/periodic job. Controls whether metadata config injection is enabled and which OCI resolution strategy is used.
+
+```typescript
+function isNightlyJob(): boolean
+```
+
+**Returns:** `true` if running in nightly mode, `false` for PR/local mode.
+
+**Priority order:**
+1. If `GIT_PR_NUMBER` is set → returns `false` (PR mode takes precedence)
+2. If `E2E_NIGHTLY_MODE` is `"true"` or `"1"` → returns `true`
+3. If `JOB_NAME` contains `periodic-` → returns `true`
+4. Otherwise → returns `false`
+
+---
+
 ### getMetadataDirectory()
 
 Gets the metadata directory path.
@@ -124,15 +106,6 @@ function getMetadataDirectory(metadataPath?: string): string | null
 | `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
 
 **Returns:** The resolved metadata directory path, or `null` if it doesn't exist.
-
-**Example:**
-
-```typescript
-const metadataDir = getMetadataDirectory();
-if (metadataDir) {
-  console.log(`Found metadata at: ${metadataDir}`);
-}
-```
 
 ---
 
@@ -153,120 +126,67 @@ async function parseAllMetadataFiles(
 
 **Returns:** Map of plugin name to [`PluginMetadata`](#pluginmetadata).
 
-**Example:**
+---
+
+### generatePluginsFromMetadata()
+
+Auto-generates plugin entries from workspace metadata files when no user-provided `dynamic-plugins.yaml` exists. Each plugin is enabled by default.
 
 ```typescript
-const metadataDir = getMetadataDirectory();
-if (metadataDir) {
-  const metadataMap = await parseAllMetadataFiles(metadataDir);
-  console.log(`Found ${metadataMap.size} plugins`);
-}
+async function generatePluginsFromMetadata(
+  metadataPath?: string
+): Promise<DynamicPluginsConfig>
 ```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
+
+**Returns:** Dynamic plugins configuration with all plugins enabled (`disabled: false`).
 
 ---
 
-### injectMetadataConfig()
+### processPluginsForDeployment()
 
-Injects plugin configurations from metadata into a dynamic plugins config.
+Unified entry point for both PR and nightly plugin resolution flows. Called automatically by `RHDHDeployment.deploy()`.
 
 ```typescript
-function injectMetadataConfig(
-  dynamicPluginsConfig: DynamicPluginsConfig,
-  metadataMap: Map<string, PluginMetadata>
-): DynamicPluginsConfig
+async function processPluginsForDeployment(
+  config: DynamicPluginsConfig,
+  metadataPath?: string
+): Promise<DynamicPluginsConfig>
+```
+
+**Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `config` | [`DynamicPluginsConfig`](#dynamicpluginsconfig) | - | The plugins config to process |
+| `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
+
+**Returns:** Processed configuration with resolved OCI references.
+
+**Behavior:**
+- **PR mode** (`!isNightlyJob()`): Injects `appConfigExamples` from metadata as base config, then resolves packages to OCI URLs (PR-specific if `GIT_PR_NUMBER` set, metadata refs otherwise)
+- **Nightly mode** (`isNightlyJob()`): Resolves packages to OCI refs from metadata only (no config injection)
+- Respects `RHDH_SKIP_PLUGIN_METADATA_INJECTION` to skip config injection
+
+---
+
+### disablePluginWrappers()
+
+Creates a dynamic plugins config that disables wrapper plugins. Used during PR builds when wrapper plugins would conflict with PR-built OCI images.
+
+```typescript
+function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig
 ```
 
 **Parameters:**
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `dynamicPluginsConfig` | [`DynamicPluginsConfig`](#dynamicpluginsconfig) | The config to augment |
-| `metadataMap` | `Map<string, PluginMetadata>` | Map of plugin metadata |
+| `plugins` | `string[]` | Plugin names to disable (e.g., `["backstage-community-plugin-tech-radar"]`) |
 
-**Returns:** Augmented configuration with injected pluginConfigs.
-
-**Merge Behavior:** Metadata config serves as the base, user-provided pluginConfig overrides it.
-
----
-
-### generateDynamicPluginsConfigFromMetadata()
-
-Generates a complete dynamic-plugins configuration from metadata files.
-
-```typescript
-async function generateDynamicPluginsConfigFromMetadata(
-  metadataPath?: string
-): Promise<DynamicPluginsConfig>
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
-
-**Returns:** Complete dynamic plugins configuration with all plugins enabled.
-
-**Behavior:**
-- Returns `{ plugins: [] }` if [`shouldInjectPluginMetadata()`](#shouldinjectpluginmetadata) returns `false`
-- Throws error if metadata directory not found
-- Throws error if no valid metadata files found
-- All generated plugins have `disabled: false`
-
-**PR Build Behavior (when `GIT_PR_NUMBER` is set):**
-- Replaces local plugin paths with OCI URLs
-- Fetches plugin versions from source repo's `package.json`
-- Throws error if `source.json` or `plugins-list.yaml` not found
-- Throws error if version fetching fails
-
-**Example:**
-
-```typescript
-const config = await generateDynamicPluginsConfigFromMetadata();
-console.log(`Generated config with ${config.plugins?.length} plugins`);
-```
-
-**Example Output (PR Build):**
-
-```yaml
-plugins:
-  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/my-plugin:pr_1234__1.0.0
-    disabled: false
-    pluginConfig:
-      # ... from metadata
-```
-
----
-
-### loadAndInjectPluginMetadata()
-
-Main function to load and inject plugin metadata for PR builds.
-
-```typescript
-async function loadAndInjectPluginMetadata(
-  dynamicPluginsConfig: DynamicPluginsConfig,
-  metadataPath?: string
-): Promise<DynamicPluginsConfig>
-```
-
-**Parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `dynamicPluginsConfig` | [`DynamicPluginsConfig`](#dynamicpluginsconfig) | - | The config to augment |
-| `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
-
-**Returns:** Augmented configuration with metadata (for PR) or unchanged (for nightly).
-
-**Behavior:**
-- Returns config unchanged if [`shouldInjectPluginMetadata()`](#shouldinjectpluginmetadata) returns `false`
-- Throws error if metadata directory not found
-- Throws error if no valid metadata files found
-- Only injects metadata for plugins already in the config
-
-**Example:**
-
-```typescript
-const config = { plugins: [{ package: "./dynamic-plugins/dist/my-plugin", disabled: false }] };
-const augmented = await loadAndInjectPluginMetadata(config);
-```
+**Returns:** Config with each plugin set to `disabled: true` using local wrapper paths.
 
 ## Types
 
@@ -274,7 +194,7 @@ const augmented = await loadAndInjectPluginMetadata(config);
 
 ```typescript
 interface PluginMetadata {
-  /** The dynamic artifact path (e.g., ./dynamic-plugins/dist/plugin-name) */
+  /** The dynamic artifact path (e.g., oci://ghcr.io/.../plugin-name:1.0.0) */
   packagePath: string;
   /** The plugin configuration from appConfigExamples[0].content */
   pluginConfig: Record<string, unknown>;
@@ -318,5 +238,6 @@ Default metadata directory path relative to the e2e-tests directory.
 
 ## See Also
 
-- [Configuration Files](/guide/configuration/config-files#plugin-metadata-injection) - How metadata injection works during deployment
+- [Plugin Metadata Guide](/guide/utilities/plugin-metadata) - How metadata handling works during deployment
+- [Configuration Files](/guide/configuration/config-files#plugin-metadata-injection) - Configuration merge behavior
 - [Environment Variables](/guide/configuration/environment-variables#plugin-metadata-variables) - Variables that control metadata handling

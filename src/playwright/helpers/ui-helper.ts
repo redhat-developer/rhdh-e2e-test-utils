@@ -23,6 +23,22 @@ export class UIhelper {
     }
   }
 
+  /**
+   * Closes the quickstart drawer when the "Hide" button is visible (RHDH quickstart plugin),
+   * so it does not cover catalog or other UI under test.
+   */
+  async dismissQuickstartIfVisible(options?: { waitHiddenMs?: number }) {
+    const waitHiddenMs = options?.waitHiddenMs ?? 5000;
+    const quickstartHide = this.page.getByRole("button", { name: "Hide" });
+    if (await quickstartHide.isVisible()) {
+      await quickstartHide.click();
+      await quickstartHide.waitFor({
+        state: "hidden",
+        timeout: waitHiddenMs,
+      });
+    }
+  }
+
   async verifyComponentInCatalog(kind: string, expectedRows: string[]) {
     await this.openSidebar("Catalog");
     await this.selectMuiBox("Kind", kind);

@@ -43,8 +43,10 @@ These control automatic plugin configuration injection from metadata files:
 | Variable | Description | Effect |
 |----------|-------------|--------|
 | `GIT_PR_NUMBER` | PR number (set by OpenShift CI) | Enables OCI URL generation for PR builds |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When set (any value), disables metadata injection | Opt-out |
+| `E2E_NIGHTLY_MODE` | When `"true"`, activates nightly mode | Uses released OCI refs, skips metadata injection |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `"true"`, disables metadata injection | Opt-out |
 | `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
+| `JOB_MODE` | CI-only: `nightly` or `pr-check` (set by step registry) | Informational |
 
 ### OCI URL Generation
 

@@ -39,6 +39,21 @@ npx playwright install
 
 ## Running Tests
 
+::: tip Multi-Workspace Testing
+To run tests across multiple workspaces simultaneously, use the [`run-e2e.sh`](/overlay/reference/run-e2e) unified test runner instead of individual workspace commands:
+
+```bash
+# Run all workspaces
+./run-e2e.sh
+
+# Run specific workspaces
+./run-e2e.sh -w tech-radar -w keycloak
+
+# Use local e2e-test-utils build
+E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
+```
+:::
+
 ### Run All Tests
 
 ```bash

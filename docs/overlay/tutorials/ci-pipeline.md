@@ -42,6 +42,57 @@ The `e2e-ocp-helm` job runs Helm-based E2E tests on an OpenShift cluster.
 artifacts/e2e-ocp-helm/redhat-developer-rhdh-plugin-export-overlays-ocp-helm/artifacts/playwright-report/index.html
 ```
 
+## e2e-ocp-helm-nightly Job
+
+The `e2e-ocp-helm-nightly` job runs E2E tests against **released** OCI images across all workspaces, verifying that published plugins work correctly with the current RHDH version.
+
+### When It Runs
+
+- **Daily cron**: 4 AM UTC
+- **Manually** via PR comment: `/test e2e-ocp-helm-nightly`
+- **Rehearse** via release repo PRs
+
+### How It Differs from PR Check
+
+| Aspect | PR Check (`e2e-ocp-helm`) | Nightly (`e2e-ocp-helm-nightly`) |
+|--------|--------------------------|----------------------------------|
+| **JOB_MODE** | `pr-check` | `nightly` |
+| **GIT_PR_NUMBER** | Set (PR number) | Not exported |
+| **OCI Images** | PR-built (`pr_` tags) for workspace plugins | Released (from metadata `spec.dynamicArtifact`) |
+| **Metadata injection** | Yes — `appConfigExamples` merged | Skipped |
+| **Wrapper disabling** | Yes (`disableWrappers`) | No |
+| **Workspaces Tested** | Changed workspace only | All workspaces |
+| **E2E_NIGHTLY_MODE** | Not set | `true` |
+
+::: info Why Released OCI Images?
+Nightly tests use OCI refs from workspace metadata (`spec.dynamicArtifact`) because metadata files are the most accurate source for latest published plugin versions — updated daily by the `update-plugins-repo-refs` workflow. Many plugins are not in the catalog index, and those that are may have older versions.
+:::
+
+### JOB_MODE
+
+The CI step registry determines `JOB_MODE` early and uses it to drive all downstream behavior:
+
+- **`nightly`**: Periodic cron jobs, or presubmit jobs with `nightly` in the name
+- **`pr-check`**: All other presubmit jobs
+
+`GIT_PR_NUMBER` is only parsed and exported in `pr-check` mode, preventing nightly jobs from accidentally resolving PR-specific OCI images.
+
+### Where to Find the Playwright Report
+
+Same as the pr-check job:
+
+```
+artifacts/e2e-ocp-helm-nightly/redhat-developer-rhdh-plugin-export-overlays-ocp-helm/artifacts/playwright-report/index.html
+```
+
+### Rehearsing the Nightly Job
+
+To test nightly job changes via the release repo:
+
+1. Open a PR in the release repo with your step registry changes
+2. Comment `/test e2e-ocp-helm-nightly` on the PR
+3. The rehearse job runs with `JOB_MODE=nightly`, testing all workspaces
+
 ## PR OCI Image Builds
 
 When testing a PR, the plugins need to be built into OCI images that RHDH can use. This is handled through the `/publish` command.
@@ -118,8 +169,11 @@ The following environment variables are available during CI execution:
 | `RHDH_VERSION` | RHDH version to deploy |
 | `INSTALLATION_METHOD` | `helm` or `operator` |
 | `CI` | Set to `true` in CI environment |
-| `GIT_PR_NUMBER` | PR number (enables OCI URL generation) |
+| `GIT_PR_NUMBER` | PR number (enables OCI URL generation) — pr-check only |
 | `JOB_NAME` | CI job name (if contains `periodic-`, disables metadata) |
+| `JOB_MODE` | `nightly` or `pr-check` — set by step registry |
+| `E2E_NIGHTLY_MODE` | `true` for nightly jobs |
+| `E2E_TEST_UTILS_VERSION` | Pinned e2e-test-utils version (nightly only) |
 | `VAULT_*` | All Vault secrets with this prefix |
 
 ### Plugin Metadata Variables

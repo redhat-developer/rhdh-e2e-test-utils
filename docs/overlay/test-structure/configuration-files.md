@@ -351,6 +351,25 @@ In CI, these are generated automatically. For local testing with `GIT_PR_NUMBER`
 OCI URL generation is strict - deployment will fail if required files are missing or version fetching fails. This ensures builds don't silently fall back to local paths.
 :::
 
+## Nightly Builds and OCI Resolution
+
+In nightly mode (`E2E_NIGHTLY_MODE=true`), plugin packages are resolved to **released** OCI refs from workspace metadata (`spec.dynamicArtifact`) instead of PR-built images. Metadata config injection is skipped — only package resolution happens.
+
+### How Each Plugin Type Is Resolved
+
+| Plugin Type | Example | Resolution |
+|-------------|---------|------------|
+| Workspace plugin with metadata | `./dynamic-plugins/dist/plugin-tech-radar` | Metadata OCI ref (e.g., `oci://ghcr.io/.../plugin-tech-radar:bs_1.45.3__1.13.0`) |
+| Cross-workspace plugin (no metadata) | `./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic` | Kept as-is |
+| npm package | `@red-hat-developer-hub/backstage-plugin-global-header-test@0.0.2` | Kept as-is (with integrity hash preserved) |
+| Existing OCI reference | `oci://quay.io/.../plugin-name:tag` | Kept as-is |
+
+::: info Multiple Registries
+Plugin OCI refs use the **actual registry** from each plugin's metadata — plugins may come from `ghcr.io`, `quay.io/rhdh`, `registry.access.redhat.com/rhdh`, or other registries. The system does not assume a single registry.
+:::
+
+See [Plugin Metadata - Mode Comparison](/guide/utilities/plugin-metadata#mode-comparison) for the full comparison of PR check, nightly, and local dev modes.
+
 ## Configuration Merging
 
 `@red-hat-developer-hub/e2e-test-utils` merges your configuration with defaults in this order:
@@ -460,8 +479,124 @@ app:
   title: RHDH <Plugin> Test Instance
 ```
 
+## Real-World Workspace Patterns
+
+These examples show how different workspaces use `dynamic-plugins.yaml` and how the package resolves their plugins.
+
+### Auto-Generated (No dynamic-plugins.yaml)
+
+**Workspaces:** tech-radar, quickstart, acr
+
+When no `dynamic-plugins.yaml` exists, the package auto-generates entries from all `metadata/*.yaml` files:
+
+```yaml
+# Auto-generated at deploy time:
+plugins:
+  - package: oci://ghcr.io/.../backstage-community-plugin-tech-radar:bs_1.45.3__1.13.0
+    disabled: false
+    # pluginConfig injected from metadata appConfigExamples (PR/local mode)
+```
+
+No configuration files needed — metadata provides everything.
+
+### Cross-Workspace Plugins
+
+**Workspace:** argocd
+
+When your workspace needs plugins from another workspace (e.g., Kubernetes backend for ArgoCD):
+
+```yaml
+plugins:
+  # Workspace plugin — resolved to metadata OCI ref (or PR tag)
+  - package: oci://ghcr.io/.../backstage-community-plugin-argocd:bs_1.45.3__2.4.3!backstage-community-plugin-argocd
+    pluginConfig:
+      dynamicPlugins:
+        frontend: { ... }
+
+  # Cross-workspace plugin — no metadata match, kept as-is
+  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+```
+
+Cross-workspace plugins have no metadata in the current workspace, so they pass through unchanged in all modes.
+
+### OCI Aliases
+
+**Workspace:** redhat-resource-optimization
+
+Some plugins share a single OCI image with multiple plugins distinguished by aliases (the `!alias` suffix):
+
+```yaml
+plugins:
+  - package: oci://quay.io/redhat-resource-optimization/dynamic-plugins:1.3.2!red-hat-developer-hub-plugin-redhat-resource-optimization
+```
+
+The alias after `!` tells RHDH which plugin to extract from the shared image.
+
+### Disabled Wrapper Plugins
+
+**Workspace:** scorecard
+
+When your workspace uses an OCI image for a plugin that also has a local wrapper enabled by default:
+
+```yaml
+plugins:
+  # Workspace plugin — resolved to metadata ref
+  - package: oci://ghcr.io/.../red-hat-developer-hub-backstage-plugin-scorecard:tag!alias
+
+  # Cross-workspace OCI — kept as-is
+  - package: oci://ghcr.io/.../red-hat-developer-hub-backstage-plugin-dynamic-home-page:tag!alias
+
+  # Disable the local wrapper to avoid conflicts
+  - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-dynamic-home-page
+    disabled: true
+```
+
+### Different OCI Registries
+
+Plugins can come from different registries. The package preserves the original registry from each plugin's metadata:
+
+```yaml
+# ghcr.io (community plugins)
+- package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tech-radar:bs_1.45.3__1.13.0
+
+# quay.io (Red Hat plugins)
+- package: oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-scaffolder-relation-processor@sha256:abc123
+
+# registry.access.redhat.com (certified plugins)
+- package: oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:f40d39fb
+```
+
+### npm Packages
+
+**Workspace:** global-header
+
+For plugins published to npm instead of OCI:
+
+```yaml
+plugins:
+  - package: "@red-hat-developer-hub/backstage-plugin-global-header-test@0.0.2"
+    integrity: "sha512-ABC123..."
+```
+
+npm packages with integrity hashes pass through unchanged in all modes — no metadata resolution.
+
+### All Local Paths
+
+**Workspace:** topology
+
+Some workspaces use only local paths (no OCI references in their config):
+
+```yaml
+plugins:
+  - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
+  - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+```
+
+In PR mode, `pluginConfig` from metadata is injected. In nightly mode, local paths are resolved to metadata OCI refs if metadata exists. Local paths with no metadata match stay unchanged.
+
 ## Related Pages
 
 - [Directory Layout](./directory-layout) - Where config files go
 - [Spec Files](./spec-files) - Using config in tests
 - [Environment Variables](/overlay/reference/environment-variables) - All supported variables
+- [Plugin Metadata](/guide/utilities/plugin-metadata) - How metadata resolution works

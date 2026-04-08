@@ -50,6 +50,7 @@ Set `SKIP_KEYCLOAK_DEPLOYMENT=true` when using guest authentication and you don'
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | `CI` | Set automatically in CI environments | `false` | No |
+| `JOB_MODE` | Set by CI step registry: `nightly` or `pr-check` | - | No |
 
 ## Plugin Metadata Variables
 
@@ -58,7 +59,8 @@ These control automatic plugin configuration generation from metadata files:
 | Variable | Description | Effect |
 |----------|-------------|--------|
 | `GIT_PR_NUMBER` | PR number | Enables OCI URL generation using that PR's built images |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When set (any value), disables metadata injection | Opt-out for all metadata handling |
+| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode | Uses released OCI refs from metadata, skips config injection |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `true`, disables metadata injection | Opt-out for all metadata handling |
 | `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
 
 ### When to Use These Variables
@@ -67,7 +69,7 @@ These control automatic plugin configuration generation from metadata files:
 |----------|------------------|
 | PR builds in CI | `GIT_PR_NUMBER` is set automatically |
 | Test PR builds locally | Set `GIT_PR_NUMBER` manually to use PR's OCI images |
-| Nightly/periodic builds | `JOB_NAME` contains `periodic-` (auto-detected) |
+| Nightly/periodic builds | `E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-` (auto-detected in CI) |
 | Manual opt-out | Set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` |
 
 ### Metadata Handling Behavior
@@ -77,8 +79,13 @@ These control automatic plugin configuration generation from metadata files:
 - PR builds in CI
 
 **Disabled automatically** when:
-- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set (any value)
+- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true`
+- `E2E_NIGHTLY_MODE` is set to `true`
 - `JOB_NAME` contains `periodic-` (nightly builds)
+
+::: info Priority
+When `GIT_PR_NUMBER` is set, PR mode always takes precedence over nightly mode. This prevents broken combinations of PR images with nightly configuration.
+:::
 
 ### OCI URL Generation
 
@@ -109,6 +116,22 @@ Example transformation:
 ```
 
 See [Configuration Files - PR Builds](/overlay/test-structure/configuration-files#pr-builds-and-oci-images) for details.
+
+## Test Runner Variables
+
+These are used by `run-e2e.sh` (the [unified test runner](/overlay/reference/run-e2e)):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `E2E_TEST_UTILS_PATH` | Absolute path to a local `e2e-test-utils` build | - |
+| `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version | `latest` (nightly), empty otherwise |
+| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.57.0` |
+
+::: tip Version Pinning
+`E2E_TEST_UTILS_PATH` takes precedence over `E2E_TEST_UTILS_VERSION`. If neither is set, the version in each workspace's `package.json` is used.
+
+In nightly mode (`E2E_NIGHTLY_MODE=true`), `E2E_TEST_UTILS_VERSION` defaults to `latest`.
+:::
 
 ## Setting Variables
 

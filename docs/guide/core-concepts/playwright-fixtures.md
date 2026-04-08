@@ -276,11 +276,24 @@ await test.runOnce("full-setup", async () => {
 
 ## Namespace Cleanup (Teardown)
 
-In CI environments (`CI` environment variable is set), namespaces are automatically deleted after all tests complete. This is handled by a built-in **teardown reporter** that:
+In CI environments (`CI=true`), namespaces are automatically deleted after tests complete.
+
+::: info Why a Reporter?
+Neither `afterAll` hooks nor worker fixture cleanup can safely handle namespace deletion:
+
+- **`afterAll` hook**: Runs inside a worker process. When a test fails and Playwright restarts the worker for retries, the old worker's `afterAll` fires and deletes the namespace — before the retry worker can use it.
+- **Worker fixture teardown**: Same problem — the fixture's teardown callback runs when the worker process exits, which happens on every worker restart (not just at the end of the suite).
+- **`globalTeardown`**: Runs after all tests but has no visibility into which projects ran or which namespaces were created.
+
+A **reporter** solves all of these: it runs in the main Playwright process (survives worker restarts), tracks per-project test completion including retries, and only cleans up after a project's last test is truly done.
+:::
+
+This is handled by a built-in **teardown reporter** that:
 
 1. Runs in the main Playwright process (survives worker restarts)
-2. Waits for **all tests** to finish
-3. Deletes the namespace matching the project name
+2. Tracks test completion **per project** — deletes each project's namespace as soon as all its tests finish, freeing cluster resources early instead of waiting for the entire suite
+3. Handles retries correctly — only counts a test as done when it passes, is skipped, or exhausts all retries
+4. Provides fallback cleanup in `onEnd` for interrupted runs (e.g., `maxFailures` reached)
 
 ### Default Behavior
 

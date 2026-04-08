@@ -312,6 +312,7 @@ Common methods from `UIhelper`:
 | `clickButton(name)` | Click button by name |
 | `clickLink(text)` | Click link by text |
 | `waitForLoad()` | Wait for page load |
+| `dismissQuickstartIfVisible()` | Close quickstart drawer if **Hide** is visible |
 
 See [UIhelper API](/api/helpers/ui-helper) for full reference.
 

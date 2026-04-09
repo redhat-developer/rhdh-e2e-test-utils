@@ -43,6 +43,7 @@ class KubernetesClientHelper {
             `Kubeconfig locations checked:\n` +
             `  - KUBECONFIG env: ${process.env.KUBECONFIG || "(not set)"}\n` +
             `  - Default: ~/.kube/config`,
+          { cause: error },
         );
       }
       throw error;
@@ -478,6 +479,7 @@ class KubernetesClientHelper {
     } catch (error) {
       throw new Error(
         `Failed to get cluster ingress domain: ${error instanceof Error ? error.message : error}`,
+        { cause: error },
       );
     }
   }
@@ -503,6 +505,7 @@ class KubernetesClientHelper {
     } catch (error) {
       throw new Error(
         `Failed to get route ${name} in namespace ${namespace}: ${error instanceof Error ? error.message : error}`,
+        { cause: error },
       );
     }
   }

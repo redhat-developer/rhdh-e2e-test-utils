@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 - **Update all dependencies to latest versions**: Bumped all packages to their latest versions except `@keycloak/keycloak-admin-client` (pinned at 26.5.6 due to broken postinstall in newer versions). Notable major bumps: `eslint` 9→10, `@eslint/js` 9→10, `typescript` 5→6, `otplib` 12→13, `lint-staged` 15→16.
 - **Update Yarn to 4.12.0**: Bumped `packageManager` from `yarn@3.8.7` to `yarn@4.12.0`.
 
+### Fixed
+
+- **Migrate `otplib` v12→v13**: Replaced removed `authenticator.generate(secret)` API with `generateSync({ secret })` in `LoginHelper`.
+- **Preserve error cause in re-thrown errors**: Added `{ cause: error }` to wrapped errors in `RHDHDeployment` and `KubernetesClientHelper` for better error chain traceability.
+- **Use optional chaining in `APIHelper.deleteUserEntityFromAPI`**: Replaced verbose null check with optional chain (`r.metadata?.uid`).
+
 ## [1.1.28]
 
 - **APIHelper.createGitHubRepoWithFile**: Ensure file creation happens after repository creation.

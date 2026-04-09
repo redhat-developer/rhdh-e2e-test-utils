@@ -1,5 +1,5 @@
 import { UIhelper } from "./ui-helper.js";
-import { authenticator } from "otplib";
+import { generateSync } from "otplib";
 import { test, expect } from "@playwright/test";
 import type { Browser, Page, TestInfo } from "@playwright/test";
 import { SETTINGS_PAGE_COMPONENTS } from "../page-objects/page-obj.js";
@@ -222,12 +222,12 @@ export class LoginHelper {
       throw new Error("Invalid User ID");
     }
 
-    return authenticator.generate(secret);
+    return generateSync({ secret });
   }
 
   getGoogle2FAOTP(): string {
     const secret = process.env.GOOGLE_2FA_SECRET as string;
-    return authenticator.generate(secret);
+    return generateSync({ secret });
   }
 
   async keycloakLogin(username: string, password: string) {
@@ -302,7 +302,7 @@ export class LoginHelper {
         .locator("[type='submit'][value='Sign in']:not(webauthn-status *)")
         .first()
         .click({ timeout: 5000 });
-      const twofactorcode = authenticator.generate(twofactor);
+      const twofactorcode = generateSync({ secret: twofactor });
       await popup.locator("#app_totp").click({ timeout: 5000 });
       await popup.locator("#app_totp").fill(twofactorcode, { timeout: 5000 });
 

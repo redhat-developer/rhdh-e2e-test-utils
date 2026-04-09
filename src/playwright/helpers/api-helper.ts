@@ -297,7 +297,7 @@ export class APIHelper {
 
   async deleteUserEntityFromAPI(user: string) {
     const r: UserEntity = await this.getCatalogUserFromAPI(user);
-    if (!r.metadata || !r.metadata.uid) {
+    if (!r.metadata?.uid) {
       return;
     }
     const url = `${this.baseUrl}/api/catalog/entities/by-uid/${r.metadata.uid}`;

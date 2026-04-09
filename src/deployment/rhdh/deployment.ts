@@ -386,6 +386,7 @@ export class RHDHDeployment {
     } catch (error) {
       throw new Error(
         `RHDH deployment failed in ${namespace}: ${error instanceof Error ? error.message : error}`,
+        { cause: error },
       );
     }
 

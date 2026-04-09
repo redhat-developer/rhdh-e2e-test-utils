@@ -1,6 +1,6 @@
 {
   "name": "@red-hat-developer-hub/e2e-test-utils",
-  "version": "1.1.29",
+  "version": "1.1.30",
   "description": "Test utilities for RHDH E2E tests",
   "license": "Apache-2.0",
   "repository": {
@@ -114,7 +114,7 @@
     "js-yaml": "4.1.1",
     "lodash.clonedeepwith": "4.5.0",
     "lodash.mergewith": "4.6.2",
-    "otplib": "13.4.0",
+    "otplib": "12.0.1",
     "prettier": "3.8.1",
     "proper-lockfile": "4.1.2",
     "typescript": "6.0.2",

@@ -105,9 +105,9 @@ log::success() {
 # Operator subscription and status
 # ---------------------------------------------------------------------------
 install_subscription() {
-  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6
-  oc apply -f - << EOD
-apiVersion: operators.coreos.com/v1alpha1
+  local name=$1 namespace=$2 channel=$3 package=$4 source_name=$5 source_namespace=$6 starting_csv=${7:-}
+  local yaml
+  yaml="apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
   name: $name
@@ -117,30 +117,38 @@ spec:
   installPlanApproval: Automatic
   name: $package
   source: $source_name
-  sourceNamespace: $source_namespace
-EOD
+  sourceNamespace: $source_namespace"
+  if [[ -n "$starting_csv" ]]; then
+    yaml+="
+  startingCSV: $starting_csv"
+  fi
+  echo "$yaml" | oc apply -f -
   return 0
 }
 
-check_operator_status() {
-  local timeout=${1:-300} namespace=$2 operator_name=$3 expected_status=${4:-Succeeded}
-  log::info "Checking operator '${operator_name}' in '${namespace}' (timeout ${timeout}s, expected: ${expected_status})"
+# Wait for an operator CSV to reach a status phase.
+# Uses OLM label selector (operators.coreos.com/<package>.<namespace>) which is
+# deterministic, unlike spec.displayName which varies across channels/versions.
+wait_for_operator() {
+  local timeout=${1:-300} namespace=$2 package=$3 expected_status=${4:-Succeeded}
+  local label="operators.coreos.com/${package}.${namespace}"
+  log::info "Waiting for operator '${package}' in '${namespace}' (label=${label}, timeout ${timeout}s, expected: ${expected_status})"
   timeout "${timeout}" bash -c "
     while true; do
-      CURRENT_PHASE=\$(oc get csv -n '${namespace}' -o jsonpath='{.items[?(@.spec.displayName==\"${operator_name}\")].status.phase}')
-      echo \"[check_operator_status] Phase: \${CURRENT_PHASE}\" >&2
-      [[ \"\${CURRENT_PHASE}\" == \"${expected_status}\" ]] && echo \"[check_operator_status] Operator reached ${expected_status}\" >&2 && break
+      CURRENT_PHASE=\$(oc get csv -n '${namespace}' -l '${label}' -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
+      echo \"[wait_for_operator] Phase: \${CURRENT_PHASE}\" >&2
+      [[ \"\${CURRENT_PHASE}\" == \"${expected_status}\" ]] && echo \"[wait_for_operator] Operator reached ${expected_status}\" >&2 && break
       sleep 10
     done
-  " || { log::error "Operator did not reach ${expected_status} in time."; return 1; }
+  " || { log::error "Operator '${package}' did not reach ${expected_status} in time."; return 1; }
 }
 
 install_serverless_logic_ocp_operator() {
-  install_subscription logic-operator openshift-operators stable logic-operator redhat-operators openshift-marketplace
+  install_subscription logic-operator openshift-operators stable logic-operator redhat-operators openshift-marketplace logic-operator.v1.37.2
   return 0
 }
 waitfor_serverless_logic_ocp_operator() {
-  check_operator_status 500 openshift-operators "Red Hat OpenShift Serverless Logic" Succeeded
+  wait_for_operator 500 openshift-operators logic-operator Succeeded
   return 0
 }
 
@@ -149,7 +157,7 @@ install_serverless_ocp_operator() {
   return 0
 }
 waitfor_serverless_ocp_operator() {
-  check_operator_status 300 openshift-operators "Red Hat OpenShift Serverless" Succeeded
+  wait_for_operator 300 openshift-operators serverless-operator Succeeded
   return 0
 }
 

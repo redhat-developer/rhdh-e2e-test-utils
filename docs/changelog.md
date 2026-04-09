@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.30] - Current
+## [1.1.31] - Current
+
+### Fixed
+
+- **Replace `check_operator_status` with OLM label-based `wait_for_operator`**: `spec.displayName` varies across channels/versions, causing empty CSV matches and operator timeouts. Uses deterministic `operators.coreos.com/<package>.<namespace>` label selectors instead.
+- **Add `startingCSV` pinning to `logic-operator.v1.37.2`**: Ensures the subscription installs the exact OSL version instead of whatever `stable` channel resolves to.
+- **Add `prepack` lifecycle script**: Ensures `dist/` is built when the package is installed as a git dependency (Yarn 3 packs from source, skipping gitignored `dist/`).
+
+## [1.1.30]
 
 ### Fixed
 

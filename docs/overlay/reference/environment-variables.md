@@ -125,7 +125,7 @@ These are used by `run-e2e.sh` (the [unified test runner](/overlay/reference/run
 |----------|-------------|---------|
 | `E2E_TEST_UTILS_PATH` | Absolute path to a local `e2e-test-utils` build | - |
 | `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version | `latest` (nightly), empty otherwise |
-| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.57.0` |
+| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.59.1` |
 
 ::: tip Version Pinning
 `E2E_TEST_UTILS_PATH` takes precedence over `E2E_TEST_UTILS_VERSION`. If neither is set, the version in each workspace's `package.json` is used.

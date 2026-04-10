@@ -39,7 +39,7 @@ The `run-e2e.sh` script orchestrates E2E test execution across multiple workspac
 E2E_TEST_UTILS_PATH=/path/to/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 
 # Pin a specific npm version of e2e-test-utils
-E2E_TEST_UTILS_VERSION=1.1.24 ./run-e2e.sh -w tech-radar
+E2E_TEST_UTILS_VERSION=1.1.30 ./run-e2e.sh -w tech-radar
 ```
 
 ## Workspace Selection
@@ -72,7 +72,7 @@ A workspace is discovered when it has a `workspaces/<name>/e2e-tests/` directory
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `CI` | Enables CI mode (forbidOnly, namespace teardown) | `true` |
-| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.57.0` |
+| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.59.1` |
 | `E2E_TEST_UTILS_PATH` | Absolute path to a local `e2e-test-utils` build (for testing unpublished changes) | - |
 | `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version | `latest` (nightly), empty otherwise |
 
@@ -106,8 +106,8 @@ Creates a root `package.json` with:
 {
   "workspaces": ["workspaces/tech-radar/e2e-tests", "workspaces/keycloak/e2e-tests"],
   "resolutions": {
-    "@playwright/test": "1.57.0",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.24"
+    "@playwright/test": "1.59.1",
+    "@red-hat-developer-hub/e2e-test-utils": "1.1.30"
   }
 }
 ```
@@ -154,7 +154,7 @@ E2E_TEST_UTILS_PATH=/home/user/rhdh-e2e-test-utils ./run-e2e.sh -w tech-radar
 Use `E2E_TEST_UTILS_VERSION` to pin a published version:
 
 ```bash
-E2E_TEST_UTILS_VERSION=1.1.24 ./run-e2e.sh -w tech-radar
+E2E_TEST_UTILS_VERSION=1.1.30 ./run-e2e.sh -w tech-radar
 ```
 
 ::: info Nightly Default

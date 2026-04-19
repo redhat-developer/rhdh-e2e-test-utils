@@ -39,40 +39,49 @@ export class RHDHDeployment {
     this.rhdhUrl = this._buildBaseUrl();
   }
 
-  async deploy(options?: { timeout?: number | null }): Promise<void> {
+  async deploy(options?: { timeout?: number | null, forceUpdate?: boolean }): Promise<void> {
     // Default 600s, custom number to override, null to skip and let consumer control the timeout
     const timeout = options?.timeout === undefined ? 600_000 : options.timeout;
     if (timeout !== null) {
       test.setTimeout(timeout);
     }
 
-    const executed = await runOnce(
-      `deploy-${this.deploymentConfig.namespace}`,
-      async () => {
-        this._log("Starting RHDH deployment...");
-        this._log("RHDH Base URL: " + this.rhdhUrl);
-        console.table(this.deploymentConfig);
+    const deployFunc = async () => {
+      this._log("Starting RHDH deployment...");
+      this._log("RHDH Base URL: " + this.rhdhUrl);
+      console.table(this.deploymentConfig);
 
-        await this.k8sClient.createNamespaceIfNotExists(
-          this.deploymentConfig.namespace,
-        );
+      await this.k8sClient.createNamespaceIfNotExists(
+        this.deploymentConfig.namespace,
+      );
 
-        await this._applyAppConfig();
-        await this._applySecrets();
+      await this._applyAppConfig();
+      await this._applySecrets();
 
-        if (this.deploymentConfig.method === "helm") {
-          const isUpgrade = await this._deploymentExists();
+      if (this.deploymentConfig.method === "helm") {
+        const isUpgrade = await this._deploymentExists();
           await this._deployWithHelm(this.deploymentConfig.valueFile);
-          if (isUpgrade) {
-            await this.scaleDownAndRestart(); // Restart as helm does not monitor config changes
-          }
-        } else {
-          await this._applyDynamicPlugins();
-          await this._deployWithOperator(this.deploymentConfig.subscription);
+        if (isUpgrade) {
+          await this.scaleDownAndRestart(); // Restart as helm does not monitor config changes
         }
-        await this.waitUntilReady();
-      },
-    );
+      } else {
+          await this._applyDynamicPlugins();
+        await this._deployWithOperator(this.deploymentConfig.subscription);
+      }
+      await this.waitUntilReady();
+    };
+
+    let executed = false;
+    
+    if (options?.forceUpdate) {
+      await deployFunc();
+      executed = true;
+    } else {
+      executed = await runOnce(
+        `deploy-${this.deploymentConfig.namespace}`,
+        deployFunc
+      );
+    }
 
     if (!executed) {
       this._log(

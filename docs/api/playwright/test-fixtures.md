@@ -16,7 +16,7 @@ import { test, expect } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 **Type:** `RHDHDeployment`
 
-Shared RHDH deployment across all tests in a worker. `deploy()` automatically skips if the deployment already succeeded, even after worker restarts.
+Shared RHDH deployment across all tests in a worker. `deploy()` automatically skips if the deployment already succeeded, even after worker restarts. Use `deploy({ force: true })` to bypass this protection when you need to redeploy with different configurations in the same test file.
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
@@ -27,6 +27,14 @@ test.beforeAll(async ({ rhdh }) => {
 test("access rhdh", async ({ rhdh }) => {
   console.log(rhdh.rhdhUrl);
   console.log(rhdh.deploymentConfig.namespace);
+});
+
+// Force redeploy with new config
+test.describe("Different Config", () => {
+  test.beforeAll(async ({ rhdh }) => {
+    await rhdh.configure({ appConfig: "tests/config/new-app-config-rhdh.yaml" });
+    await rhdh.deploy({ force: true });
+  });
 });
 ```
 

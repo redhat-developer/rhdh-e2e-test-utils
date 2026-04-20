@@ -70,7 +70,7 @@ await rhdh.configure({
 ### `deploy()`
 
 ```typescript
-async deploy(options?: { timeout?: number | null }): Promise<void>
+async deploy(options?: { timeout?: number | null; force?: boolean }): Promise<void>
 ```
 
 Deploy RHDH to the cluster. This:
@@ -83,6 +83,7 @@ Deploy RHDH to the cluster. This:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `options.timeout` | `number \| null` | `600_000` | Playwright test timeout (ms) for the deployment. Pass a custom number to override, `0` for no timeout, or `null` to skip and let the consumer control the timeout. |
+| `options.force` | `boolean` | `false` | Force redeployment even if already deployed. Bypasses the built-in `runOnce` protection. Useful for complex test scenarios where multiple `describe` sections need different RHDH configurations. |
 
 ```typescript
 // Default (600s timeout)
@@ -97,6 +98,10 @@ await rhdh.deploy({ timeout: 0 });
 // Skip — consumer controls the timeout
 test.setTimeout(900_000);
 await rhdh.deploy({ timeout: null });
+
+// Force redeploy with new configuration
+await rhdh.configure({ dynamicPlugins: "tests/config/new-plugins.yaml" });
+await rhdh.deploy({ force: true });
 ```
 
 ### `waitUntilReady()`

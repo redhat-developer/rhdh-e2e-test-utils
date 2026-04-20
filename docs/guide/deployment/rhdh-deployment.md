@@ -93,7 +93,12 @@ Deploy RHDH to the cluster:
 await deployment.deploy();
 ```
 
-The `deploy()` method accepts an optional `{ timeout }` parameter to control the Playwright test timeout during deployment. By default, it sets the timeout to 600 seconds (10 minutes).
+The `deploy()` method accepts optional parameters:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `timeout` | `number \| null` | `600_000` | Playwright test timeout (ms) during deployment |
+| `force` | `boolean` | `false` | Force redeployment even if already deployed |
 
 ```typescript
 // Default (600s)
@@ -111,6 +116,40 @@ await rhdh.deploy({ timeout: null });
 ```
 
 `deploy()` automatically skips if the deployment already succeeded in the current test run (e.g., after a worker restart due to test failure). This prevents expensive re-deployments.
+
+#### Force Redeploy
+
+Use the `force` option to bypass the built-in `runOnce` protection and force a fresh deployment. This is useful for complex test scenarios where multiple `describe` sections need different RHDH configurations (different app configs or dynamic plugin sets) within the same test file:
+
+```typescript
+test.describe("Plugin Set A", () => {
+  test.beforeAll(async ({ rhdh }) => {
+    await rhdh.configure({
+      auth: "keycloak",
+      dynamicPlugins: "tests/config/plugins-set-a.yaml",
+    });
+    await rhdh.deploy(); // First deployment
+  });
+
+  test("test with plugin set A", async ({ page }) => {
+    // Tests using plugin set A
+  });
+});
+
+test.describe("Plugin Set B", () => {
+  test.beforeAll(async ({ rhdh }) => {
+    await rhdh.configure({
+      auth: "keycloak",
+      dynamicPlugins: "tests/config/plugins-set-b.yaml",
+    });
+    await rhdh.deploy({ force: true }); // Force redeploy with new config
+  });
+
+  test("test with plugin set B", async ({ page }) => {
+    // Tests using plugin set B
+  });
+});
+```
 
 This method:
 1. Merges configuration files (common → auth → project)

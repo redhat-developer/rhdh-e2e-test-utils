@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.31] - Current
+## [1.1.32] - Current
+
+### Added
+
+- **Force redeploy option for `rhdh.deploy()`**: Added optional `force` parameter to `rhdh.deploy({ force: true })` to bypass the built-in `runOnce` protection and force a fresh deployment. This enables complex test scenarios where multiple `describe` sections need different RHDH configurations (different app configs or dynamic plugin sets) within the same test file. Test writers can now call `rhdh.configure()` with new settings and `rhdh.deploy({ force: true })` to redeploy with the desired configuration.
+
+## [1.1.31]
 
 ### Fixed
 

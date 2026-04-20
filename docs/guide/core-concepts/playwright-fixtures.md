@@ -171,6 +171,38 @@ test.beforeAll(async ({ rhdh }) => {
 Playwright's `beforeAll` runs once **per worker**, not once per test run. When a test fails, Playwright kills the worker and creates a new one for remaining tests — causing `beforeAll` to run again. Without protection, this would re-deploy RHDH from scratch every time a test fails.
 :::
 
+### Bypassing Protection with `force`
+
+For complex test scenarios where multiple `describe` sections need different RHDH configurations (different app configs or dynamic plugin sets), you can use the `force` option to bypass the built-in protection:
+
+```typescript
+test.describe("Plugin Set A", () => {
+  test.beforeAll(async ({ rhdh }) => {
+    await rhdh.configure({
+      dynamicPlugins: "tests/config/plugins-set-a.yaml",
+    });
+    await rhdh.deploy(); // First deployment
+  });
+
+  test("test with plugin set A", async ({ page }) => {
+    // Tests using plugin set A
+  });
+});
+
+test.describe("Plugin Set B", () => {
+  test.beforeAll(async ({ rhdh }) => {
+    await rhdh.configure({
+      dynamicPlugins: "tests/config/plugins-set-b.yaml",
+    });
+    await rhdh.deploy({ force: true }); // Force redeploy with new config
+  });
+
+  test("test with plugin set B", async ({ page }) => {
+    // Tests using plugin set B
+  });
+});
+```
+
 ## `test.runOnce` — Run Any Expensive Operation Once
 
 While `rhdh.deploy()` has built-in protection, you may have **other expensive operations** in your `beforeAll` that also shouldn't repeat on worker restart — deploying external services, seeding databases, running setup scripts, etc.

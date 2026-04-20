@@ -39,7 +39,10 @@ export class RHDHDeployment {
     this.rhdhUrl = this._buildBaseUrl();
   }
 
-  async deploy(options?: { timeout?: number | null, forceUpdate?: boolean }): Promise<void> {
+  async deploy(options?: {
+    timeout?: number | null;
+    forceUpdate?: boolean;
+  }): Promise<void> {
     // Default 600s, custom number to override, null to skip and let consumer control the timeout
     const timeout = options?.timeout === undefined ? 600_000 : options.timeout;
     if (timeout !== null) {
@@ -60,12 +63,12 @@ export class RHDHDeployment {
 
       if (this.deploymentConfig.method === "helm") {
         const isUpgrade = await this._deploymentExists();
-          await this._deployWithHelm(this.deploymentConfig.valueFile);
+        await this._deployWithHelm(this.deploymentConfig.valueFile);
         if (isUpgrade) {
           await this.scaleDownAndRestart(); // Restart as helm does not monitor config changes
         }
       } else {
-          await this._applyDynamicPlugins();
+        await this._applyDynamicPlugins();
         await this._deployWithOperator(this.deploymentConfig.subscription);
       }
       await this.waitUntilReady();
@@ -79,7 +82,7 @@ export class RHDHDeployment {
     } else {
       executed = await runOnce(
         `deploy-${this.deploymentConfig.namespace}`,
-        deployFunc
+        deployFunc,
       );
     }
 

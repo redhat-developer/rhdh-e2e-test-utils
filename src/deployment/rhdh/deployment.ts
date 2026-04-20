@@ -71,8 +71,8 @@ export class RHDHDeployment {
       await this.waitUntilReady();
     };
 
-    let executed = false;
-    
+    let executed: boolean;
+
     if (options?.forceUpdate) {
       await deployFunc();
       executed = true;

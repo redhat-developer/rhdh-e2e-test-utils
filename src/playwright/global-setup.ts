@@ -79,8 +79,8 @@ async function deployKeycloak(): Promise<void> {
 
 export default async function globalSetup(): Promise<void> {
   console.log("Running global setup...");
-  await loadLocalVaultSecrets();
   await checkRequiredBinaries();
+  await loadLocalVaultSecrets();
   await setClusterRouterBaseEnv();
   await deployKeycloak();
   console.log("Global setup completed successfully");

@@ -197,11 +197,7 @@ oc login --token=<token> --server=<server>
 
 **Solutions:**
 - Check `.env` file exists and contains variable
-- Verify dotenv is loaded:
-  ```typescript
-  import dotenv from "dotenv";
-  dotenv.config({ path: `${import.meta.dirname}/.env` });
-  ```
+- Verify `.env` file exists in your `e2e-tests/` directory (loaded automatically by global setup)
 - Set in test code:
   ```typescript
   process.env.MY_VAR = "value";

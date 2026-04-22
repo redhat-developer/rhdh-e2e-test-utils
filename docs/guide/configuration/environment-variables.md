@@ -123,13 +123,7 @@ GITHUB_TOKEN=ghp_xxxxx
 MY_API_KEY=secret-value
 ```
 
-Load with dotenv:
-
-```typescript
-// playwright.config.ts
-import dotenv from "dotenv";
-dotenv.config({ path: `${import.meta.dirname}/.env` });
-```
+The `.env` file is automatically loaded by global setup. Variables defined here take priority over Vault secrets.
 
 ### CI/CD
 

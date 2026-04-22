@@ -3,6 +3,9 @@
  * This file runs once before all tests.
  */
 
+import { type FullConfig } from "@playwright/test";
+import dotenv from "dotenv";
+import { resolve } from "path";
 import { KubernetesClientHelper } from "../utils/kubernetes-client.js";
 import { $ } from "../utils/bash.js";
 import { KeycloakHelper } from "../deployment/keycloak/index.js";
@@ -77,11 +80,27 @@ async function deployKeycloak(): Promise<void> {
   });
 }
 
-export default async function globalSetup(): Promise<void> {
+export default async function globalSetup(config: FullConfig): Promise<void> {
   console.log("Running global setup...");
   await checkRequiredBinaries();
   await loadLocalVaultSecrets();
+  loadDotenvFromProjects(config);
   await setClusterRouterBaseEnv();
   await deployKeycloak();
   console.log("Global setup completed successfully");
+}
+
+/**
+ * Loads .env files from each project's e2e-tests directory.
+ * Uses `override: true` so local .env values take priority over Vault secrets.
+ */
+function loadDotenvFromProjects(config: FullConfig): void {
+  const seen = new Set<string>();
+  for (const project of config.projects) {
+    // testDir points to e2e-tests/tests, go up one level to e2e-tests/
+    const e2eRoot = resolve(project.testDir, "..");
+    if (seen.has(e2eRoot)) continue;
+    seen.add(e2eRoot);
+    dotenv.config({ path: resolve(e2eRoot, ".env"), override: true });
+  }
 }

@@ -17,7 +17,7 @@ This tutorial covers:
 cd your-plugin-workspace
 mkdir e2e-tests && cd e2e-tests
 yarn init -y
-yarn add @playwright/test @red-hat-developer-hub/e2e-test-utils typescript dotenv
+yarn add @playwright/test @red-hat-developer-hub/e2e-test-utils typescript
 ```
 
 ## Step 2: Configuration
@@ -25,9 +25,6 @@ yarn add @playwright/test @red-hat-developer-hub/e2e-test-utils typescript doten
 **playwright.config.ts:**
 ```typescript
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
-
-dotenv.config({ path: `${import.meta.dirname}/.env` });
 
 export default defineConfig({
   projects: [

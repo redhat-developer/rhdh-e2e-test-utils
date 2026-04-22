@@ -146,21 +146,8 @@ export default playwrightDefineConfig({
 
 ## Loading Environment Variables
 
-Use `dotenv` to load environment variables from a `.env` file:
+Environment variables from `.env` files are automatically loaded by the global setup. Place a `.env` file in your `e2e-tests/` directory:
 
-```typescript
-import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
-
-// Load .env file
-dotenv.config({ path: `${import.meta.dirname}/.env` });
-
-export default defineConfig({
-  projects: [{ name: "my-plugin" }],
-});
-```
-
-Create a `.env` file:
 
 ```bash
 RHDH_VERSION="1.5"
@@ -174,9 +161,6 @@ GITHUB_TOKEN=ghp_xxxxx
 ```typescript
 import { baseConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
 import { defineConfig } from "@playwright/test";
-import dotenv from "dotenv";
-
-dotenv.config({ path: `${import.meta.dirname}/.env` });
 
 export default defineConfig({
   ...baseConfig,

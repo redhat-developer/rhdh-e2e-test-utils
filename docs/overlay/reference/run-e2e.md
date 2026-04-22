@@ -168,7 +168,7 @@ Cleans all `node_modules` and `yarn.lock` to ensure fresh resolution, then runs 
 Extracts `projects: [...]` blocks from each workspace's `playwright.config.ts` using `sed` text processing. Injects `testDir` into each project pointing to the workspace's `tests/` directory.
 
 ::: info Why sed Instead of Import?
-Importing workspace configs would execute their top-level code (e.g., `dotenv.config()`, `process.env` mutations), which can pollute the environment for other workspaces. Text extraction avoids this.
+Importing workspace configs would execute their top-level code (e.g., `process.env` mutations), which can pollute the environment for other workspaces. Text extraction avoids this.
 :::
 
 The generated config imports `baseConfig` from the test utils package, which provides reporters, timeouts, video/screenshot/trace settings, and global setup.

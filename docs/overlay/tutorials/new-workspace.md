@@ -61,7 +61,6 @@ Create `package.json` with the following content:
     "@playwright/test": "1.59.1",
     "@red-hat-developer-hub/e2e-test-utils": "<latest-version>",
     "@types/node": "25.5.2",
-    "dotenv": "17.4.1",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",
     "eslint-plugin-playwright": "2.10.1",
@@ -81,9 +80,6 @@ Replate `<latest-version>` with the latest available version of this library.
 
 ```typescript
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
-import dotenv from "dotenv";
-
-dotenv.config({ path: `${import.meta.dirname}/.env` });
 
 export default defineConfig({
   projects: [

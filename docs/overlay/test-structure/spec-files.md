@@ -52,6 +52,41 @@ test.describe("Test <plugin>", () => {
 In CI, namespaces are automatically deleted after all tests complete via the built-in teardown reporter. No manual cleanup code is needed. See [Namespace Cleanup](/guide/core-concepts/playwright-fixtures#namespace-cleanup-teardown) for details.
 :::
 
+## Skipping and Disabling Tests
+
+| Mechanism | When to use | Report |
+|-----------|-------------|--------|
+| `{ tag: "@skip-ocp-helm" }` | Test works, but skip in a specific CI job | Hidden from that job and report |
+| `test.fixme()` | Test is broken or flaky, needs fixing | Shows as "skipped" everywhere |
+| `test.skip(condition, reason)` | Skip based on runtime (e.g., missing secret) | Shows as "skipped" with reason |
+
+### Tagging Tests
+
+Use Playwright tags to control which tests run in which CI jobs. Tags are added via the second argument to `test.describe` or `test`:
+
+```typescript
+// Skip this suite in the ocp-helm-nightly CI job
+test.describe("My Plugin", { tag: "@skip-ocp-helm-nightly" }, () => {
+  test("test case", async () => { ... });
+});
+
+// Skip a single test in ocp-helm jobs (both PR and nightly)
+test("expensive test", { tag: "@skip-ocp-helm" }, async () => { ... });
+
+// Multiple tags
+test.describe("Suite", {
+  tag: ["@skip-ocp-helm-nightly", "@skip-ocp-operator-nightly"],
+}, () => { ... });
+```
+
+When running in CI, `run-e2e.sh` auto-derives the skip tag from `JOB_NAME` and passes `--grep-invert` to Playwright. From a workspace directory, pass it manually:
+
+```bash
+yarn test -- --grep-invert "@skip-ocp-helm"
+```
+
+See [Skip Tags](/overlay/reference/run-e2e#skip-tags) for the full list of tags and derivation logic.
+
 ## Imports
 
 Import test utilities from `@red-hat-developer-hub/e2e-test-utils`:

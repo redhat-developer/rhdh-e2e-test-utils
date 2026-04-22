@@ -93,6 +93,39 @@ To test nightly job changes via the release repo:
 2. Comment `/test e2e-ocp-helm-nightly` on the PR
 3. The rehearse job runs with `JOB_MODE=nightly`, testing all workspaces
 
+## Skipping Tests by CI Job
+
+Tests can opt out of specific CI jobs using Playwright tags. The `run-e2e.sh` script auto-derives a skip tag from `JOB_NAME` and passes `--grep-invert` to Playwright.
+
+For example, to skip a test in the nightly helm job:
+
+```typescript
+test.describe("My Plugin", { tag: "@skip-ocp-helm-nightly" }, () => {
+  // This entire suite is excluded when JOB_NAME contains "e2e-ocp-helm-nightly"
+});
+```
+
+### Available Tags
+
+| Tag | Skipped in | Not skipped in |
+|-----|-----------|----------------|
+| `@skip-ocp-helm` | `e2e-ocp-helm` (PR check) | `e2e-ocp-helm-nightly` |
+| `@skip-ocp-helm-nightly` | `e2e-ocp-helm-nightly` | `e2e-ocp-helm` (PR check) |
+| `@skip-ocp-operator` | `e2e-ocp-operator` (PR check) | `e2e-ocp-operator-nightly` |
+| `@skip-ocp-operator-nightly` | `e2e-ocp-operator-nightly` | `e2e-ocp-operator` (PR check) |
+
+Each tag matches exactly — `@skip-ocp-helm` won't accidentally skip tests in the nightly job.
+
+Multiple tags can be combined on a single test or describe block:
+
+```typescript
+test.describe("Suite", {
+  tag: ["@skip-ocp-helm-nightly", "@skip-ocp-operator-nightly"],
+}, () => { ... });
+```
+
+See [Skip Tags](/overlay/reference/run-e2e#skip-tags) for the full derivation logic and how to use tags from a workspace directory.
+
 ## PR OCI Image Builds
 
 When testing a PR, the plugins need to be built into OCI images that RHDH can use. This is handled through the `/publish` command.

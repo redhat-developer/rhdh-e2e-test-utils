@@ -82,7 +82,54 @@ A workspace is discovered when it has a `workspaces/<name>/e2e-tests/` directory
 |----------|-------------|---------|
 | `E2E_NIGHTLY_MODE` | When `true`, uses released OCI images from metadata; defaults `E2E_TEST_UTILS_VERSION` to `latest` | `false` |
 | `GIT_PR_NUMBER` | PR number for OCI URL generation (uses PR-built images) | - |
-| `JOB_NAME` | CI job name; if contains `periodic-`, disables metadata injection | - |
+| `JOB_NAME` | CI job name; if contains `periodic-`, disables metadata injection. Also used to [auto-derive skip tags](#skip-tags). | - |
+
+## Skip Tags
+
+When `JOB_NAME` is set (by OpenShift CI), the script auto-derives a Playwright tag and injects `--grep-invert` to exclude tests tagged with it. This lets test authors skip specific tests in specific CI jobs using standard Playwright tags.
+
+### How It Works
+
+The job suffix is extracted from `JOB_NAME` by stripping everything up to and including `-e2e-`. A negative lookahead `(?!-)` is appended so each tag matches exactly — `@skip-ocp-helm` won't accidentally filter `@skip-ocp-helm-nightly`:
+
+| JOB_NAME (suffix shown) | `--grep-invert` pattern |
+|--------------------------|-------------------------|
+| `...-e2e-ocp-helm` | `@skip-ocp-helm(?!-)` |
+| `...-e2e-ocp-helm-nightly` | `@skip-ocp-helm-nightly(?!-)` |
+| `...-e2e-ocp-operator` | `@skip-ocp-operator(?!-)` |
+| `...-e2e-ocp-operator-nightly` | `@skip-ocp-operator-nightly(?!-)` |
+
+If `JOB_NAME` doesn't contain `-e2e-`, no tag is derived and no filtering is applied.
+
+### Tagging Tests
+
+Add Playwright tags to `test.describe` or individual `test` calls:
+
+```typescript
+// Skip only in ocp-helm-nightly job
+test.describe("My Plugin", { tag: "@skip-ocp-helm-nightly" }, () => { ... });
+
+// Skip only in ocp-helm PR check job (won't affect nightly)
+test("expensive test", { tag: "@skip-ocp-helm" }, async () => { ... });
+
+// Multiple tags — skip in both helm and operator nightly
+test.describe("Suite", {
+  tag: ["@skip-ocp-helm-nightly", "@skip-ocp-operator-nightly"],
+}, () => { ... });
+```
+
+### From a Workspace Directory
+
+Skip tags work the same way when running tests from a workspace — pass `--grep-invert` manually:
+
+```bash
+cd workspaces/tech-radar/e2e-tests
+yarn test -- --grep-invert "@skip-ocp-helm"
+```
+
+::: info Precedence
+The auto-derived `--grep-invert` is prepended to the Playwright arguments. If you also pass `--grep-invert` on the command line, Playwright uses the last value (last wins), so your manual flag takes precedence.
+:::
 
 ## How It Works
 

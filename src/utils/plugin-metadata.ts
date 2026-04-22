@@ -79,16 +79,18 @@ export function isNightlyJob(): boolean {
 
 /**
  * Extracts the plugin name from a package path or OCI reference.
+ * Strips the `-dynamic` suffix so local paths and OCI refs for the same
+ * logical plugin produce the same key.
  *
  * Handles various formats:
- * - Local path: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
+ * - Local path: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar-dynamic
  * - OCI with alias: oci://quay.io/rhdh/plugin@sha256:...!backstage-community-plugin-tech-radar
  * - OCI without alias: oci://quay.io/rhdh/backstage-community-plugin-tech-radar:tag
  */
 export function extractPluginName(packageRef: string): string {
   const ref = packageRef.includes("!") ? packageRef.split("!")[0] : packageRef;
   const match = ref.match(/\/([^/:@]+)(?:[:@].*)?$/);
-  return match?.[1] || packageRef;
+  return (match?.[1] || packageRef).replace(/-dynamic$/, "");
 }
 
 /**
@@ -346,7 +348,7 @@ export function getNormalizedPluginMergeKey(entry: {
   if (pkg === undefined || pkg === "") {
     return "";
   }
-  return extractPluginName(pkg).replace(/-dynamic$/, "");
+  return extractPluginName(pkg);
 }
 
 async function resolvePluginPackages(

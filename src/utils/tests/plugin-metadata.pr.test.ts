@@ -362,6 +362,83 @@ describe("processPluginsForDeployment — PR mode", () => {
     }
   });
 
+  // ── -dynamic suffix normalization ────────────────────────────────────────
+
+  describe("-dynamic suffix normalization", () => {
+    it("resolves OCI plugin to metadata when dynamicArtifact has -dynamic suffix", async () => {
+      const metadataDir = await createMetadataFixture([
+        {
+          name: "backstage-plugin-catalog-backend-module-github",
+          packageName: "@backstage/plugin-catalog-backend-module-github",
+          dynamicArtifact:
+            "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic",
+          appConfigExamples: {
+            catalog: { providers: { github: { org: "test" } } },
+          },
+        },
+      ]);
+
+      try {
+        const config: DynamicPluginsConfig = {
+          plugins: [
+            {
+              package:
+                "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-catalog-backend-module-github:bs_1.45.3__0.11.2",
+              disabled: false,
+            },
+          ],
+        };
+
+        const result = await processPluginsForDeployment(config, metadataDir);
+
+        assert.ok(
+          result.plugins![0].pluginConfig,
+          "metadata config must be injected even when dynamicArtifact has -dynamic suffix but OCI URL does not",
+        );
+        assert.deepStrictEqual(
+          result.plugins![0].pluginConfig,
+          { catalog: { providers: { github: { org: "test" } } } },
+          "injected config must match metadata appConfigExamples",
+        );
+      } finally {
+        await fs.remove(metadataDir);
+      }
+    });
+
+    it("keeps local -dynamic path unchanged when metadata also has -dynamic", async () => {
+      const metadataDir = await createMetadataFixture([
+        {
+          name: "backstage-plugin-catalog-backend-module-github",
+          packageName: "@backstage/plugin-catalog-backend-module-github",
+          dynamicArtifact:
+            "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic",
+        },
+      ]);
+
+      try {
+        const config: DynamicPluginsConfig = {
+          plugins: [
+            {
+              package:
+                "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic",
+              disabled: false,
+            },
+          ],
+        };
+
+        const result = await processPluginsForDeployment(config, metadataDir);
+
+        assert.strictEqual(
+          result.plugins![0].package,
+          "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-dynamic",
+          "local path with -dynamic must stay unchanged",
+        );
+      } finally {
+        await fs.remove(metadataDir);
+      }
+    });
+  });
+
   // ── PR vs nightly precedence ────────────────────────────────────────────
 
   describe("PR vs nightly precedence", () => {

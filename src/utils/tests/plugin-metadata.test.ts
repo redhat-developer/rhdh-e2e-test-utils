@@ -43,12 +43,12 @@ describe("extractPluginName", () => {
     );
   });
 
-  it("extracts name from local path", () => {
+  it("extracts name from local path and strips -dynamic suffix", () => {
     assert.strictEqual(
       extractPluginName(
         "./dynamic-plugins/dist/backstage-community-plugin-keycloak-dynamic",
       ),
-      "backstage-community-plugin-keycloak-dynamic",
+      "backstage-community-plugin-keycloak",
     );
   });
 

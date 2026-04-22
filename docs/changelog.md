@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.32] - Current
+## [1.1.33] - Current
 
 ### Added
 

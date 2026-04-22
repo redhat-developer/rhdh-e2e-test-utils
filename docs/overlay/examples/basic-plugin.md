@@ -63,7 +63,7 @@ workspaces/<plugin>/e2e-tests/
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.30",
+    "@red-hat-developer-hub/e2e-test-utils": "1.1.33",
     "@types/node": "25.5.2",
     "dotenv": "17.4.1",
     "eslint": "10.2.0",

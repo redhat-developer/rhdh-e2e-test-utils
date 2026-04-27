@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.35]
+
+### Fixed
+
+- **Export `globalSetup` and allow override in `defineConfig`**: Added missing `./global-setup` export to `package.json` and updated `defineConfig` to accept `globalSetup` parameter. Custom global setup functions can now properly import and extend the default setup. Documentation updated with correct ESM import syntax using `fileURLToPath(new URL(...))` instead of `require.resolve()`.
+- **Normalize `-dynamic` suffix in `extractPluginName`**: Plugins whose metadata `dynamicArtifact` is a local path (ending in `-dynamic`) were not matched during PR OCI resolution or config injection, because the metadata map key included the `-dynamic` suffix while OCI URL lookups did not. `extractPluginName` now strips the `-dynamic` suffix so local paths and OCI refs for the same logical plugin produce the same key. ([RHDHBUGS-2987](https://issues.redhat.com/browse/RHDHBUGS-2987))
+
 ## [1.1.34] - Current
 
 ### Added
@@ -21,11 +28,6 @@ All notable changes to this project will be documented in this file.
 
 - **Automatic Vault secret loading for local development**: Set `VAULT=1` or `VAULT=true` to automatically fetch secrets from HashiCorp Vault during global setup. Handles OIDC login, fetches global and per-workspace secrets, and injects them into `process.env`. Only secret key names are logged, never values. Configurable via `VAULT_ADDR` and `VAULT_BASE_PATH` env vars. Logs a Slack channel (`#rhdh-e2e-tests`) when permission is denied.
 
-## [1.1.32]
-
-### Fixed
-
-- **Normalize `-dynamic` suffix in `extractPluginName`**: Plugins whose metadata `dynamicArtifact` is a local path (ending in `-dynamic`) were not matched during PR OCI resolution or config injection, because the metadata map key included the `-dynamic` suffix while OCI URL lookups did not. `extractPluginName` now strips the `-dynamic` suffix so local paths and OCI refs for the same logical plugin produce the same key. ([RHDHBUGS-2987](https://issues.redhat.com/browse/RHDHBUGS-2987))
 
 ## [1.1.31]
 

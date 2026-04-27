@@ -41,16 +41,17 @@ export const baseConfig: PlaywrightTestConfig = {
 
 /**
  * Defines a workspace-specific config by merging with base config.
- * Only allows overriding the projects configuration.
- * @param overrides - Object containing projects to override
+ * Allows overriding the projects and globalSetup configuration.
+ * @param overrides - Object containing projects and optionally globalSetup to override
  * @returns Merged Playwright configuration
  */
 
 export function defineConfig(
-  overrides: Pick<PlaywrightTestConfig, "projects"> = {},
+  overrides: Pick<PlaywrightTestConfig, "projects" | "globalSetup"> = {},
 ): PlaywrightTestConfig {
   return baseDefineConfig({
     ...baseConfig,
     projects: overrides.projects,
+    ...(overrides.globalSetup && { globalSetup: overrides.globalSetup }),
   });
 }

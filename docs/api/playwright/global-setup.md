@@ -56,14 +56,15 @@ Create your own that calls the default:
 
 ```typescript
 // global-setup.ts
-import { globalSetup as defaultSetup } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { type FullConfig } from "@playwright/test";
+import defaultSetup from "@red-hat-developer-hub/e2e-test-utils/global-setup";
 
-export default async function globalSetup() {
+export default async function globalSetup(config: FullConfig) {
   // Your custom setup
   console.log("Custom setup starting...");
 
   // Call default setup
-  await defaultSetup();
+  await defaultSetup(config);
 
   // More custom setup
   console.log("Custom setup complete");
@@ -73,9 +74,10 @@ export default async function globalSetup() {
 ```typescript
 // playwright.config.ts
 import { defineConfig } from "@red-hat-developer-hub/e2e-test-utils/playwright-config";
+import { fileURLToPath } from "url";
 
 export default defineConfig({
-  globalSetup: require.resolve("./global-setup"),
+  globalSetup: fileURLToPath(new URL("./global-setup.ts", import.meta.url)),
   projects: [{ name: "my-plugin" }],
 });
 ```

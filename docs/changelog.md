@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.36] - Current
+## [1.1.37] - Current
+
+### Added
+
+- **JUnit reporter in base Playwright config**: All consuming workspaces now automatically generate `playwright-report/junit-results.xml` alongside the existing HTML and JSON reports.
+
+## [1.1.36]
 
 ### Fixed
 

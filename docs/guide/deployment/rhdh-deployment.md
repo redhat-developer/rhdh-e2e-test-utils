@@ -57,6 +57,43 @@ test("example", async ({ rhdh }) => {
 | `dynamicPlugins` | `string` | Path to dynamic-plugins YAML |
 | `valueFile` | `string` | Helm values file (Helm only) |
 | `subscription` | `string` | Backstage CR file (Operator only) |
+| `disableWrappers` | `string[]` | Wrapper plugin package names to disable (`GIT_PR_NUMBER` flows) |
+| `useNewFrontendSystem` | `boolean` | Enables the Backstage **new frontend system** shell (app-next / NFS): merges app-next secrets, default OCI **app-auth** and **app-integrations** plugins (as defaults — override in `tests/config/dynamic-plugins.yaml`), and extra Helm values from `config/new-frontend-system/value_file.yaml` plus optional `tests/config/value_file-app-next.yaml`. Omit to **auto-detect**: on when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass `false` to force off. |
+
+### New frontend system (`useNewFrontendSystem`)
+
+Use the **app-next** frontend when any of these apply:
+
+- You pass `useNewFrontendSystem: true` in **`configure()`** (explicit), or
+- The Playwright project name (which becomes the Kubernetes namespace) ends with **`-app-next`**, or
+- You set environment variable **`USE_NEW_FRONTEND_SYSTEM=true`**
+
+Pass **`useNewFrontendSystem: false`** to run in a `-app-next` namespace without NFS layers.
+
+Typical explicit flow:
+
+```typescript
+await rhdh.configure({
+  auth: "keycloak",
+  useNewFrontendSystem: true,
+});
+await rhdh.deploy();
+```
+
+With a project named e.g. `my-plugin-app-next`, you can omit the flag and still get NFS merges:
+
+```typescript
+await rhdh.configure({ auth: "keycloak" });
+await rhdh.deploy();
+```
+
+What gets merged (same order as other config: package defaults → auth → NFS defaults → your workspace files; later wins; secrets are merged then **envsubst** runs once on the result):
+
+1. **Secrets** — `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION: "true"` (your `rhdh-secrets.yaml` still wins on conflicts and can use `$VAR` substitution).
+2. **Dynamic plugins** — Default OCI refs for `red-hat-developer-hub-backstage-plugin-app-auth` and `...-app-integrations` from package YAML; override pins in **`tests/config/dynamic-plugins.yaml`** (same as other plugins).
+3. **Helm** — Package `config/new-frontend-system/value_file.yaml`, then your `value_file.yaml`, then optional `tests/config/value_file-app-next.yaml` when that file exists.
+
+Workspace-specific **app-config** (titles, plugin routes, etc.) remains your responsibility.
 
 ### Example: Full Configuration
 
@@ -113,13 +150,14 @@ await rhdh.deploy({ timeout: null });
 `deploy()` automatically skips if the deployment already succeeded in the current test run (e.g., after a worker restart due to test failure). This prevents expensive re-deployments.
 
 This method:
-1. Merges configuration files (common → auth → project)
-2. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
-3. Applies ConfigMaps (app-config, dynamic-plugins)
-4. Applies Secrets (with environment variable substitution)
-5. Installs RHDH via Helm or Operator
-6. Waits for the deployment to be ready
-7. Sets `RHDH_BASE_URL` environment variable
+1. Merges configuration files (common → auth → optional NFS defaults → project overrides) for app-config, secrets, and dynamic plugins
+2. Substitutes environment variables in the merged secrets (`envsubst`)
+3. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
+4. Applies ConfigMaps (app-config, dynamic-plugins)
+5. Applies Secrets
+6. Installs RHDH via Helm or Operator
+7. Waits for the deployment to be ready
+8. Sets `RHDH_BASE_URL` environment variable
 
 #### Base URL format
 

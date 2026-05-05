@@ -42,6 +42,14 @@ See [Running Locally - Secrets from Vault](/overlay/tutorials/running-locally#se
 | `INSTALLATION_METHOD` | Deployment method: `helm` or `operator`      | `helm`                     | No       |
 | `CHART_URL`           | Custom Helm chart URL                        | `oci://quay.io/rhdh/chart` | No       |
 
+### New frontend system (app-next / NFS)
+
+When the new frontend system is active (see [`useNewFrontendSystem`](/guide/deployment/rhdh-deployment#new-frontend-system-usenewfrontendsystem) and [environment variables](/guide/configuration/environment-variables#new-frontend-system-app-next)), the package merges NFS defaults then your workspace files. Pin **app-auth** / **app-integrations** OCI refs in `tests/config/dynamic-plugins.yaml` like any other plugin (your file wins over package defaults).
+
+| Variable | Description |
+|----------|-------------|
+| `USE_NEW_FRONTEND_SYSTEM` | When `"true"`, enables NFS merges if `useNewFrontendSystem` is not set in `configure()` options |
+
 ### Cluster Configuration
 
 | Variable                  | Description                | Default       | Required |

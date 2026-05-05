@@ -102,11 +102,15 @@ export class RHDHDeployment {
 
   private async _applySecrets(): Promise<void> {
     const authConfig = AUTH_CONFIG_PATHS[this.deploymentConfig.auth];
-    const secretsYaml = await mergeYamlFilesIfExists([
+    const secretsPaths = [
       DEFAULT_CONFIG_PATHS.secrets,
       authConfig.secrets,
+      ...(this.deploymentConfig.useNewFrontendSystem
+        ? [DEFAULT_CONFIG_PATHS.newFrontendSystem.secrets]
+        : []),
       this.deploymentConfig.secrets,
-    ]);
+    ];
+    const secretsYaml = await mergeYamlFilesIfExists(secretsPaths);
 
     // Use cloneDeepWith to substitute env vars in-place, avoiding JSON.parse issues
     // with control characters in secrets (e.g., private keys with newlines)
@@ -114,9 +118,11 @@ export class RHDHDeployment {
       if (typeof value === "string") return envsubst(value);
     });
 
+    const secretPayload = substituted as Record<string, unknown>;
+
     await this.k8sClient.applySecretFromObject(
       "rhdh-secrets",
-      substituted as { stringData?: Record<string, string> },
+      secretPayload as { stringData?: Record<string, string> },
       this.deploymentConfig.namespace,
     );
   }
@@ -127,8 +133,8 @@ export class RHDHDeployment {
   } as const;
 
   /**
-   * Merges package defaults + auth config (+ optional user config) into a
-   * single dynamic plugins configuration.
+   * Merges package defaults + auth + optional new-frontend-system defaults +
+   * optional user config into a single dynamic plugins configuration.
    */
   private async _mergeBaseConfigs(
     userConfigPath?: string,
@@ -137,6 +143,9 @@ export class RHDHDeployment {
     const paths = [
       DEFAULT_CONFIG_PATHS.dynamicPlugins,
       authConfig.dynamicPlugins,
+      ...(this.deploymentConfig.useNewFrontendSystem
+        ? [DEFAULT_CONFIG_PATHS.newFrontendSystem.dynamicPlugins]
+        : []),
       ...(userConfigPath ? [userConfigPath] : []),
     ];
     return await mergeYamlFilesIfExists(paths, RHDHDeployment.pluginMergeOpts);
@@ -224,10 +233,20 @@ export class RHDHDeployment {
       this.deploymentConfig.version,
     );
     this._log(`Helm chart version resolved to: ${chartVersion}`);
-    const valueFileObject = (await mergeYamlFilesIfExists([
+    const helmValuePaths = [
       DEFAULT_CONFIG_PATHS.helm.valueFile,
+      ...(this.deploymentConfig.useNewFrontendSystem
+        ? [DEFAULT_CONFIG_PATHS.newFrontendSystem.valueFile]
+        : []),
       valueFile,
-    ])) as Record<string, Record<string, unknown>>;
+      ...(this.deploymentConfig.useNewFrontendSystem &&
+      fs.existsSync(WorkspacePaths.valueFileAppNext)
+        ? [WorkspacePaths.valueFileAppNext]
+        : []),
+    ];
+    const valueFileObject = (await mergeYamlFilesIfExists(
+      helmValuePaths,
+    )) as Record<string, Record<string, unknown>>;
 
     this._logBoxen("Value File", valueFileObject);
 
@@ -505,14 +524,21 @@ export class RHDHDeployment {
       (process.env.INSTALLATION_METHOD as DeploymentMethod) ??
       "helm";
 
+    const namespace = input.namespace ?? this.deploymentConfig.namespace;
+    const useNewFrontendSystem =
+      input.useNewFrontendSystem ??
+      (namespace.endsWith("-app-next") ||
+        process.env.USE_NEW_FRONTEND_SYSTEM === "true");
+
     const base: DeploymentConfigBase = {
       version,
-      namespace: input.namespace ?? this.deploymentConfig.namespace,
+      namespace,
       auth: input.auth ?? "keycloak",
       appConfig: input.appConfig ?? WorkspacePaths.appConfig,
       secrets: input.secrets ?? WorkspacePaths.secrets,
       dynamicPlugins: input.dynamicPlugins ?? WorkspacePaths.dynamicPlugins,
       disableWrappers: input.disableWrappers ?? [],
+      useNewFrontendSystem,
     };
 
     if (method === "helm") {

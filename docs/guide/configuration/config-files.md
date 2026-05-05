@@ -46,6 +46,10 @@ catalog:
 
 Configure dynamic plugins:
 
+::: tip `useNewFrontendSystem`
+If you run against the **app-next** shell, enable the new frontend system (pass `useNewFrontendSystem: true`, use a project/namespace suffix **`-app-next`**, or set **`USE_NEW_FRONTEND_SYSTEM=true`** — see [RHDH deployment](/guide/deployment/rhdh-deployment#new-frontend-system-usenewfrontendsystem)). The package merges default **app-auth** and **app-integrations** OCI plugins as **defaults**; override versions in this file when they must differ.
+:::
+
 ```yaml
 includes:
   - dynamic-plugins.default.yaml

@@ -19,6 +19,7 @@ export const baseConfig: PlaywrightTestConfig = {
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "on-failure" }],
     ["json", { outputFile: "playwright-report/results.json" }],
+    ["junit", { outputFile: "playwright-report/junit-results.xml" }],
     [resolve(import.meta.dirname, "../playwright/teardown-reporter.js")],
   ],
   use: {

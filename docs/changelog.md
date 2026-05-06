@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.37] - Current
+## [1.1.38] - Current
+
+### Added
+
+- **Automatic workspace and project annotations**: All tests now automatically receive `workspace` and `project` annotations via a Playwright [automatic fixture](https://playwright.dev/docs/test-fixtures#automatic-fixtures). The workspace name is derived from `testDir` and the project name comes from the Playwright project configuration. No consumer changes required.
+
+## [1.1.37]
 
 ### Added
 

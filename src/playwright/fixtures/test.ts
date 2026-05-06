@@ -3,12 +3,14 @@ import { test as base } from "@playwright/test";
 import { LoginHelper, UIhelper } from "../helpers/index.js";
 import { runOnce } from "../run-once.js";
 import { $ } from "../../utils/bash.js";
+import { WorkspacePaths } from "../../utils/workspace-paths.js";
 import path from "path";
 
 type RHDHDeploymentTestFixtures = {
   rhdh: RHDHDeployment;
   uiHelper: UIhelper;
   loginHelper: LoginHelper;
+  autoAnnotations: void;
 };
 
 type RHDHDeploymentWorkerFixtures = {
@@ -61,6 +63,20 @@ const baseTest = base.extend<
     },
     { scope: "test" },
   ] as const,
+  autoAnnotations: [
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, use, testInfo) => {
+      testInfo.annotations.push(
+        {
+          type: "workspace",
+          description: path.basename(WorkspacePaths.workspaceRoot),
+        },
+        { type: "project", description: testInfo.project.name },
+      );
+      await use();
+    },
+    { auto: true, scope: "test" },
+  ],
 });
 
 export const test = Object.assign(baseTest, {

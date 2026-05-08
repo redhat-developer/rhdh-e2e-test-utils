@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.38] - Current
+## [1.1.39] - Current
+
+### Changed
+
+- **Disable quickstart plugin by default**: The `red-hat-developer-hub-backstage-plugin-quickstart` plugin is now explicitly disabled in the base `dynamic-plugins.yaml` config. This prevents the quickstart popup from appearing on every RHDH launch during tests.
+
+## [1.1.38]
 
 ### Added
 

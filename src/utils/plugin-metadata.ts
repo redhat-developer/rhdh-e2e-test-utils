@@ -75,6 +75,71 @@ export function isNightlyJob(): boolean {
   return false;
 }
 
+// ── Default Packages (DPDY) ──────────────────────────────────────────────────
+
+const DEFAULT_PACKAGES_BASE_URL =
+  "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads";
+
+interface DefaultPackagesYaml {
+  packages?: {
+    enabled?: Array<{ package: string }>;
+    disabled?: Array<{ package: string }>;
+  };
+}
+
+/**
+ * Fetches the list of packages shipped in the RHDH catalog index image (DPDY).
+ * Used in nightly mode to determine which plugins support {{inherit}} tag
+ * resolution vs which need full OCI refs from metadata.
+ *
+ * Branch is determined by RELEASE_BRANCH_NAME (set by OpenShift CI),
+ * defaulting to "main" for local development.
+ */
+export async function fetchDefaultPackages(): Promise<Set<string>> {
+  const branch = process.env.RELEASE_BRANCH_NAME;
+  if (!branch) {
+    if (process.env.CI) {
+      throw new Error(
+        "[PluginMetadata] RELEASE_BRANCH_NAME is required in CI to fetch default.packages.yaml",
+      );
+    }
+    console.log(
+      "[PluginMetadata] RELEASE_BRANCH_NAME not set — defaulting to 'main' (local dev)",
+    );
+  }
+  const resolvedBranch = branch || "main";
+  const url = `${DEFAULT_PACKAGES_BASE_URL}/${resolvedBranch}/default.packages.yaml`;
+
+  console.log(
+    `[PluginMetadata] Fetching default packages from ${url} (branch: ${resolvedBranch})...`,
+  );
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `[PluginMetadata] Failed to fetch default.packages.yaml: ${response.status} ${response.statusText}\n` +
+        `  URL: ${url}\n` +
+        `  Branch: ${resolvedBranch} (from RELEASE_BRANCH_NAME)`,
+    );
+  }
+
+  const content = await response.text();
+  const parsed = yaml.load(content) as DefaultPackagesYaml;
+
+  const packages = new Set<string>();
+  for (const list of [parsed?.packages?.enabled, parsed?.packages?.disabled]) {
+    for (const entry of list || []) {
+      if (entry.package) packages.add(entry.package);
+    }
+  }
+
+  console.log(
+    `[PluginMetadata] Found ${packages.size} packages in default.packages.yaml (branch: ${resolvedBranch})`,
+  );
+
+  return packages;
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 /**
@@ -355,6 +420,7 @@ async function resolvePluginPackages(
   plugins: PluginEntry[],
   metadataMap: Map<string, PluginMetadata>,
   metadataPath: string,
+  dpdyPackages: Set<string> | null = null,
 ): Promise<PluginEntry[]> {
   // Build PR OCI URLs if applicable
   const prNumber = process.env.GIT_PR_NUMBER;
@@ -372,7 +438,7 @@ async function resolvePluginPackages(
     const pluginName = extractPluginName(pkg);
     const metadata = metadataMap.get(pluginName);
 
-    // 1. With metadata: resolve to PR OCI URL or metadata's dynamicArtifact
+    // 1. With metadata: resolve to PR OCI URL, {{inherit}}, or metadata's dynamicArtifact
     if (metadata?.packageName) {
       const displayName = toDisplayName(metadata.packageName);
 
@@ -385,9 +451,22 @@ async function resolvePluginPackages(
         }
       }
 
-      // Use metadata's dynamicArtifact directly (latest published version).
-      // This is more accurate than {{inherit}} because metadata is updated daily
-      // while the DPDY in the catalog index may lag behind.
+      // Nightly DPDY + OCI: use {{inherit}} tag so RHDH resolves the version
+      // from its built-in dynamic-plugins.default.yaml (RC testing).
+      // Registry is preserved from metadata so the runtime key matches the DPDY entry.
+      if (
+        dpdyPackages?.has(metadata.packageName) &&
+        metadata.packagePath.startsWith("oci://")
+      ) {
+        const noAlias = metadata.packagePath.split("!")[0];
+        const name = extractPluginName(noAlias);
+        const idx = noAlias.lastIndexOf(name);
+        const inheritRef = `${noAlias.substring(0, idx + name.length)}:{{inherit}}`;
+        console.log(`[PluginMetadata] DPDY inherit: ${pkg} → ${inheritRef}`);
+        return { ...plugin, package: inheritRef };
+      }
+
+      // OCI: use metadata's dynamicArtifact directly (non-DPDY or non-nightly).
       if (metadata.packagePath.startsWith("oci://")) {
         console.log(`[PluginMetadata] ${pkg} → ${metadata.packagePath}`);
         return { ...plugin, package: metadata.packagePath };
@@ -401,10 +480,7 @@ async function resolvePluginPackages(
       return { ...plugin, package: metadata.packagePath };
     }
 
-    // 2. Local paths (./dynamic-plugins/dist/...) and other formats — keep as-is.
-    // Local paths reference plugins bundled in the RHDH container image and work
-    // without OCI resolution. When the catalog index moves all plugins to OCI refs,
-    // they'll be handled by step 1 or 2 above automatically.
+    // 2. No metadata — keep as-is (cross-workspace, npm packages, etc.)
     return plugin;
   });
 }
@@ -513,49 +589,86 @@ export async function generatePluginsFromMetadata(
   return { plugins };
 }
 
+function selectMetadataForInjection(
+  metadataMap: Map<string, PluginMetadata>,
+  nightly: boolean,
+  dpdyPackages: Set<string> | null,
+): Map<string, PluginMetadata> | null {
+  if (
+    !process.env.CI &&
+    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION === "true"
+  )
+    return null;
+  if (metadataMap.size === 0) return null;
+
+  if (!nightly) return metadataMap;
+  if (!dpdyPackages) return null;
+
+  // Nightly: only non-DPDY OCI plugins (DPDY plugins get config via {{inherit}})
+  return new Map(
+    [...metadataMap].filter(
+      ([, m]) =>
+        !dpdyPackages.has(m.packageName) && m.packagePath.startsWith("oci://"),
+    ),
+  );
+}
+
 /**
  * Processes a dynamic plugins configuration for deployment.
  * Single entry point for both PR and nightly flows.
  *
  * Operations (in order):
- * 1. Inject appConfigExamples from metadata (PR mode only, unless RHDH_SKIP_PLUGIN_METADATA_INJECTION is set)
- * 2. Resolve all packages to OCI references:
- *    - PR with GIT_PR_NUMBER: workspace plugins in PR build → pr_ tags, rest unchanged
- *    - PR without GIT_PR_NUMBER: OCI plugins with metadata → metadata refs, rest unchanged
- *    - Nightly: OCI plugins with metadata → metadata refs, rest unchanged
+ * 1. Inject appConfigExamples from metadata:
+ *    - PR/local: all plugins with metadata (unless RHDH_SKIP_PLUGIN_METADATA_INJECTION)
+ *    - Nightly: only non-DPDY OCI plugins (DPDY plugins inherit config from RHDH)
+ * 2. Resolve all packages:
+ *    - PR with GIT_PR_NUMBER: workspace plugins → pr_ OCI tags
+ *    - Nightly DPDY + OCI: {{inherit}} tag (RC testing against shipped version)
+ *    - Nightly non-DPDY / local: metadata's dynamicArtifact as-is
  *
  * @param config The merged dynamic plugins configuration
  * @param metadataPath Optional custom path to metadata directory
+ * @param dpdyPackages Optional pre-loaded DPDY package set (for testing; fetched automatically if omitted in nightly)
  * @returns Processed configuration ready for deployment
  */
 export async function processPluginsForDeployment(
   config: DynamicPluginsConfig,
   metadataPath: string = DEFAULT_METADATA_PATH,
+  dpdyPackages?: Set<string>,
 ): Promise<DynamicPluginsConfig> {
   if (!config.plugins) return config;
 
-  const metadataMap = await tryLoadMetadata(metadataPath);
+  const nightly = isNightlyJob();
+
+  const [metadataMap, resolvedDpdyPackages] = await Promise.all([
+    tryLoadMetadata(metadataPath),
+    nightly ? (dpdyPackages ?? fetchDefaultPackages()) : Promise.resolve(null),
+  ]);
 
   let result = { ...config };
 
-  // Inject appConfigExamples from metadata (PR mode only)
-  if (
-    !isNightlyJob() &&
-    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION !== "true" &&
-    metadataMap.size > 0
-  ) {
-    console.log("[PluginMetadata] Injecting metadata configs...");
-    result = injectMetadataConfig(result, metadataMap);
+  // Inject appConfigExamples from metadata
+  const metadataToInject = selectMetadataForInjection(
+    metadataMap,
+    nightly,
+    resolvedDpdyPackages,
+  );
+  if (metadataToInject && metadataToInject.size > 0) {
+    console.log(
+      `[PluginMetadata] Injecting metadata configs for ${metadataToInject.size} plugin(s)...`,
+    );
+    result = injectMetadataConfig(result, metadataToInject);
   }
 
   // Resolve all packages to OCI references
-  console.log("[PluginMetadata] Resolving plugin packages to OCI...");
+  console.log("[PluginMetadata] Resolving plugin packages...");
   result = {
     ...result,
     plugins: await resolvePluginPackages(
       result.plugins!,
       metadataMap,
       metadataPath,
+      resolvedDpdyPackages,
     ),
   };
 

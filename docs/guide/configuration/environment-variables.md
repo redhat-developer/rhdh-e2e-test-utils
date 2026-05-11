@@ -34,7 +34,7 @@ These are set automatically during deployment:
 | `CI` | Enables auto-cleanup | - |
 | `CHART_URL` | Custom Helm chart URL | `oci://quay.io/rhdh/chart` |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak auto-deploy | `false` |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection | - |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection (local only, ignored in CI) | - |
 
 ## Plugin Metadata Variables
 
@@ -43,9 +43,10 @@ These control automatic plugin configuration injection from metadata files:
 | Variable | Description | Effect |
 |----------|-------------|--------|
 | `GIT_PR_NUMBER` | PR number (set by OpenShift CI) | Enables OCI URL generation for PR builds |
-| `E2E_NIGHTLY_MODE` | When `"true"`, activates nightly mode | Uses released OCI refs, skips metadata injection |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `"true"`, disables metadata injection | Opt-out |
-| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
+| `E2E_NIGHTLY_MODE` | When `"true"`, activates nightly mode | DPDY plugins use `{{inherit}}`, non-DPDY OCI plugins get full refs + config injection |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `"true"`, disables metadata injection | Local-only opt-out (ignored when `CI=true`) |
+| `RELEASE_BRANCH_NAME` | Release branch (set by OpenShift CI step registry) | Used to fetch `default.packages.yaml` for DPDY resolution in nightly mode. Required in CI, defaults to `main` locally |
+| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, nightly mode is activated |
 | `JOB_MODE` | CI-only: `nightly` or `pr-check` (set by step registry) | Informational |
 
 ### OCI URL Generation

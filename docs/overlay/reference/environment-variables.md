@@ -76,9 +76,10 @@ These control automatic plugin configuration generation from metadata files:
 | Variable | Description | Effect |
 |----------|-------------|--------|
 | `GIT_PR_NUMBER` | PR number | Enables OCI URL generation using that PR's built images |
-| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode | Uses released OCI refs from metadata, skips config injection |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `true`, disables metadata injection | Opt-out for all metadata handling |
-| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
+| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode | DPDY plugins use `{{inherit}}`, non-DPDY OCI plugins get full refs + config injection |
+| `RELEASE_BRANCH_NAME` | Release branch (set by OpenShift CI) | Used to fetch `default.packages.yaml` for DPDY resolution. Required in CI, defaults to `main` locally |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `true`, disables metadata injection | Local-only opt-out (ignored when `CI=true`) |
+| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, nightly mode is activated |
 
 ### When to Use These Variables
 
@@ -87,7 +88,7 @@ These control automatic plugin configuration generation from metadata files:
 | PR builds in CI | `GIT_PR_NUMBER` is set automatically |
 | Test PR builds locally | Set `GIT_PR_NUMBER` manually to use PR's OCI images |
 | Nightly/periodic builds | `E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-` (auto-detected in CI) |
-| Manual opt-out | Set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` |
+| Manual opt-out (local only) | Set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` (ignored in CI) |
 
 ### Metadata Handling Behavior
 
@@ -95,10 +96,13 @@ These control automatic plugin configuration generation from metadata files:
 - Local development
 - PR builds in CI
 
-**Disabled automatically** when:
-- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true`
-- `E2E_NIGHTLY_MODE` is set to `true`
-- `JOB_NAME` contains `periodic-` (nightly builds)
+**Disabled locally** when:
+- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true` (ignored in CI)
+
+**Selective in nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`):
+- DPDY OCI plugins: no injection (use `{{inherit}}` tag, RHDH provides config)
+- Non-DPDY OCI plugins: injection enabled (full metadata refs)
+- Wrapper plugins: no injection
 
 ::: info Priority
 When `GIT_PR_NUMBER` is set, PR mode always takes precedence over nightly mode. This prevents broken combinations of PR images with nightly configuration.

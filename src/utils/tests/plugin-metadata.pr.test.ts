@@ -231,6 +231,7 @@ describe("processPluginsForDeployment — PR mode", () => {
   });
 
   it("skips injection when RHDH_SKIP_PLUGIN_METADATA_INJECTION is 'true'", async () => {
+    delete process.env.CI;
     process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
 
     const metadataDir = await createMetadataFixture([
@@ -262,6 +263,44 @@ describe("processPluginsForDeployment — PR mode", () => {
         result.plugins![0].pluginConfig,
         undefined,
         "pluginConfig must not be injected when RHDH_SKIP_PLUGIN_METADATA_INJECTION=true",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("ignores RHDH_SKIP_PLUGIN_METADATA_INJECTION in CI", async () => {
+    process.env.CI = "true";
+    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
+
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tech-radar",
+        packageName: "@backstage-community/plugin-tech-radar",
+        dynamicArtifact:
+          "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+        appConfigExamples: {
+          techRadar: { url: "http://default.example.com" },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(config, metadataDir);
+
+      assert.ok(
+        result.plugins![0].pluginConfig,
+        "pluginConfig must be injected in CI even when RHDH_SKIP_PLUGIN_METADATA_INJECTION=true",
       );
     } finally {
       await fs.remove(metadataDir);

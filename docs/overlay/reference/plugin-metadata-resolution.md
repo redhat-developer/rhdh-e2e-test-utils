@@ -26,9 +26,9 @@ Every plugin entry in `dynamic-plugins.yaml` goes through two steps:
 
 Merge `appConfigExamples` from metadata into `pluginConfig`.
 
-- **PR / Local**: metadata config is the base, user `pluginConfig` overrides it (deep merge)
-- **Nightly**: skipped entirely — user `pluginConfig` is preserved as-is
-- Disabled when `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`
+- **PR / Local**: metadata config is the base, user `pluginConfig` overrides it (deep merge) for all plugins
+- **Nightly**: selective — only non-DPDY OCI plugins get injection; DPDY plugins get config from RHDH via `{{inherit}}`; wrapper plugins get no injection
+- Disabled locally when `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` (ignored in CI)
 
 #### Example: Deep Merge Behavior (PR / Local mode)
 
@@ -84,7 +84,9 @@ plugins:
 | Metadata has config, user has partial override | Deep merge — user keys win, metadata fills the rest |
 | Metadata has config, user overrides same key | User value wins |
 | No `appConfigExamples` in metadata | No `pluginConfig` injected |
-| **Nightly mode** | **Skipped** — user `pluginConfig` preserved exactly as-is, metadata config NOT merged |
+| **Nightly — DPDY OCI** | **Skipped** — plugin uses `{{inherit}}`, RHDH provides config defaults |
+| **Nightly — non-DPDY OCI** | **Injected** — metadata `appConfigExamples` merged as base, user `pluginConfig` overrides |
+| **Nightly — wrapper** | **Skipped** — user `pluginConfig` preserved as-is |
 
 ### Step 2: Package Resolution
 
@@ -101,15 +103,22 @@ For each plugin, the resolver checks in order:
    Yes → replace with PR OCI URL:  oci://ghcr.io/.../plugin:pr_{number}__{version}
    No  ↓
 
-3. Use metadata's dynamicArtifact as-is
+3. Is nightly mode AND plugin is in DPDY AND metadata is OCI?
+   Yes → use {{inherit}} tag:  oci://{registry}/plugin:{{inherit}}
+         (registry preserved from metadata's dynamicArtifact)
+   No  ↓
+
+4. Use metadata's dynamicArtifact as-is
    (OCI ref → OCI ref, wrapper path → wrapper path)
 ```
 
-Metadata is always the source of truth for the package reference. Whatever `spec.dynamicArtifact` says — OCI ref or wrapper path — that's what the plugin resolves to.
+Metadata is the source of truth for the package reference, except for DPDY plugins in nightly mode which use `{{inherit}}` to test the exact versions shipped in the RHDH RC.
 
 ## Resolution Scenarios
 
-The tables below show what happens to each plugin type in PR check and nightly modes. Local dev behaves the same as nightly for package resolution, and the same as PR check for config injection.
+The tables below show what happens to each plugin type in PR check and nightly modes. Local dev behaves the same as PR check (metadata refs + full config injection).
+
+In nightly mode, resolution depends on whether the plugin's npm package name is in the DPDY (`default.packages.yaml` — both `enabled` and `disabled` sections). The DPDY list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME`.
 
 ### PR Check Mode (`GIT_PR_NUMBER` set)
 
@@ -127,32 +136,38 @@ The tables below show what happens to each plugin type in PR check and nightly m
 
 ### Nightly Mode (`E2E_NIGHTLY_MODE=true`, no `GIT_PR_NUMBER`)
 
-| # | Scenario | Metadata `dynamicArtifact` | User config `package` | Resolved `package` | Config injection |
-|---|----------|---------------------------|----------------------|---------------------|-----------------|
-| 1 | Workspace plugin (OCI) | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` | `oci://ghcr.io/.../plugin-tekton:old_tag!alias` | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` (from metadata) | **Skipped** |
-| 2 | Workspace plugin (wrapper) | `./dynamic-plugins/dist/plugin-tech-radar` | `./dynamic-plugins/dist/plugin-tech-radar` | `./dynamic-plugins/dist/plugin-tech-radar` (from metadata) | **Skipped** |
-| 3 | Workspace plugin (wrapper, stale OCI in config) | `./dynamic-plugins/dist/plugin-github-org-dynamic` | `oci://ghcr.io/.../plugin-github-org:bs_1.45.3__0.3.16` | `./dynamic-plugins/dist/plugin-github-org-dynamic` (from metadata) | **Skipped** |
-| 4 | Workspace plugin (OCI, wrapper in config) | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` | `./dynamic-plugins/dist/plugin-tekton` | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` (from metadata) | **Skipped** |
-| 5 | Cross-workspace (local path, no metadata) | — | `./dynamic-plugins/dist/plugin-kubernetes-backend-dynamic` | unchanged | **Skipped** |
-| 6 | Cross-workspace (OCI, no metadata) | — | `oci://ghcr.io/.../plugin-dynamic-home-page:bs_1.45.3__1.10.3!alias` | unchanged | **Skipped** |
-| 7 | npm package (no metadata) | — | `@rhdh/plugin-global-header-test@0.0.2` | unchanged | **Skipped** |
-| 8 | Different registry (quay.io) | `oci://quay.io/rhdh/plugin-events@sha256:abc` | `oci://ghcr.io/.../plugin-events:old_tag` | `oci://quay.io/rhdh/plugin-events@sha256:abc` (from metadata, different registry) | **Skipped** |
-| 9 | Different registry (registry.access.redhat.com) | `oci://registry.access.redhat.com/rhdh/plugin-orch@sha256:f40d` | `oci://ghcr.io/.../plugin-orch:some_tag` | `oci://registry.access.redhat.com/rhdh/plugin-orch@sha256:f40d` (from metadata) | **Skipped** |
+| # | Scenario | In DPDY? | Metadata `dynamicArtifact` | User config `package` | Resolved `package` | Config injection |
+|---|----------|----------|---------------------------|----------------------|---------------------|-----------------|
+| 1 | DPDY OCI plugin | Yes | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` | `oci://ghcr.io/.../plugin-tekton:old_tag!alias` | `oci://ghcr.io/.../plugin-tekton:{{inherit}}` | **Skipped** (RHDH provides defaults) |
+| 2 | DPDY wrapper plugin | Yes | `./dynamic-plugins/dist/plugin-tech-radar` | `./dynamic-plugins/dist/plugin-tech-radar` | `./dynamic-plugins/dist/plugin-tech-radar` (from metadata) | **Skipped** |
+| 3 | DPDY wrapper (stale OCI in config) | Yes | `./dynamic-plugins/dist/plugin-github-org-dynamic` | `oci://ghcr.io/.../plugin-github-org:bs_1.45.3__0.3.16` | `./dynamic-plugins/dist/plugin-github-org-dynamic` (from metadata) | **Skipped** |
+| 4 | Non-DPDY OCI plugin | No | `oci://ghcr.io/.../plugin-scorecard:bs_1.49.4__1.0.0!alias` | `oci://ghcr.io/.../plugin-scorecard:old_tag` | `oci://ghcr.io/.../plugin-scorecard:bs_1.49.4__1.0.0!alias` (from metadata) | **Yes** (non-DPDY needs config) |
+| 5 | Non-DPDY wrapper plugin | No | `./dynamic-plugins/dist/plugin-custom` | `./dynamic-plugins/dist/plugin-custom` | `./dynamic-plugins/dist/plugin-custom` (from metadata) | **Skipped** |
+| 6 | DPDY OCI (wrapper in config) | Yes | `oci://ghcr.io/.../plugin-tekton:bs_1.49.4__3.33.3!alias` | `./dynamic-plugins/dist/plugin-tekton` | `oci://ghcr.io/.../plugin-tekton:{{inherit}}` | **Skipped** |
+| 7 | Cross-workspace (local path, no metadata) | — | — | `./dynamic-plugins/dist/plugin-kubernetes-backend-dynamic` | unchanged | **Skipped** |
+| 8 | Cross-workspace (OCI, no metadata) | — | — | `oci://ghcr.io/.../plugin-dynamic-home-page:bs_1.45.3__1.10.3!alias` | unchanged | **Skipped** |
+| 9 | npm package (no metadata) | — | — | `@rhdh/plugin-global-header-test@0.0.2` | unchanged | **Skipped** |
+| 10 | DPDY different registry (RHEC) | Yes | `oci://registry.access.redhat.com/rhdh/plugin-orch@sha256:f40d` | `oci://ghcr.io/.../plugin-orch:some_tag` | `oci://registry.access.redhat.com/rhdh/plugin-orch:{{inherit}}` | **Skipped** |
+| 11 | DPDY different registry (quay.io) | Yes | `oci://quay.io/rhdh/plugin-cost@sha256:abc` | `oci://quay.io/rhdh/plugin-cost@sha256:abc` | `oci://quay.io/rhdh/plugin-cost:{{inherit}}` | **Skipped** |
+| 12 | Non-DPDY different registry (quay.io) | No | `oci://quay.io/rhdh/plugin-events@sha256:abc` | `oci://ghcr.io/.../plugin-events:old_tag` | `oci://quay.io/rhdh/plugin-events@sha256:abc` (from metadata) | **Yes** |
+| 13 | Non-DPDY different registry (RHEC) | No | `oci://registry.access.redhat.com/rhdh/plugin-custom@sha256:f40d` | `oci://ghcr.io/.../plugin-custom:some_tag` | `oci://registry.access.redhat.com/rhdh/plugin-custom@sha256:f40d` (from metadata) | **Yes** |
 
 ### Key Takeaways
 
 | Rule | Explanation |
 |------|-------------|
 | **Metadata always wins** | When metadata exists, `spec.dynamicArtifact` determines the package — the user config's `package` field is overwritten |
+| **DPDY OCI → `{{inherit}}`** | In nightly, DPDY plugins with OCI metadata use `{{inherit}}` to test the exact RC versions. No config injection — RHDH provides defaults |
+| **Non-DPDY OCI → full ref + injection** | In nightly, non-DPDY OCI plugins use metadata refs and get `appConfigExamples` injected (they're not in RHDH defaults) |
+| **Wrappers never get `{{inherit}}`** | Wrapper plugins always use the metadata path, regardless of DPDY status |
 | **No metadata = passthrough** | Cross-workspace plugins, npm packages, and anything without a metadata match passes through unchanged |
 | **PR mode overrides everything** | Even if metadata says wrapper, PR mode builds an OCI URL from `source.json` + `plugins-list.yaml` |
-| **Nightly skips config injection** | User `pluginConfig` is preserved as-is; metadata `appConfigExamples` is NOT merged in |
-| **Registry comes from metadata** | In nightly/local, the exact registry from metadata is used (quay.io, registry.access.redhat.com, etc.). In PR mode, all PR images come from `ghcr.io` |
+| **Registry comes from metadata** | In nightly/local, the exact registry from metadata is used — including `{{inherit}}` refs (rows 10-11). The runtime matches by registry prefix, so `{{inherit}}` must use the same registry as the DPDY entry. In PR mode, all PR images come from `ghcr.io` |
 | **Row 3 is a common pitfall** | If your config has a stale OCI ref but metadata says wrapper, the resolver uses the wrapper path from metadata. Keep your `dynamic-plugins.yaml` in sync, or better yet, don't create one — let it auto-generate from metadata |
 
 ### Cross-Workspace Plugins
 
-The resolver only looks at `metadata/` in the **current workspace**. It does not search other workspaces. If your test needs a plugin from another workspace (rows 5-6 above), there's no metadata match, so the package reference passes through unchanged in all modes.
+The resolver only looks at `metadata/` in the **current workspace**. It does not search other workspaces. If your test needs a plugin from another workspace (PR rows 5-6, nightly rows 7-8), there's no metadata match, so the package reference passes through unchanged in all modes.
 
 When using an OCI ref for a cross-workspace plugin, you often need to also **disable the local wrapper** for that plugin (included in `dynamic-plugins.default.yaml`), otherwise both versions load and conflict:
 
@@ -179,9 +194,9 @@ This is the recommended approach — most workspaces don't need a `dynamic-plugi
 
 ## Common Pitfalls
 
-### Config injection is skipped in nightly
+### Config injection in nightly is selective
 
-In nightly mode, `appConfigExamples` from metadata are NOT injected. If your test relies on config from metadata, you must provide it explicitly in `app-config-rhdh.yaml` or inline in `pluginConfig`.
+In nightly mode, config injection only happens for **non-DPDY OCI plugins**. DPDY plugins get their config from RHDH's built-in defaults via `{{inherit}}`, and wrapper plugins get no injection. If your test relies on config for a DPDY plugin, provide it explicitly in `app-config-rhdh.yaml` or inline in `pluginConfig`.
 
 ### PR mode requires /publish first
 

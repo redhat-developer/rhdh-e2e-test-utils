@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.39] - Current
+## [1.1.40] - Current
+
+### Changed
+
+- **Nightly `{{inherit}}` resolution for DPDY plugins**: In nightly mode, plugins that exist in the RHDH catalog index (`default.packages.yaml`) now resolve to `{{inherit}}` tags instead of pinned OCI refs. This tests against the exact plugin versions shipped in the RC. Non-DPDY OCI plugins continue using full metadata refs with config injection. The DPDY list is fetched at runtime from the `rhdh` repo, using `RELEASE_BRANCH_NAME` to select the branch (required in CI, defaults to `main` locally). The `{{inherit}}` ref preserves the registry from metadata (`registry.access.redhat.com`, `quay.io`, etc.) so the runtime key matches the DPDY entry.
+- **`RHDH_SKIP_PLUGIN_METADATA_INJECTION` is local-only**: This env var is now ignored in CI (`CI=true`). It was intended for local development opt-out only — in CI, metadata injection should always run to ensure consistent test behavior.
+- **`RELEASE_BRANCH_NAME` required in CI for nightly**: When running nightly mode in CI, `RELEASE_BRANCH_NAME` must be set (exported by the OpenShift CI step registry). Locally it defaults to `main`.
+
+## [1.1.39]
 
 ### Changed
 

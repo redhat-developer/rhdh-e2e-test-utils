@@ -1,6 +1,7 @@
 /**
  * Nightly mode tests — isNightlyJob detection and nightly plugin resolution.
  */
+/* eslint-disable @typescript-eslint/naming-convention -- test fixtures use real plugin config keys with dots/dashes */
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import fs from "fs-extra";
@@ -107,7 +108,7 @@ describe("processPluginsForDeployment — nightly mode", () => {
   });
   afterEach(() => env.restore());
 
-  it("skips metadata injection in nightly mode", async () => {
+  it("skips metadata injection for wrapper plugins in nightly mode", async () => {
     const metadataDir = await createMetadataFixture([
       {
         name: "backstage-community-plugin-tech-radar",
@@ -131,12 +132,16 @@ describe("processPluginsForDeployment — nightly mode", () => {
         ],
       };
 
-      const result = await processPluginsForDeployment(config, metadataDir);
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-tech-radar"]),
+      );
 
       assert.strictEqual(
         result.plugins![0].pluginConfig,
         undefined,
-        "nightly mode must NOT inject metadata pluginConfig",
+        "nightly mode must NOT inject metadata pluginConfig for wrapper plugins",
       );
     } finally {
       await fs.remove(metadataDir);
@@ -171,7 +176,11 @@ describe("processPluginsForDeployment — nightly mode", () => {
         ],
       };
 
-      const result = await processPluginsForDeployment(config, metadataDir);
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
 
       assert.deepStrictEqual(
         result.plugins![0].pluginConfig,
@@ -183,7 +192,7 @@ describe("processPluginsForDeployment — nightly mode", () => {
     }
   });
 
-  it("resolves OCI plugin to metadata dynamicArtifact in nightly", async () => {
+  it("resolves non-DPDY OCI plugin to metadata dynamicArtifact in nightly", async () => {
     const metadataDir = await createMetadataFixture([
       {
         name: "backstage-community-plugin-tekton",
@@ -204,11 +213,16 @@ describe("processPluginsForDeployment — nightly mode", () => {
         ],
       };
 
-      const result = await processPluginsForDeployment(config, metadataDir);
+      // Empty DPDY set — plugin is NOT in default.packages.yaml
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
 
       assert.ok(
         result.plugins![0].package.includes("bs_1.45.3__3.33.3"),
-        "nightly must resolve to metadata dynamicArtifact (latest published version)",
+        "non-DPDY OCI plugin must resolve to metadata dynamicArtifact",
       );
     } finally {
       await fs.remove(metadataDir);
@@ -240,7 +254,11 @@ describe("processPluginsForDeployment — nightly mode", () => {
         ],
       };
 
-      const result = await processPluginsForDeployment(config, metadataDir);
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
 
       assert.strictEqual(
         result.plugins![0].package,
@@ -273,12 +291,455 @@ describe("processPluginsForDeployment — nightly mode", () => {
         ],
       };
 
-      const result = await processPluginsForDeployment(config, metadataDir);
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
 
       assert.strictEqual(
         result.plugins![0].package,
         "./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-quickstart",
         "local path plugins must not be converted to OCI in nightly",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+});
+
+// ── {{inherit}} resolution (DPDY plugins) ──────────────────────────────────
+
+describe("processPluginsForDeployment — nightly {{inherit}}", () => {
+  const env = withCleanEnv();
+  beforeEach(() => {
+    env.save();
+    delete process.env.GIT_PR_NUMBER;
+    process.env.E2E_NIGHTLY_MODE = "true";
+  });
+  afterEach(() => env.restore());
+
+  it("resolves DPDY OCI plugin to {{inherit}} tag", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tekton",
+        packageName: "@backstage-community/plugin-tekton",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.33.3!backstage-community-plugin-tekton",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:old_tag",
+            disabled: false,
+          },
+        ],
+      };
+
+      const dpdyPackages = new Set(["@backstage-community/plugin-tekton"]);
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        dpdyPackages,
+      );
+
+      assert.strictEqual(
+        result.plugins![0].package,
+        "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:{{inherit}}",
+        "DPDY OCI plugin must resolve to {{inherit}} tag",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("{{inherit}} ref has no !alias suffix", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-topology",
+        packageName: "@backstage-community/plugin-topology",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:bs_1.49.4__1.2.0!backstage-community-plugin-topology",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-topology:old",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-topology"]),
+      );
+
+      assert.ok(
+        !result.plugins![0].package.includes("!"),
+        "{{inherit}} ref must NOT include !alias suffix",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("{{inherit}} preserves registry.access.redhat.com registry from metadata", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "red-hat-developer-hub-backstage-plugin-orchestrator",
+        packageName: "@red-hat-developer-hub/backstage-plugin-orchestrator",
+        dynamicArtifact:
+          "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:062a536d",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator@sha256:062a536d",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@red-hat-developer-hub/backstage-plugin-orchestrator"]),
+      );
+
+      assert.strictEqual(
+        result.plugins![0].package,
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-orchestrator:{{inherit}}",
+        "{{inherit}} must use registry from metadata, not hardcoded ghcr.io",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("{{inherit}} preserves quay.io registry from metadata", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-cost-management",
+        packageName: "@backstage-community/plugin-cost-management",
+        dynamicArtifact:
+          "oci://quay.io/redhat-resource-optimization/backstage-community-plugin-cost-management@sha256:abc123",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://quay.io/redhat-resource-optimization/backstage-community-plugin-cost-management@sha256:abc123",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-cost-management"]),
+      );
+
+      assert.strictEqual(
+        result.plugins![0].package,
+        "oci://quay.io/redhat-resource-optimization/backstage-community-plugin-cost-management:{{inherit}}",
+        "{{inherit}} must use registry from metadata, not hardcoded ghcr.io",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("DPDY wrapper plugin keeps wrapper path (no {{inherit}})", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tech-radar",
+        packageName: "@backstage-community/plugin-tech-radar",
+        dynamicArtifact:
+          "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-tech-radar"]),
+      );
+
+      assert.strictEqual(
+        result.plugins![0].package,
+        "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+        "DPDY wrapper plugin must keep wrapper path, not use {{inherit}}",
+      );
+      assert.ok(
+        !result.plugins![0].package.includes("inherit"),
+        "wrapper plugin must not contain {{inherit}}",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("non-DPDY OCI plugin uses full metadata ref (not {{inherit}})", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "red-hat-developer-hub-backstage-plugin-scorecard",
+        packageName: "@red-hat-developer-hub/backstage-plugin-scorecard",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__1.0.0!red-hat-developer-hub-backstage-plugin-scorecard",
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:old",
+            disabled: false,
+          },
+        ],
+      };
+
+      // Scorecard is NOT in the DPDY
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-tekton"]),
+      );
+
+      assert.ok(
+        result.plugins![0].package.includes("bs_1.49.4__1.0.0"),
+        "non-DPDY OCI plugin must use full metadata ref",
+      );
+      assert.ok(
+        !result.plugins![0].package.includes("inherit"),
+        "non-DPDY OCI plugin must NOT use {{inherit}}",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("skips config injection for DPDY OCI plugins", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tekton",
+        packageName: "@backstage-community/plugin-tekton",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.33.3!backstage-community-plugin-tekton",
+        appConfigExamples: {
+          dynamicPlugins: {
+            frontend: {
+              "backstage-community.plugin-tekton": { enabled: true },
+            },
+          },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:old",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-tekton"]),
+      );
+
+      assert.strictEqual(
+        result.plugins![0].pluginConfig,
+        undefined,
+        "DPDY plugin must NOT get metadata config injected — RHDH provides it via {{inherit}}",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("injects config for non-DPDY OCI plugins", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "red-hat-developer-hub-backstage-plugin-scorecard",
+        packageName: "@red-hat-developer-hub/backstage-plugin-scorecard",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__1.0.0!red-hat-developer-hub-backstage-plugin-scorecard",
+        appConfigExamples: {
+          scorecard: { apiUrl: "http://scorecard.example.com" },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:old",
+            disabled: false,
+          },
+        ],
+      };
+
+      // Scorecard NOT in DPDY
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
+
+      assert.deepStrictEqual(
+        result.plugins![0].pluginConfig,
+        { scorecard: { apiUrl: "http://scorecard.example.com" } },
+        "non-DPDY OCI plugin must get metadata config injected in nightly",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("does not inject config for non-DPDY wrapper plugins", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-plugin-catalog-backend-module-github-org",
+        packageName: "@backstage/plugin-catalog-backend-module-github-org",
+        dynamicArtifact:
+          "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-org-dynamic",
+        appConfigExamples: {
+          catalog: { providers: { github: { org: "test" } } },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "./dynamic-plugins/dist/backstage-plugin-catalog-backend-module-github-org-dynamic",
+            disabled: false,
+          },
+        ],
+      };
+
+      // NOT in DPDY, but it's a wrapper — no injection
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(),
+      );
+
+      assert.strictEqual(
+        result.plugins![0].pluginConfig,
+        undefined,
+        "non-DPDY wrapper plugin must NOT get metadata config injected",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("mixed scenario: DPDY OCI → inherit, non-DPDY OCI → full ref + config", async () => {
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tekton",
+        packageName: "@backstage-community/plugin-tekton",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.33.3!backstage-community-plugin-tekton",
+        appConfigExamples: {
+          tekton: { enabled: true },
+        },
+      },
+      {
+        name: "red-hat-developer-hub-backstage-plugin-scorecard",
+        packageName: "@red-hat-developer-hub/backstage-plugin-scorecard",
+        dynamicArtifact:
+          "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:bs_1.49.4__1.0.0!red-hat-developer-hub-backstage-plugin-scorecard",
+        appConfigExamples: {
+          scorecard: { apiUrl: "http://scorecard.example.com" },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:old",
+            disabled: false,
+          },
+          {
+            package:
+              "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-scorecard:old",
+            disabled: false,
+          },
+        ],
+      };
+
+      // Only tekton is in DPDY
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@backstage-community/plugin-tekton"]),
+      );
+
+      // Tekton: DPDY → {{inherit}}, no config injection
+      assert.ok(
+        result.plugins![0].package.includes("{{inherit}}"),
+        "DPDY plugin must use {{inherit}}",
+      );
+      assert.strictEqual(
+        result.plugins![0].pluginConfig,
+        undefined,
+        "DPDY plugin must not have config injected",
+      );
+
+      // Scorecard: non-DPDY → full OCI ref, config injected
+      assert.ok(
+        result.plugins![1].package.includes("bs_1.49.4__1.0.0"),
+        "non-DPDY plugin must use full metadata ref",
+      );
+      assert.deepStrictEqual(
+        result.plugins![1].pluginConfig,
+        { scorecard: { apiUrl: "http://scorecard.example.com" } },
+        "non-DPDY OCI plugin must have config injected",
       );
     } finally {
       await fs.remove(metadataDir);

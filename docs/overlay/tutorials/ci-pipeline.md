@@ -214,8 +214,9 @@ The following environment variables are available during CI execution:
 | Variable | Effect |
 |----------|--------|
 | `GIT_PR_NUMBER` | Enables OCI URL generation for PR builds |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disables all metadata handling |
-| `JOB_NAME` | If contains `periodic-`, disables metadata handling |
+| `RELEASE_BRANCH_NAME` | Branch for `default.packages.yaml` fetch (required in CI for nightly) |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disables metadata injection (local only, ignored in CI) |
+| `JOB_NAME` | If contains `periodic-`, activates nightly mode |
 
 See [Environment Variables Reference](/overlay/reference/environment-variables#plugin-metadata-variables) for details.
 

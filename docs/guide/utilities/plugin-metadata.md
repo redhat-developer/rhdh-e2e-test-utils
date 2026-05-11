@@ -27,10 +27,13 @@ Metadata handling is **enabled by default** for:
 - Local development
 - PR builds in CI
 
-Metadata handling is **disabled** when:
-- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true`
-- `E2E_NIGHTLY_MODE` is set to `true`
-- `JOB_NAME` contains `periodic-` (nightly builds)
+Metadata injection is **disabled** when:
+- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true` (local only — ignored in CI)
+
+In **nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`):
+- DPDY plugins (in `default.packages.yaml`) use `{{inherit}}` tags — no config injection
+- Non-DPDY OCI plugins use full metadata refs — with config injection
+- Wrapper plugins keep their local paths — no config injection
 
 ::: info Priority
 The `isNightlyJob()` function checks in this order:
@@ -59,15 +62,17 @@ test.beforeAll(async ({ rhdh }) => {
    - If `dynamic-plugins.yaml` **exists**: merged with package defaults + auth config
    - If `dynamic-plugins.yaml` **doesn't exist**: auto-generated from all `metadata/*.yaml` files, then merged with defaults/auth (deduplicated by normalized plugin name — OCI wins over local `-dynamic` paths)
 
-2. **Metadata injection** (PR/local mode only, skipped in nightly):
-   - `appConfigExamples` from metadata merged as base config
-   - User-provided `pluginConfig` overrides metadata values
+2. **Metadata injection**:
+   - **PR/local**: `appConfigExamples` from metadata merged as base config; user `pluginConfig` overrides
+   - **Nightly**: only for non-DPDY OCI plugins (DPDY plugins get config via `{{inherit}}`)
 
-3. **Package resolution** (both modes) — per plugin, in priority order:
+3. **Package resolution** — per plugin, in priority order:
    | Condition | Result |
    |-----------|--------|
    | Plugin in workspace build + `GIT_PR_NUMBER` set | PR OCI URL: `pr_{number}__{version}` |
+   | Nightly + DPDY + OCI | `{{inherit}}` tag (RHDH resolves version from built-in DPDY) |
    | Plugin has metadata with OCI `dynamicArtifact` | Metadata's OCI ref (preserves original registry) |
+   | Plugin has metadata with wrapper path | Wrapper path from metadata |
    | No metadata match (cross-workspace plugins, npm packages) | Kept as-is |
 
 4. **Wrapper disabling** (PR builds only, when `GIT_PR_NUMBER` set):
@@ -174,26 +179,35 @@ The system operates in three modes based on environment variables:
 | | **PR Check** | **Nightly** | **Local Dev** |
 |---|---|---|---|
 | **Trigger** | `GIT_PR_NUMBER` set | `E2E_NIGHTLY_MODE=true` | No env vars |
-| **Config injection** | Yes — `appConfigExamples` merged | Skipped | Yes |
-| **OCI resolution** | PR tags (`pr_{n}__{v}`) for workspace plugins, metadata refs for others | Metadata refs for all | Metadata refs for all |
+| **Config injection** | Yes — all plugins | Selective — non-DPDY OCI only | Yes — all plugins |
+| **DPDY OCI resolution** | PR tags or metadata refs | `{{inherit}}` tag | Metadata refs |
+| **Non-DPDY OCI resolution** | PR tags or metadata refs | Metadata refs + config injection | Metadata refs |
+| **Wrapper plugins** | Metadata path | Metadata path | Metadata path |
 | **Wrapper disabling** | Yes (`disableWrappers`) | No | No |
 | **Cross-workspace plugins** | Kept as-is | Kept as-is | Kept as-is |
 
-### Why Metadata Refs (Not `{{inherit}}`)
+### DPDY vs Non-DPDY in Nightly
 
-Metadata files are the most accurate source for latest published plugin versions. The daily `update-plugins-repo-refs` workflow keeps them current. By contrast, many OCI plugins (~49) are not in the catalog index (DPDY), and some that are have older versions. Using metadata ensures nightly tests run against the latest published artifacts.
+DPDY (dynamic-plugins.default.yaml) plugins are those shipped in the RHDH catalog index image, listed in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml) (both `enabled` and `disabled` sections). In nightly mode:
+
+- **DPDY + OCI**: Use `{{inherit}}` tag — RHDH resolves the version from its built-in DPDY. This tests the exact versions shipped in the RC. No config injection (RHDH provides defaults).
+- **Non-DPDY + OCI**: Use full metadata refs from `spec.dynamicArtifact`. Config injection enabled (these plugins aren't in the RHDH defaults).
+- **Wrapper plugins**: Always use the metadata wrapper path regardless of DPDY status. No config injection.
+
+The DPDY list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME` (required in CI, defaults to `main` locally).
 
 ### processPluginsForDeployment
 
 This is the unified entry point for both PR and nightly plugin resolution flows. It is called automatically during `deploy()`.
 
 ```
-Step 1: Inject metadata configs (PR/local mode only)
-  → deepMerge(metadata.appConfigExamples, user.pluginConfig)
-  → Skipped when: isNightlyJob() OR RHDH_SKIP_PLUGIN_METADATA_INJECTION="true"
+Step 1: Inject metadata configs
+  → PR/local: deepMerge(metadata.appConfigExamples, user.pluginConfig) for all plugins
+  → Nightly: only non-DPDY OCI plugins get injection
+  → Skipped locally when RHDH_SKIP_PLUGIN_METADATA_INJECTION="true" (ignored in CI)
 
-Step 2: Resolve packages to OCI (both modes)
-  → Per plugin: PR OCI URL > metadata OCI ref > passthrough
+Step 2: Resolve packages (both modes)
+  → Per plugin: PR OCI URL > DPDY {{inherit}} > metadata OCI ref > wrapper path > passthrough
 ```
 
 ## Environment Variables
@@ -201,9 +215,10 @@ Step 2: Resolve packages to OCI (both modes)
 | Variable | Effect |
 |----------|--------|
 | `GIT_PR_NUMBER` | Enables OCI URL generation for PR builds |
-| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode (uses released OCI refs) |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disables all metadata handling |
-| `JOB_NAME` | If contains `periodic-`, disables metadata handling |
+| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode (DPDY → `{{inherit}}`, non-DPDY → full refs) |
+| `RELEASE_BRANCH_NAME` | Branch for fetching `default.packages.yaml` (required in CI, defaults to `main` locally) |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disables metadata injection (local only, ignored in CI) |
+| `JOB_NAME` | If contains `periodic-`, activates nightly mode |
 | `JOB_MODE` | CI-only: `nightly` or `pr-check` (set by step registry) |
 
 See [Environment Variables](/guide/configuration/environment-variables#plugin-metadata-variables) for details.

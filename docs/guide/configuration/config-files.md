@@ -215,9 +215,11 @@ Plugin metadata injection is **enabled by default** for:
 - Local development
 - PR builds in CI
 
-Injection is **disabled** when:
-- [`RHDH_SKIP_PLUGIN_METADATA_INJECTION`](/guide/configuration/environment-variables#plugin-metadata-variables) environment variable is set
-- `JOB_NAME` contains `periodic-` (nightly/periodic CI builds)
+Injection is **disabled locally** when:
+- [`RHDH_SKIP_PLUGIN_METADATA_INJECTION`](/guide/configuration/environment-variables#plugin-metadata-variables) is set to `true` (ignored in CI)
+
+In **nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`):
+- Only non-DPDY OCI plugins get injection; DPDY plugins use `{{inherit}}` with RHDH defaults
 
 ::: warning
 When injection is enabled, deployment will fail if:

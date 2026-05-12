@@ -154,7 +154,8 @@ Unified entry point for both PR and nightly plugin resolution flows. Called auto
 ```typescript
 async function processPluginsForDeployment(
   config: DynamicPluginsConfig,
-  metadataPath?: string
+  metadataPath?: string,
+  dpdyPackages?: Set<string>
 ): Promise<DynamicPluginsConfig>
 ```
 
@@ -163,13 +164,14 @@ async function processPluginsForDeployment(
 |-----------|------|---------|-------------|
 | `config` | [`DynamicPluginsConfig`](#dynamicpluginsconfig) | - | The plugins config to process |
 | `metadataPath` | `string` | `"../metadata"` | Path to metadata directory |
+| `dpdyPackages` | `Set<string>` | - | Pre-loaded DPDY package set (for testing; fetched automatically if omitted in nightly) |
 
 **Returns:** Processed configuration with resolved OCI references.
 
 **Behavior:**
 - **PR mode** (`!isNightlyJob()`): Injects `appConfigExamples` from metadata as base config, then resolves packages to OCI URLs (PR-specific if `GIT_PR_NUMBER` set, metadata refs otherwise)
-- **Nightly mode** (`isNightlyJob()`): Resolves packages to OCI refs from metadata only (no config injection)
-- Respects `RHDH_SKIP_PLUGIN_METADATA_INJECTION` to skip config injection
+- **Nightly mode** (`isNightlyJob()`): DPDY plugins use `{{inherit}}` with configurable registry (default `registry.access.redhat.com/rhdh`, overridable via `NIGHTLY_DPDY_OCI_REGISTRY` or `NIGHTLY_DPDY_OCI_REGISTRY_MAP`); non-DPDY OCI plugins use full metadata refs with config injection
+- Respects `RHDH_SKIP_PLUGIN_METADATA_INJECTION` to skip config injection (local only, ignored in CI)
 
 ---
 

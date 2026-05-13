@@ -90,8 +90,12 @@ export class LoginHelper {
                 .then((popup) => ({ popup }))
                 .catch(() => null);
             const result = await Promise.race([navPromise, popupPromise]);
-            if (result && typeof result === "object" && "popup" in result) {
+            if (result === null) {
+                throw new Error("GitHub login failed: neither sidebar nor popup appeared after Sign In — session file may be stale");
+            }
+            if (typeof result === "object" && "popup" in result) {
                 // Popup opened — handle reauthorization
+                // TODO this is the same code as checkAndReauthorizeGithubApp's promise body
                 const popup = result.popup;
                 await popup.waitForLoadState();
                 for (let attempts = 0; attempts < 10 && !popup.isClosed(); attempts++) {
@@ -181,7 +185,7 @@ export class LoginHelper {
         const isLoginRequiredVisible = await this.uiHelper.isTextVisible("Sign in");
         if (isLoginRequiredVisible) {
             await this.uiHelper.clickButton("Sign in");
-            // await this.uiHelper.clickButton("Log in");
+            await this.uiHelper.clickButton("Log in");
             await this.checkAndReauthorizeGithubApp();
             await this.page.waitForSelector(this.getLoginBtnSelector(), {
                 state: "detached",

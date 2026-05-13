@@ -114,7 +114,41 @@ export class LoginHelper {
       await this.page.goto("/");
       await this.uiHelper.waitForLoad(12000);
       await this.uiHelper.clickButton("Sign In");
-      await this.checkAndReauthorizeGithubApp();
+
+      // Wait for either: sidebar appears (auto-login) or popup opens (needs auth)
+      const navPromise = this.page
+        .waitForSelector("nav a", { timeout: 15_000 })
+        .then(() => "nav" as const)
+        .catch(() => null);
+
+      const popupPromise = this.page
+        .waitForEvent("popup", { timeout: 15_000 })
+        .then((popup) => ({ popup }))
+        .catch(() => null);
+
+      const result = await Promise.race([navPromise, popupPromise]);
+
+      if (result === null) {
+        throw new Error(
+          "GitHub login failed: neither sidebar nor popup appeared after Sign In — session file may be stale",
+        );
+      }
+
+      if (typeof result === "object" && "popup" in result) {
+        // Popup opened — handle reauthorization
+        // TODO this is the same code as checkAndReauthorizeGithubApp's promise body
+        const popup = result.popup;
+        await popup.waitForLoadState();
+        for (let attempts = 0; attempts < 10 && !popup.isClosed(); attempts++) {
+          await this.page.waitForTimeout(1000);
+        }
+        const locator = popup.locator("button.js-oauth-authorize-btn");
+        if (!popup.isClosed() && (await locator.isVisible())) {
+          await popup.locator("body").click();
+          await locator.waitFor();
+          await locator.click();
+        }
+      }
     } else {
       // Perform login if no session file exists, then save the state
       await this.logintoGithub(userid);

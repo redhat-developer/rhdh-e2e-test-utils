@@ -1,0 +1,19 @@
+auth:
+  environment: production
+  session:
+    secret: superSecretSecret
+  providers:
+    oidc:
+      production:
+        metadataUrl: "${KEYCLOAK_METADATA_URL}"
+        clientId: "${KEYCLOAK_CLIENT_ID}"
+        clientSecret: "${KEYCLOAK_CLIENT_SECRET}"
+        prompt: auto
+        callbackUrl: "${RHDH_BASE_URL}/api/auth/oidc/handler/frame"
+        signIn:
+          resolvers:
+            - resolver: emailLocalPartMatchingUserEntityName
+signInPage: oidc
+catalog:
+  rules:
+    - allow: [User, Group]

@@ -1,0 +1,17 @@
+auth:
+  environment: production
+  session:
+    secret: superSecretSecret
+  providers:
+    github:
+      production:
+        clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+        clientId: ${GITHUB_OAUTH_APP_ID}
+        callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+signInPage: github
+catalog:
+  locations:
+    - type: url
+      target: https://github.com/janus-qe/test-user-entity/blob/main/user.yaml
+      rules:
+        - allow: [User]

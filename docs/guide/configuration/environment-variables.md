@@ -6,35 +6,35 @@ Complete reference of all environment variables used by the package.
 
 These are optional but commonly set to control deployment behavior:
 
-| Variable | Description | Example | Default |
-|----------|-------------|---------|---------|
-| `RHDH_VERSION` | RHDH version to deploy | `"1.5"` | `"next"` |
-| `INSTALLATION_METHOD` | Deployment method | `"helm"` or `"operator"` | `"helm"` |
+| Variable              | Description            | Example                  | Default  |
+| --------------------- | ---------------------- | ------------------------ | -------- |
+| `RHDH_VERSION`        | RHDH version to deploy | `"1.5"`                  | `"next"` |
+| `INSTALLATION_METHOD` | Deployment method      | `"helm"` or `"operator"` | `"helm"` |
 
 ## Auto-Generated Variables
 
 These are set automatically during deployment:
 
-| Variable | Description | Set By |
-|----------|-------------|--------|
-| `K8S_CLUSTER_ROUTER_BASE` | OpenShift ingress domain | Global setup |
-| `RHDH_BASE_URL` | Full RHDH URL | RHDHDeployment |
+| Variable                  | Description              | Set By         |
+| ------------------------- | ------------------------ | -------------- |
+| `K8S_CLUSTER_ROUTER_BASE` | OpenShift ingress domain | Global setup   |
+| `RHDH_BASE_URL`           | Full RHDH URL            | RHDHDeployment |
 
 ## Playwright Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
+| Variable             | Description                                       | Default |
+| -------------------- | ------------------------------------------------- | ------- |
 | `PLAYWRIGHT_WORKERS` | Number of parallel workers (e.g., `"4"`, `"50%"`) | `"50%"` |
-| `PLAYWRIGHT_RETRIES` | Number of test retries on failure | `0` |
+| `PLAYWRIGHT_RETRIES` | Number of test retries on failure                 | `0`     |
 
 ## Optional Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CI` | Enables auto-cleanup | - |
-| `CHART_URL` | Custom Helm chart URL | `oci://quay.io/rhdh/chart` |
-| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak auto-deploy | `false` |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection (local only, ignored in CI) | - |
+| Variable                              | Description                                                   | Default                    |
+| ------------------------------------- | ------------------------------------------------------------- | -------------------------- |
+| `CI`                                  | Enables auto-cleanup                                          | -                          |
+| `CHART_URL`                           | Custom Helm chart URL                                         | `oci://quay.io/rhdh/chart` |
+| `SKIP_KEYCLOAK_DEPLOYMENT`            | Skip Keycloak auto-deploy                                     | `false`                    |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection (local only, ignored in CI) | -                          |
 
 ## Plugin Metadata Variables
 
@@ -42,16 +42,16 @@ These control automatic plugin configuration injection from metadata files.
 
 > **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml).
 
-| Variable | Description | Effect |
-|----------|-------------|--------|
-| `GIT_PR_NUMBER` | PR number (set by OpenShift CI) | Enables OCI URL generation for PR builds |
-| `E2E_NIGHTLY_MODE` | When `"true"`, activates nightly mode | DPDY plugins use `{{inherit}}`, non-DPDY OCI plugins get full refs + config injection |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `"true"`, disables metadata injection | Local-only opt-out (ignored when `CI=true`) |
-| `RELEASE_BRANCH_NAME` | Release branch (set by OpenShift CI step registry) | Used to fetch `default.packages.yaml` for DPDY resolution in nightly mode. Required in CI, defaults to `main` locally |
-| `NIGHTLY_DPDY_OCI_REGISTRY` | OCI registry for `{{inherit}}` refs | Overrides default `registry.access.redhat.com/rhdh` for all DPDY plugins in nightly mode |
-| `NIGHTLY_DPDY_OCI_REGISTRY_MAP` | JSON: `{"registry": ["pkg1", "pkg2"]}` | Per-plugin registry override for `{{inherit}}` refs (takes precedence over `NIGHTLY_DPDY_OCI_REGISTRY`) |
-| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, nightly mode is activated |
-| `JOB_MODE` | CI-only: `nightly` or `pr-check` (set by step registry) | Informational |
+| Variable                              | Description                                             | Effect                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_PR_NUMBER`                       | PR number (set by OpenShift CI)                         | Enables OCI URL generation for PR builds                                                                                                                                                 |
+| `E2E_NIGHTLY_MODE`                    | When `"true"`, activates nightly mode                   | Plugins in `default.packages.yaml` with OCI metadata use `{{inherit}}` (RHDH resolves both OCI tag and config from DPDY); other OCI plugins use full metadata refs with config injection |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `"true"`, disables metadata injection              | Local-only opt-out (ignored when `CI=true`)                                                                                                                                              |
+| `RELEASE_BRANCH_NAME`                 | Release branch (set by OpenShift CI step registry)      | Used to fetch `default.packages.yaml` for DPDY resolution in nightly mode. Required in CI, defaults to `main` locally                                                                    |
+| `NIGHTLY_DPDY_OCI_REGISTRY`           | OCI registry for `{{inherit}}` refs                     | Overrides default `registry.access.redhat.com/rhdh` for all plugins using `{{inherit}}` in nightly mode                                                                                  |
+| `NIGHTLY_DPDY_OCI_REGISTRY_MAP`       | JSON: `{"registry": ["pkg1", "pkg2"]}`                  | Per-plugin registry override for `{{inherit}}` refs (takes precedence over `NIGHTLY_DPDY_OCI_REGISTRY`)                                                                                  |
+| `JOB_NAME`                            | CI job name (set by OpenShift CI/Prow)                  | If contains `periodic-`, nightly mode is activated                                                                                                                                       |
+| `JOB_MODE`                            | CI-only: `nightly` or `pr-check` (set by step registry) | Informational                                                                                                                                                                            |
 
 ### OCI URL Generation
 
@@ -71,15 +71,15 @@ See [Plugin Metadata](/guide/utilities/plugin-metadata#oci-url-generation-for-pr
 
 Required when using `auth: "keycloak"`:
 
-| Variable | Description |
-|----------|-------------|
-| `KEYCLOAK_BASE_URL` | Keycloak instance URL |
-| `KEYCLOAK_REALM` | Realm name |
-| `KEYCLOAK_CLIENT_ID` | OIDC client ID |
-| `KEYCLOAK_CLIENT_SECRET` | OIDC client secret |
-| `KEYCLOAK_METADATA_URL` | OIDC discovery URL |
-| `KEYCLOAK_LOGIN_REALM` | Login realm name |
-| `KEYCLOAK_USER_NAME` | Default test username |
+| Variable                 | Description           |
+| ------------------------ | --------------------- |
+| `KEYCLOAK_BASE_URL`      | Keycloak instance URL |
+| `KEYCLOAK_REALM`         | Realm name            |
+| `KEYCLOAK_CLIENT_ID`     | OIDC client ID        |
+| `KEYCLOAK_CLIENT_SECRET` | OIDC client secret    |
+| `KEYCLOAK_METADATA_URL`  | OIDC discovery URL    |
+| `KEYCLOAK_LOGIN_REALM`   | Login realm name      |
+| `KEYCLOAK_USER_NAME`     | Default test username |
 | `KEYCLOAK_USER_PASSWORD` | Default test password |
 
 These are automatically set by `KeycloakHelper.configureForRHDH()`.
@@ -88,12 +88,12 @@ These are automatically set by `KeycloakHelper.configureForRHDH()`.
 
 For GitHub integration:
 
-| Variable | Description | Required |
-|----------|-------------|----------|
+| Variable                  | Description                  | Required     |
+| ------------------------- | ---------------------------- | ------------ |
 | `VAULT_GITHUB_USER_TOKEN` | GitHub personal access token | For API/auth |
-| `VAULT_GH_USER_NAME` | GitHub username | For login |
-| `VAULT_GH_USER_PASSWORD` | GitHub password | For login |
-| `VAULT_GH_2FA_SECRET` | 2FA secret for OTP | For login |
+| `VAULT_GH_USER_NAME`      | GitHub username              | For login    |
+| `VAULT_GH_USER_PASSWORD`  | GitHub password              | For login    |
+| `VAULT_GH_2FA_SECRET`     | 2FA secret for OTP           | For login    |
 
 ## Custom Variables
 
@@ -150,7 +150,7 @@ Set programmatically:
 test.beforeAll(async ({ rhdh }) => {
   process.env.MY_CUSTOM_URL = await rhdh.k8sClient.getRouteLocation(
     rhdh.deploymentConfig.namespace,
-    "my-service"
+    "my-service",
   );
 
   await rhdh.deploy();

@@ -144,11 +144,11 @@ export async function fetchDefaultPackages(): Promise<Set<string>> {
 }
 
 /**
- * Resolves the OCI registry to use for a DPDY plugin's {{inherit}} ref.
+ * Resolves the OCI registry for a plugin's {{inherit}} ref in nightly mode.
  *
  * Resolution priority:
  * 1. NIGHTLY_DPDY_OCI_REGISTRY_MAP — JSON object mapping registry → array of package names
- * 2. NIGHTLY_DPDY_OCI_REGISTRY — blanket override for all DPDY plugins
+ * 2. NIGHTLY_DPDY_OCI_REGISTRY — blanket override for all plugins using {{inherit}}
  * 3. Default: registry.access.redhat.com/rhdh
  */
 export function getDpdyRegistry(packageName: string): string {
@@ -478,9 +478,10 @@ async function resolvePluginPackages(
         }
       }
 
-      // Nightly DPDY + OCI: use {{inherit}} tag so RHDH resolves the version
-      // from its built-in dynamic-plugins.default.yaml (RC testing).
-      // Registry is resolved via getDpdyRegistry() (env var overrides > default RHEC).
+      // Nightly: if the plugin is in default.packages.yaml and its metadata
+      // spec.dynamicArtifact is an OCI ref, use {{inherit}} — RHDH resolves
+      // both the OCI tag and default config from its built-in DPDY.
+      // Registry: getDpdyRegistry() (env var overrides > default RHEC).
       if (
         dpdyPackages?.has(metadata.packageName) &&
         metadata.packagePath.startsWith("oci://")
@@ -491,7 +492,7 @@ async function resolvePluginPackages(
         return { ...plugin, package: inheritRef };
       }
 
-      // OCI: use metadata's dynamicArtifact directly (non-DPDY or non-nightly).
+      // OCI: use metadata's dynamicArtifact directly (not in default.packages.yaml, or not nightly).
       if (metadata.packagePath.startsWith("oci://")) {
         console.log(`[PluginMetadata] ${pkg} → ${metadata.packagePath}`);
         return { ...plugin, package: metadata.packagePath };
@@ -629,7 +630,8 @@ function selectMetadataForInjection(
   if (!nightly) return metadataMap;
   if (!dpdyPackages) return null;
 
-  // Nightly: only non-DPDY OCI plugins (DPDY plugins get config via {{inherit}})
+  // Nightly: only inject config for plugins NOT in default.packages.yaml whose
+  // metadata is OCI. DPDY plugins get both config and OCI tag via {{inherit}}.
   return new Map(
     [...metadataMap].filter(
       ([, m]) =>
@@ -645,12 +647,13 @@ function selectMetadataForInjection(
  * Operations (in order):
  * 1. Inject appConfigExamples from metadata:
  *    - PR/local: all plugins with metadata (unless RHDH_SKIP_PLUGIN_METADATA_INJECTION)
- *    - Nightly: only non-DPDY OCI plugins (DPDY plugins inherit config from RHDH)
+ *    - Nightly: only plugins NOT in default.packages.yaml with OCI metadata
+ *      (plugins in default.packages.yaml get both config and OCI tag via {{inherit}})
  * 2. Resolve all packages:
  *    - PR with GIT_PR_NUMBER: workspace plugins → pr_ OCI tags
  *    - Nightly DPDY + OCI: {{inherit}} tag with configurable registry
  *      (NIGHTLY_DPDY_OCI_REGISTRY_MAP > NIGHTLY_DPDY_OCI_REGISTRY > registry.access.redhat.com/rhdh)
- *    - Nightly non-DPDY / local: metadata's dynamicArtifact as-is
+ *    - Nightly (not in default.packages.yaml) / local: metadata's dynamicArtifact as-is
  *
  * @param config The merged dynamic plugins configuration
  * @param metadataPath Optional custom path to metadata directory

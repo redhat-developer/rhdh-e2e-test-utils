@@ -13,7 +13,7 @@ Plugin metadata handling is fully automatic during `rhdh.deploy()`. The function
 Extracts the plugin name from a package path or OCI reference.
 
 ```typescript
-function extractPluginName(packageRef: string): string
+function extractPluginName(packageRef: string): string;
 ```
 
 **Parameters:**
@@ -25,18 +25,20 @@ function extractPluginName(packageRef: string): string
 
 **Supported Formats:**
 
-| Format | Example | Extracted Name |
-|--------|---------|----------------|
-| Wrapper path | `./dynamic-plugins/dist/my-plugin` | `my-plugin` |
-| OCI with tag | `oci://quay.io/rhdh/my-plugin:1.0.0` | `my-plugin` |
-| OCI with digest | `oci://quay.io/rhdh/my-plugin@sha256:abc...` | `my-plugin` |
-| OCI with alias | `oci://quay.io/rhdh/my-plugin@sha256:abc!alias` | `my-plugin` |
-| GHCR | `ghcr.io/org/repo/my-plugin:tag` | `my-plugin` |
+| Format          | Example                                         | Extracted Name |
+| --------------- | ----------------------------------------------- | -------------- |
+| Wrapper path    | `./dynamic-plugins/dist/my-plugin`              | `my-plugin`    |
+| OCI with tag    | `oci://quay.io/rhdh/my-plugin:1.0.0`            | `my-plugin`    |
+| OCI with digest | `oci://quay.io/rhdh/my-plugin@sha256:abc...`    | `my-plugin`    |
+| OCI with alias  | `oci://quay.io/rhdh/my-plugin@sha256:abc!alias` | `my-plugin`    |
+| GHCR            | `ghcr.io/org/repo/my-plugin:tag`                | `my-plugin`    |
 
 **Example:**
 
 ```typescript
-const name = extractPluginName("oci://quay.io/rhdh/backstage-community-plugin-tech-radar:1.0.0");
+const name = extractPluginName(
+  "oci://quay.io/rhdh/backstage-community-plugin-tech-radar:1.0.0",
+);
 // Returns: "backstage-community-plugin-tech-radar"
 ```
 
@@ -47,7 +49,7 @@ const name = extractPluginName("oci://quay.io/rhdh/backstage-community-plugin-te
 Returns a stable merge key for a plugin entry so that OCI and local path for the same logical plugin match when merging dynamic-plugins configs. Strips a trailing `-dynamic` suffix so that e.g. `backstage-community-plugin-catalog-backend-module-keycloak-dynamic` (local) and `backstage-community-plugin-catalog-backend-module-keycloak` (from OCI) map to the same key.
 
 ```typescript
-function getNormalizedPluginMergeKey(entry: { package?: string }): string
+function getNormalizedPluginMergeKey(entry: { package?: string }): string;
 ```
 
 **Parameters:**
@@ -62,12 +64,14 @@ function getNormalizedPluginMergeKey(entry: { package?: string }): string
 ```typescript
 // OCI and local path for the same plugin yield the same key
 getNormalizedPluginMergeKey({
-  package: "oci://ghcr.io/org/repo/backstage-community-plugin-catalog-backend-module-keycloak:tag!alias",
+  package:
+    "oci://ghcr.io/org/repo/backstage-community-plugin-catalog-backend-module-keycloak:tag!alias",
 });
 // Returns: "backstage-community-plugin-catalog-backend-module-keycloak"
 
 getNormalizedPluginMergeKey({
-  package: "./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic",
+  package:
+    "./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic",
 });
 // Returns: "backstage-community-plugin-catalog-backend-module-keycloak"
 ```
@@ -79,12 +83,13 @@ getNormalizedPluginMergeKey({
 Determines whether the current execution is a nightly/periodic job. Controls whether metadata config injection is enabled and which OCI resolution strategy is used.
 
 ```typescript
-function isNightlyJob(): boolean
+function isNightlyJob(): boolean;
 ```
 
 **Returns:** `true` if running in nightly mode, `false` for PR/local mode.
 
 **Priority order:**
+
 1. If `GIT_PR_NUMBER` is set → returns `false` (PR mode takes precedence)
 2. If `E2E_NIGHTLY_MODE` is `"true"` or `"1"` → returns `true`
 3. If `JOB_NAME` contains `periodic-` → returns `true`
@@ -97,7 +102,7 @@ function isNightlyJob(): boolean
 Gets the metadata directory path.
 
 ```typescript
-function getMetadataDirectory(metadataPath?: string): string | null
+function getMetadataDirectory(metadataPath?: string): string | null;
 ```
 
 **Parameters:**
@@ -115,8 +120,8 @@ Parses all metadata files in a directory and builds a map of plugin name to conf
 
 ```typescript
 async function parseAllMetadataFiles(
-  metadataDir: string
-): Promise<Map<string, PluginMetadata>>
+  metadataDir: string,
+): Promise<Map<string, PluginMetadata>>;
 ```
 
 **Parameters:**
@@ -134,8 +139,8 @@ Auto-generates plugin entries from workspace metadata files when no user-provide
 
 ```typescript
 async function generatePluginsFromMetadata(
-  metadataPath?: string
-): Promise<DynamicPluginsConfig>
+  metadataPath?: string,
+): Promise<DynamicPluginsConfig>;
 ```
 
 **Parameters:**
@@ -155,8 +160,8 @@ Unified entry point for both PR and nightly plugin resolution flows. Called auto
 async function processPluginsForDeployment(
   config: DynamicPluginsConfig,
   metadataPath?: string,
-  dpdyPackages?: Set<string>
-): Promise<DynamicPluginsConfig>
+  dpdyPackages?: Set<string>,
+): Promise<DynamicPluginsConfig>;
 ```
 
 **Parameters:**
@@ -169,8 +174,9 @@ async function processPluginsForDeployment(
 **Returns:** Processed configuration with resolved OCI references.
 
 **Behavior:**
+
 - **PR mode** (`!isNightlyJob()`): Injects `appConfigExamples` from metadata as base config, then resolves packages to OCI URLs (PR-specific if `GIT_PR_NUMBER` set, metadata refs otherwise)
-- **Nightly mode** (`isNightlyJob()`): DPDY plugins use `{{inherit}}` with configurable registry (default `registry.access.redhat.com/rhdh`, overridable via `NIGHTLY_DPDY_OCI_REGISTRY` or `NIGHTLY_DPDY_OCI_REGISTRY_MAP`); non-DPDY OCI plugins use full metadata refs with config injection
+- **Nightly mode** (`isNightlyJob()`): Plugins in `default.packages.yaml` whose metadata `spec.dynamicArtifact` is an OCI ref use `{{inherit}}` with configurable registry (default `registry.access.redhat.com/rhdh`, overridable via `NIGHTLY_DPDY_OCI_REGISTRY` or `NIGHTLY_DPDY_OCI_REGISTRY_MAP`) — RHDH resolves both the OCI tag and default config from its built-in DPDY. Plugins NOT in `default.packages.yaml` with OCI metadata use full metadata refs with config injection.
 - Respects `RHDH_SKIP_PLUGIN_METADATA_INJECTION` to skip config injection (local only, ignored in CI)
 
 ---
@@ -180,7 +186,7 @@ async function processPluginsForDeployment(
 Creates a dynamic plugins config that disables wrapper plugins. Used during PR builds when wrapper plugins would conflict with PR-built OCI images.
 
 ```typescript
-function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig
+function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig;
 ```
 
 **Parameters:**

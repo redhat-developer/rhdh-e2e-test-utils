@@ -254,7 +254,12 @@ describe("processPluginsForDeployment — workspace fixtures", () => {
           ],
         };
 
-        const result = await processPluginsForDeployment(config, metadataDir);
+        // Empty DPDY set — these plugins are not in default.packages.yaml
+        const result = await processPluginsForDeployment(
+          config,
+          metadataDir,
+          new Set(),
+        );
         const plugins = result.plugins!;
 
         assert.ok(
@@ -269,7 +274,7 @@ describe("processPluginsForDeployment — workspace fixtures", () => {
         assert.deepStrictEqual(
           plugins[0].pluginConfig,
           { events: { http: { topics: ["github"] } } },
-          "nightly must preserve user pluginConfig without metadata injection",
+          "nightly must preserve user pluginConfig for non-DPDY OCI plugin",
         );
 
         assert.strictEqual(
@@ -346,11 +351,12 @@ describe("processPluginsForDeployment — workspace fixtures", () => {
           "local path must stay unchanged in PR mode",
         );
 
-        // Nightly mode
+        // Nightly mode (empty DPDY set to avoid network fetch in unit tests)
         process.env.E2E_NIGHTLY_MODE = "true";
         const nightlyResult = await processPluginsForDeployment(
           { ...config, plugins: config.plugins!.map((p) => ({ ...p })) },
           metadataDir,
+          new Set(),
         );
 
         assert.strictEqual(

@@ -5,7 +5,6 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import fs from "fs-extra";
 import {
-  isNightlyJob,
   processPluginsForDeployment,
   type DynamicPluginsConfig,
 } from "../plugin-metadata.js";
@@ -231,6 +230,7 @@ describe("processPluginsForDeployment — PR mode", () => {
   });
 
   it("skips injection when RHDH_SKIP_PLUGIN_METADATA_INJECTION is 'true'", async () => {
+    delete process.env.CI;
     process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
 
     const metadataDir = await createMetadataFixture([
@@ -262,6 +262,44 @@ describe("processPluginsForDeployment — PR mode", () => {
         result.plugins![0].pluginConfig,
         undefined,
         "pluginConfig must not be injected when RHDH_SKIP_PLUGIN_METADATA_INJECTION=true",
+      );
+    } finally {
+      await fs.remove(metadataDir);
+    }
+  });
+
+  it("ignores RHDH_SKIP_PLUGIN_METADATA_INJECTION in CI", async () => {
+    process.env.CI = "true";
+    process.env.RHDH_SKIP_PLUGIN_METADATA_INJECTION = "true";
+
+    const metadataDir = await createMetadataFixture([
+      {
+        name: "backstage-community-plugin-tech-radar",
+        packageName: "@backstage-community/plugin-tech-radar",
+        dynamicArtifact:
+          "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+        appConfigExamples: {
+          techRadar: { url: "http://default.example.com" },
+        },
+      },
+    ]);
+
+    try {
+      const config: DynamicPluginsConfig = {
+        plugins: [
+          {
+            package:
+              "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
+            disabled: false,
+          },
+        ],
+      };
+
+      const result = await processPluginsForDeployment(config, metadataDir);
+
+      assert.ok(
+        result.plugins![0].pluginConfig,
+        "pluginConfig must be injected in CI even when RHDH_SKIP_PLUGIN_METADATA_INJECTION=true",
       );
     } finally {
       await fs.remove(metadataDir);
@@ -439,19 +477,92 @@ describe("processPluginsForDeployment — PR mode", () => {
     });
   });
 
+  // ── {{inherit}} must NOT apply in PR/local mode ─────────────────────────
+
+  describe("{{inherit}} does not apply in PR/local mode", () => {
+    it("DPDY OCI plugin uses metadata ref (not {{inherit}}) when GIT_PR_NUMBER is set", async () => {
+      process.env.GIT_PR_NUMBER = "42";
+      process.env.E2E_NIGHTLY_MODE = "true";
+
+      const { wsDir, metadataDir } = await createWorkspaceFixture([
+        {
+          name: "backstage-community-plugin-tekton",
+          packageName: "@backstage-community/plugin-tekton",
+          dynamicArtifact:
+            "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.33.3!backstage-community-plugin-tekton",
+        },
+      ]);
+
+      try {
+        const config: DynamicPluginsConfig = {
+          plugins: [
+            {
+              package:
+                "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:old_tag",
+              disabled: false,
+            },
+          ],
+        };
+
+        const result = await processPluginsForDeployment(config, metadataDir);
+
+        assert.ok(
+          !result.plugins![0].package.includes("{{inherit}}"),
+          "{{inherit}} must NOT be used when GIT_PR_NUMBER is set (PR takes precedence)",
+        );
+      } finally {
+        await fs.remove(wsDir);
+      }
+    });
+
+    it("NIGHTLY_DPDY_OCI_REGISTRY env vars are ignored in PR/local mode", async () => {
+      delete process.env.GIT_PR_NUMBER;
+      delete process.env.E2E_NIGHTLY_MODE;
+      process.env.NIGHTLY_DPDY_OCI_REGISTRY = "quay.io/rhdh";
+
+      const metadataDir = await createMetadataFixture([
+        {
+          name: "backstage-community-plugin-tekton",
+          packageName: "@backstage-community/plugin-tekton",
+          dynamicArtifact:
+            "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:bs_1.49.4__3.33.3!backstage-community-plugin-tekton",
+        },
+      ]);
+
+      try {
+        const config: DynamicPluginsConfig = {
+          plugins: [
+            {
+              package:
+                "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-tekton:old_tag",
+              disabled: false,
+            },
+          ],
+        };
+
+        const result = await processPluginsForDeployment(config, metadataDir);
+
+        assert.ok(
+          !result.plugins![0].package.includes("quay.io"),
+          "NIGHTLY_DPDY_OCI_REGISTRY must be ignored in local/PR mode",
+        );
+        assert.ok(
+          !result.plugins![0].package.includes("{{inherit}}"),
+          "{{inherit}} must NOT be used in local/PR mode",
+        );
+        assert.ok(
+          result.plugins![0].package.includes("bs_1.49.4__3.33.3"),
+          "must use metadata dynamicArtifact in local/PR mode",
+        );
+      } finally {
+        await fs.remove(metadataDir);
+      }
+    });
+  });
+
   // ── PR vs nightly precedence ────────────────────────────────────────────
 
   describe("PR vs nightly precedence", () => {
-    it("isNightlyJob returns false when both GIT_PR_NUMBER and E2E_NIGHTLY_MODE are set", () => {
-      process.env.GIT_PR_NUMBER = "42";
-      process.env.E2E_NIGHTLY_MODE = "true";
-      assert.strictEqual(
-        isNightlyJob(),
-        false,
-        "GIT_PR_NUMBER must make isNightlyJob return false",
-      );
-    });
-
     it("injects metadata config when GIT_PR_NUMBER is set (PR mode despite nightly env)", async () => {
       process.env.GIT_PR_NUMBER = "42";
       process.env.E2E_NIGHTLY_MODE = "true";

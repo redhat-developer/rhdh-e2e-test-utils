@@ -52,7 +52,7 @@ export class LoginHelper {
             await this.page.waitForTimeout(60000);
             await this.page.fill("#app_totp", this.getGitHub2FAOTP(userid));
         }
-        await this.page.waitForTimeout(3_000);
+        await this.page.waitForTimeout(30_000);
     }
     async logintoKeycloak(popup, userid, password) {
         await popup.waitForLoadState();

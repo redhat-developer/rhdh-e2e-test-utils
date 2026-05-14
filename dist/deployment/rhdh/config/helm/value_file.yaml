@@ -1,7 +1,0 @@
-upstream:
-  backstage:
-    extraAppConfig:
-      - configMapRef: app-config-rhdh
-        filename: app-config-rhdh.yaml
-    extraEnvVarsSecrets:
-      - rhdh-secrets

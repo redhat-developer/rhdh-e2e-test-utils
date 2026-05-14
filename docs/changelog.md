@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.40] - Current
+## [1.1.41] - Current
+
+### Fixed
+
+- **GitHub login null-race guard**: `loginAsGithubUser` now throws an explicit error when neither the sidebar nav nor the GitHub popup appears after clicking Sign In, instead of silently continuing with a stale session file.
+- Increased GitHub popup wait timeouts.
+
+### Added
+
+- **GitHub session reuse auto-login/reauth race**: In case of existing session, handle both auto-login and reauthorization flows by racing a `nav` selector against the `popup` event.
+
+### Changed
+
+- **Deduplicate GitHub popup reauth logic**: Extracted shared popup reauthorization code from `loginAsGithubUser` and `checkAndReauthorizeGithubApp` into a private `handleGithubPopupReauth` method to eliminate duplication.
+
+## [1.1.40]
 
 ### Changed
 

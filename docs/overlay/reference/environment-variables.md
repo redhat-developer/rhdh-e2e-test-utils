@@ -7,7 +7,7 @@ For using @red-hat-developer-hub/e2e-test-utils in external projects, see the [G
 
 This page documents all environment variables used in overlay E2E tests.
 
-## Vault Secrets (VAULT_*)
+## Vault Secrets (VAULT\_\*)
 
 In OpenShift CI, secrets are managed through [HashiCorp Vault](https://vault.ci.openshift.org) and automatically exported as environment variables.
 
@@ -19,11 +19,11 @@ For complete Vault setup instructions including paths, annotations, and access r
 
 Set `VAULT=1` or `VAULT=true` to automatically fetch secrets from Vault during global setup. This replaces the need to manually copy secrets into `.env` files.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VAULT` | Enable automatic Vault secret loading | - |
-| `VAULT_ADDR` | Vault server URL | `https://vault.ci.openshift.org` |
-| `VAULT_BASE_PATH` | Base path in Vault KV store | `selfservice/rhdh-plugin-export-overlays` |
+| Variable          | Description                           | Default                                   |
+| ----------------- | ------------------------------------- | ----------------------------------------- |
+| `VAULT`           | Enable automatic Vault secret loading | -                                         |
+| `VAULT_ADDR`      | Vault server URL                      | `https://vault.ci.openshift.org`          |
+| `VAULT_BASE_PATH` | Base path in Vault KV store           | `selfservice/rhdh-plugin-export-overlays` |
 
 ```bash
 VAULT=1 yarn test
@@ -36,26 +36,27 @@ See [Running Locally - Secrets from Vault](/overlay/tutorials/running-locally#se
 
 ### RHDH Configuration
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `RHDH_VERSION` | RHDH version to deploy (e.g., "1.5", "next") | `next` | No |
-| `INSTALLATION_METHOD` | Deployment method: `helm` or `operator` | `helm` | No |
-| `CHART_URL` | Custom Helm chart URL | `oci://quay.io/rhdh/chart` | No |
+| Variable              | Description                                  | Default                    | Required |
+| --------------------- | -------------------------------------------- | -------------------------- | -------- |
+| `RHDH_VERSION`        | RHDH version to deploy (e.g., "1.5", "next") | `next`                     | No       |
+| `INSTALLATION_METHOD` | Deployment method: `helm` or `operator`      | `helm`                     | No       |
+| `CHART_URL`           | Custom Helm chart URL                        | `oci://quay.io/rhdh/chart` | No       |
 
 ### Cluster Configuration
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `K8S_CLUSTER_ROUTER_BASE` | Cluster router base domain | Auto-detected | No |
+| Variable                  | Description                | Default       | Required |
+| ------------------------- | -------------------------- | ------------- | -------- |
+| `K8S_CLUSTER_ROUTER_BASE` | Cluster router base domain | Auto-detected | No       |
 
 ### Authentication
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak deployment entirely (useful for guest auth) | `false` | No |
+| Variable                   | Description                                               | Default | Required |
+| -------------------------- | --------------------------------------------------------- | ------- | -------- |
+| `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak deployment entirely (useful for guest auth) | `false` | No       |
 
 ::: tip Keycloak Deployment Behavior
 By default (`SKIP_KEYCLOAK_DEPLOYMENT=false`):
+
 - If Keycloak already exists in the cluster, it uses the existing instance
 - If Keycloak doesn't exist, it deploys a new one
 
@@ -64,41 +65,52 @@ Set `SKIP_KEYCLOAK_DEPLOYMENT=true` when using guest authentication and you don'
 
 ### CI/CD
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `CI` | Set automatically in CI environments | `false` | No |
-| `JOB_MODE` | Set by CI step registry: `nightly` or `pr-check` | - | No |
+| Variable   | Description                                      | Default | Required |
+| ---------- | ------------------------------------------------ | ------- | -------- |
+| `CI`       | Set automatically in CI environments             | `false` | No       |
+| `JOB_MODE` | Set by CI step registry: `nightly` or `pr-check` | -       | No       |
 
 ## Plugin Metadata Variables
 
-These control automatic plugin configuration generation from metadata files:
+These control automatic plugin configuration generation from metadata files.
 
-| Variable | Description | Effect |
-|----------|-------------|--------|
-| `GIT_PR_NUMBER` | PR number | Enables OCI URL generation using that PR's built images |
-| `E2E_NIGHTLY_MODE` | When `true`, activates nightly mode | Uses released OCI refs from metadata, skips config injection |
-| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `true`, disables metadata injection | Opt-out for all metadata handling |
-| `JOB_NAME` | CI job name (set by OpenShift CI/Prow) | If contains `periodic-`, injection is disabled |
+> **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml).
+
+| Variable                              | Description                              | Effect                                                                                                                                                                                   |
+| ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GIT_PR_NUMBER`                       | PR number                                | Enables OCI URL generation using that PR's built images                                                                                                                                  |
+| `E2E_NIGHTLY_MODE`                    | When `true`, activates nightly mode      | Plugins in `default.packages.yaml` with OCI metadata use `{{inherit}}` (RHDH resolves both OCI tag and config from DPDY); other OCI plugins use full metadata refs with config injection |
+| `RELEASE_BRANCH_NAME`                 | Release branch (set by OpenShift CI)     | Used to fetch `default.packages.yaml` for DPDY resolution. Required in CI, defaults to `main` locally                                                                                    |
+| `NIGHTLY_DPDY_OCI_REGISTRY`           | OCI registry for `{{inherit}}` refs      | Overrides default `registry.access.redhat.com/rhdh` for all plugins using `{{inherit}}` in nightly mode                                                                                  |
+| `NIGHTLY_DPDY_OCI_REGISTRY_MAP`       | JSON: `{"registry": ["pkg1", "pkg2"]}`   | Per-plugin registry override (takes precedence over blanket)                                                                                                                             |
+| `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | When `true`, disables metadata injection | Local-only opt-out (ignored when `CI=true`)                                                                                                                                              |
+| `JOB_NAME`                            | CI job name (set by OpenShift CI/Prow)   | If contains `periodic-`, nightly mode is activated                                                                                                                                       |
 
 ### When to Use These Variables
 
-| Scenario | Variables to Set |
-|----------|------------------|
-| PR builds in CI | `GIT_PR_NUMBER` is set automatically |
-| Test PR builds locally | Set `GIT_PR_NUMBER` manually to use PR's OCI images |
-| Nightly/periodic builds | `E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-` (auto-detected in CI) |
-| Manual opt-out | Set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` |
+| Scenario                    | Variables to Set                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| PR builds in CI             | `GIT_PR_NUMBER` is set automatically                                             |
+| Test PR builds locally      | Set `GIT_PR_NUMBER` manually to use PR's OCI images                              |
+| Nightly/periodic builds     | `E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-` (auto-detected in CI) |
+| Manual opt-out (local only) | Set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` (ignored in CI)                   |
 
 ### Metadata Handling Behavior
 
 **Enabled by default** for:
+
 - Local development
 - PR builds in CI
 
-**Disabled automatically** when:
-- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true`
-- `E2E_NIGHTLY_MODE` is set to `true`
-- `JOB_NAME` contains `periodic-` (nightly builds)
+**Disabled locally** when:
+
+- `RHDH_SKIP_PLUGIN_METADATA_INJECTION` is set to `true` (ignored in CI)
+
+**Selective in nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`):
+
+- Plugins in `default.packages.yaml` with OCI metadata: no injection (use `{{inherit}}` tag — RHDH resolves both the OCI tag and default config from its built-in DPDY)
+- Plugins NOT in `default.packages.yaml` with OCI metadata: injection enabled (full metadata refs, config from `appConfigExamples`)
+- Wrapper plugins: no injection
 
 ::: info Priority
 When `GIT_PR_NUMBER` is set, PR mode always takes precedence over nightly mode. This prevents broken combinations of PR images with nightly configuration.
@@ -124,6 +136,7 @@ yarn test
 ```
 
 Example transformation:
+
 ```yaml
 # Without GIT_PR_NUMBER
 - package: ./dynamic-plugins/dist/backstage-community-plugin-tech-radar
@@ -138,11 +151,11 @@ See [Configuration Files - PR Builds](/overlay/test-structure/configuration-file
 
 These are used by `run-e2e.sh` (the [unified test runner](/overlay/reference/run-e2e)):
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `E2E_TEST_UTILS_PATH` | Absolute path to a local `e2e-test-utils` build | - |
+| Variable                 | Description                                             | Default                             |
+| ------------------------ | ------------------------------------------------------- | ----------------------------------- |
+| `E2E_TEST_UTILS_PATH`    | Absolute path to a local `e2e-test-utils` build         | -                                   |
 | `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version | `latest` (nightly), empty otherwise |
-| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.59.1` |
+| `PLAYWRIGHT_VERSION`     | Pin `@playwright/test` version                          | `1.59.1`                            |
 
 ::: tip Version Pinning
 `E2E_TEST_UTILS_PATH` takes precedence over `E2E_TEST_UTILS_VERSION`. If neither is set, the version in each workspace's `package.json` is used.
@@ -192,9 +205,9 @@ VAULT_API_KEY: api-key-value
 
 ## Using Variables
 
-| Where you need it | How to access |
-|-------------------|---------------|
-| Test code (`*.spec.ts`) | `process.env.VAULT_*` directly |
+| Where you need it                                             | How to access                                            |
+| ------------------------------------------------------------- | -------------------------------------------------------- |
+| Test code (`*.spec.ts`)                                       | `process.env.VAULT_*` directly                           |
 | RHDH configs (`app-config-rhdh.yaml`, `dynamic-plugins.yaml`) | Add to `rhdh-secrets.yaml` first, then use `${VAR_NAME}` |
 
 For detailed examples, see [Configuration Files - rhdh-secrets.yaml](/overlay/test-structure/configuration-files#rhdh-secrets-yaml-optional).

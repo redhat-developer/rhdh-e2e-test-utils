@@ -212,18 +212,24 @@ Your `pluginConfig` in `dynamic-plugins.yaml` overrides values from metadata.
 ### When Injection is Enabled
 
 Plugin metadata injection is **enabled by default** for:
+
 - Local development
 - PR builds in CI
 
-Injection is **disabled** when:
-- [`RHDH_SKIP_PLUGIN_METADATA_INJECTION`](/guide/configuration/environment-variables#plugin-metadata-variables) environment variable is set
-- `JOB_NAME` contains `periodic-` (nightly/periodic CI builds)
+Injection is **disabled locally** when:
+
+- [`RHDH_SKIP_PLUGIN_METADATA_INJECTION`](/guide/configuration/environment-variables#plugin-metadata-variables) is set to `true` (ignored in CI)
+
+In **nightly mode** (`E2E_NIGHTLY_MODE=true` or `JOB_NAME` contains `periodic-`):
+
+- Only plugins NOT in `default.packages.yaml` with OCI metadata get injection; plugins in `default.packages.yaml` use `{{inherit}}` — RHDH resolves both the OCI tag and default config from its built-in DPDY
 
 ::: warning
 When injection is enabled, deployment will fail if:
+
 - The `metadata/` directory doesn't exist
 - No valid metadata files are found in the directory
-:::
+  :::
 
 ### OCI URL Replacement for PR Builds
 
@@ -244,6 +250,7 @@ This allows E2E tests to run against the actual OCI images built for the PR.
 If you want to reproduce OCI URL replacement locally, create the required files at the workspace root:
 
 **source.json**
+
 ```json
 {
   "repo": "https://github.com/redhat-developer/rhdh-plugin-export-overlays",
@@ -252,6 +259,7 @@ If you want to reproduce OCI URL replacement locally, create the required files 
 ```
 
 **plugins-list.yaml**
+
 ```yaml
 plugins/tech-radar:
 plugins/my-plugin:
@@ -274,12 +282,12 @@ See [Plugin Metadata - OCI URL Generation](/guide/utilities/plugin-metadata#oci-
 
 The package automatically matches plugins across different reference formats:
 
-| Format | Example |
-|--------|---------|
-| Wrapper path | `./dynamic-plugins/dist/my-plugin` |
-| OCI with tag | `oci://quay.io/rhdh/my-plugin:1.0.0` |
+| Format          | Example                                      |
+| --------------- | -------------------------------------------- |
+| Wrapper path    | `./dynamic-plugins/dist/my-plugin`           |
+| OCI with tag    | `oci://quay.io/rhdh/my-plugin:1.0.0`         |
 | OCI with digest | `oci://quay.io/rhdh/my-plugin@sha256:abc...` |
-| GHCR | `ghcr.io/org/repo/my-plugin:tag` |
+| GHCR            | `ghcr.io/org/repo/my-plugin:tag`             |
 
 All formats extract the plugin name (`my-plugin`) for matching against metadata.
 
@@ -287,13 +295,14 @@ All formats extract the plugin name (`my-plugin`) for matching against metadata.
 
 Use these syntaxes in YAML files:
 
-| Syntax | Description |
-|--------|-------------|
-| `$VAR` | Simple substitution |
-| `${VAR}` | Braced substitution |
-| `${VAR:-default}` | Default if unset |
+| Syntax            | Description         |
+| ----------------- | ------------------- |
+| `$VAR`            | Simple substitution |
+| `${VAR}`          | Braced substitution |
+| `${VAR:-default}` | Default if unset    |
 
 Example:
+
 ```yaml
 backend:
   baseUrl: https://backstage-${NAMESPACE}.${K8S_CLUSTER_ROUTER_BASE}

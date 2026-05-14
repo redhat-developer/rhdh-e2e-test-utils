@@ -222,7 +222,7 @@ oc login --token=<token> --server=<server>
 
 **"metadata directory not found" or "no valid metadata files"**
 - Ensure `workspaces/<plugin>/metadata/` exists and contains valid Package CRD YAML files.
-- If you intentionally want to skip metadata injection, set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true`.
+- If you intentionally want to skip metadata injection locally, set `RHDH_SKIP_PLUGIN_METADATA_INJECTION=true` (this is ignored in CI).
 
 ### "Tests pass locally but fail in CI"
 

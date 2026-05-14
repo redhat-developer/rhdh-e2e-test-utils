@@ -136,18 +136,7 @@ export class LoginHelper {
 
       if (typeof result === "object" && "popup" in result) {
         // Popup opened — handle reauthorization
-        // TODO this is the same code as checkAndReauthorizeGithubApp's promise body
-        const popup = result.popup;
-        await popup.waitForLoadState();
-        for (let attempts = 0; attempts < 10 && !popup.isClosed(); attempts++) {
-          await this.page.waitForTimeout(1000);
-        }
-        const locator = popup.locator("button.js-oauth-authorize-btn");
-        if (!popup.isClosed() && (await locator.isVisible())) {
-          await popup.locator("body").click();
-          await locator.waitFor();
-          await locator.click();
-        }
+        await this.handleGithubPopupReauth(result.popup);
       }
     } else {
       // Perform login if no session file exists, then save the state
@@ -165,22 +154,26 @@ export class LoginHelper {
   async checkAndReauthorizeGithubApp() {
     await new Promise<void>((resolve) => {
       this.page.once("popup", async (popup) => {
-        await popup.waitForLoadState();
-
-        // Check for popup closure for up to 10 seconds before proceeding
-        for (let attempts = 0; attempts < 10 && !popup.isClosed(); attempts++) {
-          await this.page.waitForTimeout(1000); // Using page here because if the popup closes automatically, it throws an error during the wait
-        }
-
-        const locator = popup.locator("button.js-oauth-authorize-btn");
-        if (!popup.isClosed() && (await locator.isVisible())) {
-          await popup.locator("body").click();
-          await locator.waitFor();
-          await locator.click();
-        }
+        await this.handleGithubPopupReauth(popup);
         resolve();
       });
     });
+  }
+
+  private async handleGithubPopupReauth(popup: Page) {
+    await popup.waitForLoadState();
+
+    // Check for popup closure for up to 10 seconds before proceeding
+    for (let attempts = 0; attempts < 10 && !popup.isClosed(); attempts++) {
+      await this.page.waitForTimeout(1000); // Using page here because if the popup closes automatically, it throws an error during the wait
+    }
+
+    const locator = popup.locator("button.js-oauth-authorize-btn");
+    if (!popup.isClosed() && (await locator.isVisible())) {
+      await popup.locator("body").click();
+      await locator.waitFor();
+      await locator.click();
+    }
   }
 
   async googleSignIn(email: string) {

@@ -34,6 +34,7 @@ These are set automatically during deployment:
 | `CI`                                  | Enables auto-cleanup                                          | -                          |
 | `CHART_URL`                           | Custom Helm chart URL                                         | `oci://quay.io/rhdh/chart` |
 | `SKIP_KEYCLOAK_DEPLOYMENT`            | Skip Keycloak auto-deploy                                     | `false`                    |
+| `SKIP_OPERATOR_INSTALLATION`          | Skip operator installation in global setup                    | -                          |
 | `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection (local only, ignored in CI) | -                          |
 | `USE_NEW_FRONTEND_SYSTEM` | When `"true"`, enables new-frontend-system (app-next) merges when `useNewFrontendSystem` is not set in `configure()` options | - |
 

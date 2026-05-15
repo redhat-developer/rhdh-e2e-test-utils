@@ -2,13 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.41] - Current
+## [1.1.42] - Current
+
+### Changed
+
+- **Operator installation moved to global setup**: RHDH operator installation now runs once during global setup in parallel with Keycloak deployment, instead of per-project deployment. `_deployWithOperator()` now only applies the Backstage CR per-namespace.
+
+### Fixed
+
+- **Version args passed incorrectly to install-rhdh-catalog-source.sh**: Fixed zx quoting bug where version args were passed as a single string instead of an array.
+
+### Added
+
+- **`SKIP_OPERATOR_INSTALLATION`**: New env var to skip operator installation in global setup when the operator is already installed.
+
+## [1.1.41]
 
 ### Added
 
 - **`useNewFrontendSystem`** — Backstage **app-next** / new frontend system: merges NFS layers from `config/new-frontend-system/` (secrets, default **app-auth** and **app-integrations** plugins, Helm `value_file.yaml`) into the same merge pipelines as common/auth/user. Secrets are merged with other layers **before** a single `envsubst` pass. NFS dynamic plugins act as **defaults** (workspace `tests/config/dynamic-plugins.yaml` overrides). **Auto-detection:** enabled when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`, unless `useNewFrontendSystem: false` is passed. Optional workspace `tests/config/value_file-app-next.yaml` is still merged last for Helm.
 
-## [1.1.40] - Current
+## [1.1.40]
 
 ### Changed
 

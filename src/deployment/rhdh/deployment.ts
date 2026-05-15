@@ -322,56 +322,29 @@ export class RHDHDeployment {
       this._log(`Catalog index image: ${catalogIndexImage}`);
     }
 
-    this._logBoxen("Subscription", subscriptionObject);
+    this._logBoxen("Backstage CR", subscriptionObject);
     const subscriptionFilePath = path.join(
       os.tmpdir(),
       `${this.deploymentConfig.namespace}-subscription.yaml`,
     );
     fs.writeFileSync(subscriptionFilePath, yaml.dump(subscriptionObject));
 
-    const version = this.deploymentConfig.version;
-    const isSemanticVersion = /^\d+(\.\d+)?$/.test(version);
+    await $`oc apply -f "${subscriptionFilePath}" -n "${this.deploymentConfig.namespace}"`;
 
-    // Use main branch for non-semantic versions (e.g., "next", "latest")
-    const branch = isSemanticVersion ? `release-${version}` : "main";
+    this._log("Backstage CR applied successfully.");
+  }
 
-    // Build version argument based on version type
-    let versionArg: string;
-    if (isSemanticVersion) {
-      versionArg = `-v ${version}`;
-    } else if (version === "next") {
-      versionArg = "--next";
-    } else {
-      throw new Error(
-        `Invalid RHDH version "${version}". Use semantic version (e.g., "1.5") or "next".`,
-      );
-    }
-
-    this._log(`Using operator branch: ${branch}, version arg: ${versionArg}`);
-
-    await $`
-      set -e;
-      curl -sf https://raw.githubusercontent.com/redhat-developer/rhdh-operator/refs/heads/${branch}/.rhdh/scripts/install-rhdh-catalog-source.sh | bash -s -- ${versionArg} --install-operator rhdh
-
-      timeout 300 bash -c '
-        while ! oc get crd/backstages.rhdh.redhat.com -n "${this.deploymentConfig.namespace}" >/dev/null 2>&1; do
-          echo "Waiting for Backstage CRD to be created..."
-          sleep 20
-        done
-        echo "Backstage CRD is created."
-      ' || echo "Error: Timed out waiting for Backstage CRD creation."
-
-      oc apply -f "${subscriptionFilePath}" -n "${this.deploymentConfig.namespace}"
-    `;
-
-    this._log("Operator deployment executed successfully.");
+  private get _labelSelector(): string {
+    return this.deploymentConfig.method === "operator"
+      ? "rhdh.redhat.com/app=backstage-developer-hub"
+      : "app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)";
   }
 
   async rolloutRestart(): Promise<void> {
     this._log(
       `Restarting RHDH deployment in namespace ${this.deploymentConfig.namespace}...`,
     );
-    await $`oc rollout restart deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' -n ${this.deploymentConfig.namespace}`;
+    await $`oc rollout restart deployment -l '${this._labelSelector}' -n ${this.deploymentConfig.namespace}`;
     this._log(
       `RHDH deployment restarted successfully in namespace ${this.deploymentConfig.namespace}`,
     );
@@ -385,15 +358,14 @@ export class RHDHDeployment {
    */
   async scaleDownAndRestart(): Promise<void> {
     const namespace = this.deploymentConfig.namespace;
-    await $`oc scale deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' --replicas=0 -n ${namespace}`;
-    await $`oc wait --for=delete pod -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub),app.kubernetes.io/name!=postgresql' -n ${namespace} --timeout=120s || true`;
-    await $`oc scale deployment -l 'app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)' --replicas=1 -n ${namespace}`;
+    await $`oc scale deployment -l '${this._labelSelector}' --replicas=0 -n ${namespace}`;
+    await $`oc wait --for=delete pod -l '${this._labelSelector}' -n ${namespace} --timeout=120s || true`;
+    await $`oc scale deployment -l '${this._labelSelector}' --replicas=1 -n ${namespace}`;
   }
 
   async waitUntilReady(timeout: number = 500): Promise<void> {
     const namespace = this.deploymentConfig.namespace;
-    const labelSelector =
-      "app.kubernetes.io/instance in (redhat-developer-hub,developer-hub)";
+    const labelSelector = this._labelSelector;
     const startTime = Date.now();
 
     try {

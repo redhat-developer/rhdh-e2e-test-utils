@@ -200,7 +200,7 @@ When documenting, reference these source files:
 | YAML Merging | `src/utils/merge-yamls.ts` |
 | Bash ($) | `src/utils/bash.ts` |
 | envsubst | `src/utils/common.ts` |
-| Config Templates | `src/deployment/rhdh/config/{common,auth,helm,operator}/` |
+| Config Templates | `src/deployment/rhdh/config/{common,auth,new-frontend-system,helm,operator}/` |
 
 ## Common Tasks
 

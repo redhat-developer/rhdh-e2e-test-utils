@@ -25,7 +25,7 @@ src/
 │   │   ├── deployment.ts    # Main class (configure, deploy, waitUntilReady, teardown)
 │   │   ├── types.ts         # DeploymentOptions, DeploymentConfig
 │   │   ├── constants.ts     # Config paths, auth providers, chart URLs
-│   │   └── config/          # YAML templates (common/, auth/, helm/, operator/)
+│   │   └── config/          # YAML templates (common/, auth/, new-frontend-system/, helm/, operator/)
 │   ├── keycloak/            # KeycloakHelper — Keycloak Helm deployment + OIDC setup
 │   └── orchestrator/        # Workflow orchestrator installer
 ├── playwright/
@@ -81,17 +81,21 @@ yarn check     # typecheck + lint + prettier
 
 ## Key Architectural Concepts
 
-### Configuration Merging (3-level cascade)
+### Configuration Merging (layered cascade)
 
 ```
 Package defaults (config/common/)
   ↓ deep merge
 Auth-specific (config/auth/{keycloak|guest|github}/)
+  ↓ deep merge (when useNewFrontendSystem)
+New frontend system defaults (config/new-frontend-system/)
   ↓ deep merge
 User config (workspace's tests/config/*.yaml)
   ↓
 = Final merged config
 ```
+
+`useNewFrontendSystem` is true when set explicitly, when the namespace ends with `-app-next`, or when `USE_NEW_FRONTEND_SYSTEM=true`. Secrets use the same layer order, then a single `envsubst` pass on the merged result.
 
 Array merge uses "replace" strategy by default. Plugin arrays use `byKey: "package"` with normalized keys (strips trailing `-dynamic`).
 

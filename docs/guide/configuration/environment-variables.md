@@ -35,6 +35,7 @@ These are set automatically during deployment:
 | `CHART_URL`                           | Custom Helm chart URL                                         | `oci://quay.io/rhdh/chart` |
 | `SKIP_KEYCLOAK_DEPLOYMENT`            | Skip Keycloak auto-deploy                                     | `false`                    |
 | `RHDH_SKIP_PLUGIN_METADATA_INJECTION` | Disable plugin metadata injection (local only, ignored in CI) | -                          |
+| `USE_NEW_FRONTEND_SYSTEM` | When `"true"`, enables new-frontend-system (app-next) merges when `useNewFrontendSystem` is not set in `configure()` options | - |
 
 ## Plugin Metadata Variables
 
@@ -52,6 +53,21 @@ These control automatic plugin configuration injection from metadata files.
 | `NIGHTLY_DPDY_OCI_REGISTRY_MAP`       | JSON: `{"registry": ["pkg1", "pkg2"]}`                  | Per-plugin registry override for `{{inherit}}` refs (takes precedence over `NIGHTLY_DPDY_OCI_REGISTRY`)                                                                                  |
 | `JOB_NAME`                            | CI job name (set by OpenShift CI/Prow)                  | If contains `periodic-`, nightly mode is activated                                                                                                                                       |
 | `JOB_MODE`                            | CI-only: `nightly` or `pr-check` (set by step registry) | Informational                                                                                                                                                                            |
+
+## New frontend system (app-next)
+
+NFS merge layers ship under `config/new-frontend-system/` in the package (secrets, dynamic plugins, Helm values), same layering idea as `auth/`.
+
+**Enabling app-next behavior**
+
+| Mechanism | Effect |
+|-----------|--------|
+| `useNewFrontendSystem: true` in [`configure()`](/guide/deployment/rhdh-deployment#new-frontend-system-usenewfrontendsystem) | Explicit enable |
+| `useNewFrontendSystem: false` | Explicit disable (overrides auto-detection) |
+| Playwright project / namespace ends with `-app-next` | Auto-enabled when `useNewFrontendSystem` is omitted |
+| `USE_NEW_FRONTEND_SYSTEM=true` | Auto-enabled for all namespaces when `useNewFrontendSystem` is omitted |
+
+**Overriding default OCI refs** for **app-auth** and **app-integrations** uses the same pattern as other plugins: add or adjust entries in your workspace `tests/config/dynamic-plugins.yaml` (merged after package NFS defaults, so your versions win).
 
 ### OCI URL Generation
 

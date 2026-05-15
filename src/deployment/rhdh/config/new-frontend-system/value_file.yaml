@@ -1,0 +1,2 @@
+# Helm values merge layer for the new frontend system (app-next); merged when NFS layers are active (additive; extend as needed).
+{}

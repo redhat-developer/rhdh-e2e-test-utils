@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.41] - Current
+
+### Added
+
+- **`useNewFrontendSystem`** — Backstage **app-next** / new frontend system: merges NFS layers from `config/new-frontend-system/` (secrets, default **app-auth** and **app-integrations** plugins, Helm `value_file.yaml`) into the same merge pipelines as common/auth/user. Secrets are merged with other layers **before** a single `envsubst` pass. NFS dynamic plugins act as **defaults** (workspace `tests/config/dynamic-plugins.yaml` overrides). **Auto-detection:** enabled when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`, unless `useNewFrontendSystem: false` is passed. Optional workspace `tests/config/value_file-app-next.yaml` is still merged last for Helm.
+
 ## [1.1.40] - Current
 
 ### Changed

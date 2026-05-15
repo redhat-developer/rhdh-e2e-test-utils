@@ -70,6 +70,11 @@ export class WorkspacePaths {
     return path.resolve(this.e2eRoot, "tests/config/value_file.yaml");
   }
 
+  /** Optional Helm values merged after `value_file.yaml` when the new frontend system is active (explicit option, namespace suffix `-app-next`, or `USE_NEW_FRONTEND_SYSTEM=true`) and this file exists. */
+  static get valueFileAppNext(): string {
+    return path.resolve(this.e2eRoot, "tests/config/value_file-app-next.yaml");
+  }
+
   /** Default operator subscription path: `tests/config/subscription.yaml` */
   static get subscription(): string {
     return path.resolve(this.e2eRoot, "tests/config/subscription.yaml");

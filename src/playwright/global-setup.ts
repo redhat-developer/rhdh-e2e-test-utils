@@ -9,6 +9,7 @@ import { resolve } from "path";
 import { KubernetesClientHelper } from "../utils/kubernetes-client.js";
 import { $ } from "../utils/bash.js";
 import { KeycloakHelper } from "../deployment/keycloak/index.js";
+import { installRHDHOperator } from "../deployment/rhdh/operator-setup.js";
 import {
   DEFAULT_KEYCLOAK_CONFIG,
   DEFAULT_RHDH_CLIENT,
@@ -86,7 +87,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   await loadLocalVaultSecrets();
   loadDotenvFromProjects(config);
   await setClusterRouterBaseEnv();
-  await deployKeycloak();
+  await Promise.all([installRHDHOperator(), deployKeycloak()]);
   console.log("Global setup completed successfully");
 }
 

@@ -18,6 +18,21 @@ export const DEFAULT_CONFIG_PATHS = {
     PACKAGE_ROOT,
     "dist/deployment/rhdh/config/common/dynamic-plugins.yaml",
   ),
+  /** New frontend system (app-next): paths merged when the deployment uses NFS layers (explicit flag, `-app-next` namespace, or `USE_NEW_FRONTEND_SYSTEM`). */
+  newFrontendSystem: {
+    secrets: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/new-frontend-system/secrets.yaml",
+    ),
+    dynamicPlugins: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/new-frontend-system/dynamic-plugins.yaml",
+    ),
+    valueFile: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/new-frontend-system/value_file.yaml",
+    ),
+  },
   helm: {
     valueFile: path.join(
       PACKAGE_ROOT,

@@ -12,6 +12,8 @@ export type DeploymentOptions = {
   valueFile?: string;
   subscription?: string;
   disableWrappers?: string[];
+  /** When true, merge new-frontend-system (app-next) layers. When omitted, auto-detect: namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass false to disable. */
+  useNewFrontendSystem?: boolean;
 };
 
 export type HelmDeploymentConfig = {
@@ -32,6 +34,8 @@ export type DeploymentConfigBase = {
   secrets: string;
   dynamicPlugins: string;
   disableWrappers: string[];
+  /** New frontend system (Backstage app-next / NFS shell). */
+  useNewFrontendSystem: boolean;
 };
 
 export type DeploymentConfig = DeploymentConfigBase &

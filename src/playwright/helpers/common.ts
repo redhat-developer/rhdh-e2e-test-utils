@@ -75,9 +75,9 @@ export class LoginHelper {
       await this.page.fill("#app_totp", this.getGitHub2FAOTP(userid));
     }
 
-    await this.page.waitForSelector('h2:has-text("Home")', {
-      timeout: 30_000,
-    });
+    await this.page
+      .getByRole("heading", { name: "Home" })
+      .waitFor({ timeout: 30_000 });
   }
 
   async logintoKeycloak(popup: Page, userid: string, password: string) {

@@ -4,26 +4,9 @@ Deploy RHDH using the RHDH Operator.
 
 ## Prerequisites
 
-The RHDH Operator must be installed on your cluster. Install it via OperatorHub or the command line:
+The RHDH Operator is **automatically installed** during global setup when `INSTALLATION_METHOD="operator"`. The operator installation runs once in parallel with Keycloak deployment before any tests execute.
 
-```bash
-# Create operator namespace
-oc create namespace rhdh-operator
-
-# Install the operator
-oc apply -f - <<EOF
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  name: rhdh-operator
-  namespace: rhdh-operator
-spec:
-  channel: fast
-  name: rhdh
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-EOF
-```
+If you have a pre-installed operator on your cluster, set `SKIP_OPERATOR_INSTALLATION=true` to skip the automatic installation.
 
 ## Configuration
 

@@ -75,7 +75,7 @@ export class LoginHelper {
       await this.page.fill("#app_totp", this.getGitHub2FAOTP(userid));
     }
 
-    await this.page.waitForSelector('h2:has-text("repositories")', {
+    await this.page.waitForSelector('h2:has-text("Home")', {
       timeout: 30_000,
     });
   }

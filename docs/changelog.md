@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.43] - Current
+## [1.1.44] - Current
+
+### Changed
+
+- Starting CSV version for OSL operator was removed so latest stable will now be installed directly.
+
+
+## [1.1.43]
 
 ### Fixed
 

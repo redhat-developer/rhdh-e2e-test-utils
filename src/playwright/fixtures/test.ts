@@ -4,6 +4,7 @@ import { LoginHelper, UIhelper } from "../helpers/index.js";
 import { runOnce } from "../run-once.js";
 import { $ } from "../../utils/bash.js";
 import { WorkspacePaths } from "../../utils/workspace-paths.js";
+import fs from "node:fs";
 import path from "path";
 
 type RHDHDeploymentTestFixtures = {
@@ -11,6 +12,8 @@ type RHDHDeploymentTestFixtures = {
   uiHelper: UIhelper;
   loginHelper: LoginHelper;
   autoAnnotations: void;
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _coverageCollector: void;
 };
 
 type RHDHDeploymentWorkerFixtures = {
@@ -74,6 +77,34 @@ const baseTest = base.extend<
         { type: "project", description: testInfo.project.name },
       );
       await use();
+    },
+    { auto: true, scope: "test" },
+  ],
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  _coverageCollector: [
+    async ({ page }, use, testInfo) => {
+      await use();
+      if (process.env.E2E_COLLECT_COVERAGE !== "true") return;
+      try {
+        const coverage = await page.evaluate(
+          () =>
+            (
+              globalThis as unknown as {
+                // eslint-disable-next-line @typescript-eslint/naming-convention
+                __coverage__?: Record<string, unknown>;
+              }
+            ).__coverage__,
+        );
+        if (!coverage) return;
+        const dir = path.join(testInfo.project.outputDir, "coverage");
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, `${testInfo.testId}-${Date.now()}.json`),
+          JSON.stringify(coverage),
+        );
+      } catch {
+        // Best-effort: page may have crashed or been closed
+      }
     },
     { auto: true, scope: "test" },
   ],

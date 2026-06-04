@@ -489,7 +489,7 @@ async function resolvePluginPackages(
         const prUrl = prOciUrls.get(displayName);
         if (prUrl) {
           const usesCoverage =
-            process.env.E2E_COLLECT_COVERAGE === "1" &&
+            process.env.E2E_COLLECT_COVERAGE === "true" &&
             metadata.role === "frontend-plugin";
           const resolved = usesCoverage
             ? prUrl.replace(/(:[^!]+)/, "$1__coverage")

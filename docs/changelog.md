@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.44] - Current
+## [1.1.45] - Current
+
+### Fixed
+
+- **`default.packages.yaml` fetch URL**: `release-1.10` continues to fetch from the `rhdh` repo; all other branches (including `main`) now fetch from `rhdh-plugin-export-overlays` where the file was moved.
+
+## [1.1.44]
 
 ### Changed
 

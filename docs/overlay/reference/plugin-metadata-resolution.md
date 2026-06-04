@@ -6,7 +6,7 @@ This page explains how plugin packages are resolved in overlay E2E tests. It is 
 
 The test framework resolves plugin package references before deploying RHDH. This page explains how the resolution works in each mode, what metadata controls, and the common scenarios you'll encounter.
 
-> **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml).
+> **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/default.packages.yaml).
 
 ## Modes
 
@@ -121,7 +121,7 @@ Metadata is the source of truth for the package reference, except for plugins in
 
 The tables below show what happens to each plugin type in PR check and nightly modes. Local dev behaves the same as PR check (metadata refs + full config injection).
 
-In nightly mode, resolution depends on whether the plugin's npm package name is listed in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml) (both `enabled` and `disabled` sections) AND whether its metadata `spec.dynamicArtifact` is an OCI ref. The list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME`.
+In nightly mode, resolution depends on whether the plugin's npm package name is listed in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/default.packages.yaml) (both `enabled` and `disabled` sections) AND whether its metadata `spec.dynamicArtifact` is an OCI ref. The list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME`.
 
 ### PR Check Mode (`GIT_PR_NUMBER` set)
 

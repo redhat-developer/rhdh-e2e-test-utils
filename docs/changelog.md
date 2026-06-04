@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.44] - Current
+## [1.1.45] - Current
+
+### Fixed
+
+- **`default.packages.yaml` fetch URL**: `release-1.10` continues to fetch from the `rhdh` repo; all other branches (including `main`) now fetch from `rhdh-plugin-export-overlays` where the file was moved.
+
+## [1.1.44]
 
 ### Changed
 
@@ -48,7 +54,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- **Nightly `{{inherit}}` resolution**: In nightly mode, plugins listed in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml) whose metadata `spec.dynamicArtifact` is an OCI ref now resolve to `{{inherit}}` tags instead of pinned OCI refs. The `{{inherit}}` tag tells RHDH to resolve both the OCI tag (version) and default config from its built-in DPDY (`dynamic-plugins.default.yaml` in the catalog index image), so no config injection is needed from our side. This tests against the exact versions and configuration shipped in the RC. Plugins NOT in `default.packages.yaml` with OCI metadata continue using full metadata refs with config injection (they aren't in RHDH's built-in defaults). The DPDY list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME` (required in CI, defaults to `main` locally). The `{{inherit}}` registry defaults to `registry.access.redhat.com/rhdh` and can be overridden with `NIGHTLY_DPDY_OCI_REGISTRY` (blanket) or `NIGHTLY_DPDY_OCI_REGISTRY_MAP` (per-plugin JSON: `{"registry": ["pkg1", "pkg2"]}`). This decouples the `{{inherit}}` registry from metadata's `spec.dynamicArtifact`, avoiding mismatches when metadata points to `ghcr.io` but the DPDY uses `registry.access.redhat.com`.
+- **Nightly `{{inherit}}` resolution**: In nightly mode, plugins listed in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/default.packages.yaml) whose metadata `spec.dynamicArtifact` is an OCI ref now resolve to `{{inherit}}` tags instead of pinned OCI refs. The `{{inherit}}` tag tells RHDH to resolve both the OCI tag (version) and default config from its built-in DPDY (`dynamic-plugins.default.yaml` in the catalog index image), so no config injection is needed from our side. This tests against the exact versions and configuration shipped in the RC. Plugins NOT in `default.packages.yaml` with OCI metadata continue using full metadata refs with config injection (they aren't in RHDH's built-in defaults). The DPDY list is fetched at runtime from the `rhdh` repo using `RELEASE_BRANCH_NAME` (required in CI, defaults to `main` locally). The `{{inherit}}` registry defaults to `registry.access.redhat.com/rhdh` and can be overridden with `NIGHTLY_DPDY_OCI_REGISTRY` (blanket) or `NIGHTLY_DPDY_OCI_REGISTRY_MAP` (per-plugin JSON: `{"registry": ["pkg1", "pkg2"]}`). This decouples the `{{inherit}}` registry from metadata's `spec.dynamicArtifact`, avoiding mismatches when metadata points to `ghcr.io` but the DPDY uses `registry.access.redhat.com`.
 - **`RHDH_SKIP_PLUGIN_METADATA_INJECTION` is local-only**: This env var is now ignored in CI (`CI=true`). It was intended for local development opt-out only — in CI, metadata injection should always run to ensure consistent test behavior.
 - **`RELEASE_BRANCH_NAME` required in CI for nightly**: When running nightly mode in CI, `RELEASE_BRANCH_NAME` must be set (exported by the OpenShift CI step registry). Locally it defaults to `main`.
 

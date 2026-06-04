@@ -82,7 +82,7 @@ Set `SKIP_KEYCLOAK_DEPLOYMENT=true` when using guest authentication and you don'
 
 These control automatic plugin configuration generation from metadata files.
 
-> **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml).
+> **DPDY** refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/default.packages.yaml).
 
 | Variable                              | Description                              | Effect                                                                                                                                                                                   |
 | ------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -193,7 +193,7 @@ The system operates in three modes based on environment variables:
 
 ### DPDY vs Non-DPDY in Nightly
 
-DPDY refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh/blob/main/default.packages.yaml) (both `enabled` and `disabled` sections). In nightly mode:
+DPDY refers to `dynamic-plugins.default.yaml` in the catalog index image shipped with RHDH. The list of DPDY packages is defined in [`default.packages.yaml`](https://github.com/redhat-developer/rhdh-plugin-export-overlays/blob/main/default.packages.yaml) (both `enabled` and `disabled` sections). In nightly mode:
 
 - **In `default.packages.yaml` + OCI metadata**: Use `{{inherit}}` tag — RHDH resolves both the OCI tag (version) and default config from its built-in DPDY. This tests the exact versions and configuration shipped in the RC. No config injection from our side. The registry defaults to `registry.access.redhat.com/rhdh` and can be overridden with `NIGHTLY_DPDY_OCI_REGISTRY` (blanket) or `NIGHTLY_DPDY_OCI_REGISTRY_MAP` (per-plugin JSON, takes precedence).
 - **NOT in `default.packages.yaml` + OCI metadata**: Use full metadata refs from `spec.dynamicArtifact`. Config injection enabled — these plugins aren't in RHDH's built-in defaults, so they need `appConfigExamples` from metadata.

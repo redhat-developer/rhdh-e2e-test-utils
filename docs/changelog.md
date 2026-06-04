@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.45] - Current
+## [2.1.0] - Current
+
+### Added
+
+- **E2E coverage collection auto-fixture**: New `_coverageCollector` automatic fixture collects Istanbul coverage (`window.__coverage__`) from the browser after each test and writes per-test JSON files to `<outputDir>/coverage/`. Enabled via `E2E_COLLECT_COVERAGE=true`. Zero overhead when disabled — no `page.evaluate` call or fs operations. Designed for use with instrumented dynamic plugin builds (nyc instrument).
 
 ### Fixed
 

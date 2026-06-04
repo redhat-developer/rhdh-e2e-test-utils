@@ -14,12 +14,16 @@ export interface PluginMetadata {
   pluginConfig: Record<string, unknown>;
   packageName: string;
   sourceFile: string;
+  role?: string;
 }
 
 interface PackageCRD {
   spec?: {
     packageName?: string;
     dynamicArtifact?: string;
+    backstage?: {
+      role?: string;
+    };
     appConfigExamples?: Array<{
       title?: string;
       content?: Record<string, unknown>;
@@ -227,6 +231,7 @@ export async function parseMetadataFile(
   const packagePath = parsed?.spec?.dynamicArtifact;
   const packageName = parsed?.spec?.packageName;
   const pluginConfig = parsed?.spec?.appConfigExamples?.[0]?.content;
+  const role = parsed?.spec?.backstage?.role;
 
   if (!packagePath) {
     throw new Error(
@@ -244,6 +249,7 @@ export async function parseMetadataFile(
     pluginConfig: pluginConfig || {},
     packageName,
     sourceFile: filePath,
+    role,
   };
 }
 
@@ -482,8 +488,14 @@ async function resolvePluginPackages(
       if (prOciUrls) {
         const prUrl = prOciUrls.get(displayName);
         if (prUrl) {
-          console.log(`[PluginMetadata] PR: ${pkg} → ${prUrl}`);
-          return { ...plugin, package: prUrl };
+          const usesCoverage =
+            process.env.E2E_COLLECT_COVERAGE === "true" &&
+            metadata.role === "frontend-plugin";
+          const resolved = usesCoverage
+            ? prUrl.replace(/(:[^!]+)/, "$1__coverage")
+            : prUrl;
+          console.log(`[PluginMetadata] PR: ${pkg} → ${resolved}`);
+          return { ...plugin, package: resolved };
         }
       }
 

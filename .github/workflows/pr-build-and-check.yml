@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - release-*
 
 jobs:
   build:
@@ -48,8 +49,10 @@ jobs:
       - name: Check for docs changes
         id: docs-changes
         working-directory: .
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
         run: |
-          DOCS_CHANGED=$(git diff --name-only origin/main...HEAD -- docs/ | grep '\.md$' || true)
+          DOCS_CHANGED=$(git diff --name-only "$BASE_REF"...HEAD -- docs/ | grep '\.md$' || true)
           if [ -z "$DOCS_CHANGED" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "No markdown changes in docs/"
@@ -99,8 +102,10 @@ jobs:
 
       - name: Check for source changes requiring version bump
         id: changes
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
         run: |
-          CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF"...HEAD)
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
@@ -113,7 +118,7 @@ jobs:
                 ;;
               package.json)
                 # Check if anything other than "version" changed
-                OTHER_CHANGES=$(git diff origin/main...HEAD -- package.json | grep -E '^[+-]\s' | grep -v -E '^\+\+\+|^---' | grep -v '"version"' || true)
+                OTHER_CHANGES=$(git diff "$BASE_REF"...HEAD -- package.json | grep -E '^[+-]\s' | grep -v -E '^\+\+\+|^---' | grep -v '"version"' || true)
                 if [ -n "$OTHER_CHANGES" ]; then
                   NEEDS_BUMP=true
                   break
@@ -126,32 +131,34 @@ jobs:
 
       - name: Verify version bump and changelog
         if: steps.changes.outputs.needs_bump == 'true'
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
         run: |
           PR_VERSION=$(node -p "require('./package.json').version")
-          MAIN_VERSION=$(git show origin/main:package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version")
+          BASE_VERSION=$(git show "$BASE_REF":package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version")
 
-          echo "Main version: $MAIN_VERSION"
+          echo "Base version: $BASE_VERSION"
           echo "PR version:   $PR_VERSION"
 
-          if [ "$PR_VERSION" = "$MAIN_VERSION" ]; then
+          if [ "$PR_VERSION" = "$BASE_VERSION" ]; then
             echo "::error::Source files or dependencies changed but package version was not bumped. Please update the version in package.json."
             exit 1
           fi
 
           HIGHER=$(node -e "
-            const [a, b] = ['$PR_VERSION', '$MAIN_VERSION'].map(v => v.split('.').map(Number));
+            const [a, b] = ['$PR_VERSION', '$BASE_VERSION'].map(v => v.split('.').map(Number));
             const isHigher = a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) || (a[0] === b[0] && a[1] === b[1] && a[2] > b[2]);
             process.exit(isHigher ? 0 : 1);
           " && echo "true" || echo "false")
 
           if [ "$HIGHER" != "true" ]; then
-            echo "::error::PR version ($PR_VERSION) must be higher than main version ($MAIN_VERSION)."
+            echo "::error::PR version ($PR_VERSION) must be higher than base version ($BASE_VERSION)."
             exit 1
           fi
 
-          echo "Version bumped from $MAIN_VERSION to $PR_VERSION"
+          echo "Version bumped from $BASE_VERSION to $PR_VERSION"
 
-          CHANGELOG_CHANGED=$(git diff --name-only origin/main...HEAD -- docs/changelog.md)
+          CHANGELOG_CHANGED=$(git diff --name-only "$BASE_REF"...HEAD -- docs/changelog.md)
           if [ -z "$CHANGELOG_CHANGED" ]; then
             echo "::error::Version was bumped but docs/changelog.md was not updated. Please add a changelog entry for version $PR_VERSION."
             exit 1

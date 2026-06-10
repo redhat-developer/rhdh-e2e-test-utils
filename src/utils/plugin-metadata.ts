@@ -80,10 +80,6 @@ export function isNightlyJob(): boolean {
 const DEFAULT_PACKAGES_BASE_URL =
   "https://raw.githubusercontent.com/redhat-developer/rhdh-plugin-export-overlays/refs/heads";
 
-// release-1.10 still hosts default.packages.yaml in the rhdh repo (pre-migration)
-const LEGACY_DEFAULT_PACKAGES_BASE_URL =
-  "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads";
-
 const DEFAULT_DPDY_OCI_REGISTRY = "registry.access.redhat.com/rhdh";
 
 interface DefaultPackagesYaml {
@@ -100,8 +96,7 @@ interface DefaultPackagesYaml {
  * {{inherit}} tag resolution vs which need full OCI refs from metadata.
  *
  * Branch is determined by RELEASE_BRANCH_NAME (set by OpenShift CI),
- * defaulting to "main" for local development. For release-1.10 the file
- * lives in the rhdh repo; all other branches use rhdh-plugin-export-overlays.
+ * defaulting to "main" for local development.
  */
 export async function fetchDefaultPackages(): Promise<Set<string>> {
   const branch = process.env.RELEASE_BRANCH_NAME;
@@ -116,11 +111,7 @@ export async function fetchDefaultPackages(): Promise<Set<string>> {
     );
   }
   const resolvedBranch = branch || "main";
-  const baseUrl =
-    resolvedBranch === "release-1.10"
-      ? LEGACY_DEFAULT_PACKAGES_BASE_URL
-      : DEFAULT_PACKAGES_BASE_URL;
-  const url = `${baseUrl}/${resolvedBranch}/default.packages.yaml`;
+  const url = `${DEFAULT_PACKAGES_BASE_URL}/${resolvedBranch}/default.packages.yaml`;
 
   console.log(
     `[PluginMetadata] Fetching default packages from ${url} (branch: ${resolvedBranch})...`,

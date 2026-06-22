@@ -1075,4 +1075,34 @@ describe("processPluginsForDeployment — nightly coverage swap", () => {
       await fs.remove(path.resolve(metadataDir, ".."));
     }
   });
+
+  it("does not swap a DPDY plugin (resolves to {{inherit}}) even when opted in", async () => {
+    // Safety guarantee: a plugin in default.packages.yaml resolves via the
+    // {{inherit}} branch (RHDH's catalog image, which we can't instrument), so
+    // the coverage swap must never reach it — otherwise the nightly would point
+    // at a __coverage tag that doesn't exist.
+    process.env.E2E_NIGHTLY_COVERAGE = "true";
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: true,
+      role: "frontend-plugin",
+    });
+    try {
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@red-hat-developer-hub/backstage-plugin-theme"]), // in DPDY
+      );
+      assert.strictEqual(
+        result.plugins![0].package,
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-theme:{{inherit}}",
+        "DPDY plugin must resolve to {{inherit}}, never to a __coverage tag",
+      );
+      assert.ok(
+        !result.plugins![0].package.includes("__coverage"),
+        "{{inherit}} ref must not be swapped to a __coverage image",
+      );
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
+  });
 });

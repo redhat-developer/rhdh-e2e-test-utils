@@ -207,8 +207,9 @@ function toDisplayName(packageName: string): string {
 }
 
 // Append the __coverage suffix to an OCI image tag, before the optional
-// !<extractPath>. The instrumented variant the overlay builds. The regex is
-// greedy up to the first `!`, so the suffix always lands at the end of the tag.
+// !<extractPath> — the instrumented variant the overlay's release publish
+// builds. The tag group is greedy up to the first `!`, so the suffix always
+// lands at the end of the tag.
 function toCoverageImageRef(ref: string): string {
   return ref.replace(/(:[^!]+)/, "$1__coverage");
 }

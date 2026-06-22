@@ -475,6 +475,24 @@ async function resolvePluginPackages(
     prOciUrls = await getOCIUrlsForPR(workspacePath, prNumber);
   }
 
+  // A dedicated coverage run swaps rolled-out frontend plugins to their
+  // instrumented __coverage image so the browser exposes window.__coverage__.
+  //
+  // This is gated on E2E_NIGHTLY_COVERAGE (an explicit opt-in), NOT on the
+  // ambient E2E_COLLECT_COVERAGE: the functional nightly runs with coverage
+  // collection on by default but deploys RELEASED images, and the __coverage
+  // variant is built non-fatally by the overlay release publish — so swapping
+  // there could point at a tag that doesn't exist and break the deployment.
+  // Requiring the explicit opt-in keeps the functional nightly's resolution
+  // identical to today; only a coverage-dedicated run (which ensures the
+  // images exist) sets the flag. The coverage-anchors/ check further restricts
+  // the swap to rolled-out workspaces.
+  const coverageSwap =
+    process.env.E2E_NIGHTLY_COVERAGE === "true" &&
+    fs.existsSync(
+      path.join(path.resolve(metadataPath, ".."), "coverage-anchors"),
+    );
+
   return plugins.map((plugin) => {
     const pkg = plugin.package;
     const pluginName = extractPluginName(pkg);
@@ -514,9 +532,15 @@ async function resolvePluginPackages(
       }
 
       // OCI: use metadata's dynamicArtifact directly (not in default.packages.yaml, or not nightly).
+      // For a rolled-out frontend plugin in a coverage run, swap to the
+      // instrumented __coverage image so the nightly can collect coverage.
       if (metadata.packagePath.startsWith("oci://")) {
-        console.log(`[PluginMetadata] ${pkg} → ${metadata.packagePath}`);
-        return { ...plugin, package: metadata.packagePath };
+        const resolved =
+          coverageSwap && metadata.role === "frontend-plugin"
+            ? metadata.packagePath.replace(/(:[^!]+)/, "$1__coverage")
+            : metadata.packagePath;
+        console.log(`[PluginMetadata] ${pkg} → ${resolved}`);
+        return { ...plugin, package: resolved };
       }
 
       // Wrapper (local path): metadata is the source of truth.

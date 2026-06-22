@@ -5,6 +5,9 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import fs from "fs-extra";
+import path from "path";
+import os from "os";
+import yaml from "js-yaml";
 import {
   isNightlyJob,
   processPluginsForDeployment,
@@ -949,5 +952,127 @@ describe("getDpdyRegistry", () => {
       "registry.access.redhat.com/rhdh",
       "unlisted plugin falls back to default",
     );
+  });
+});
+
+// ── Nightly coverage image swap ──────────────────────────────────────────────
+
+describe("processPluginsForDeployment — nightly coverage swap", () => {
+  const env = withCleanEnv();
+  beforeEach(() => {
+    env.save();
+    delete process.env.GIT_PR_NUMBER;
+    process.env.E2E_NIGHTLY_MODE = "true";
+  });
+  afterEach(() => env.restore());
+
+  const OCI_REF =
+    "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-theme:bs_1.49.4__0.14.5!red-hat-developer-hub-backstage-plugin-theme";
+
+  // Builds a workspace layout (<ws>/metadata + optional <ws>/coverage-anchors)
+  // and returns the metadata dir to pass as metadataPath. The resolver derives
+  // the workspace root as the parent of the metadata dir.
+  async function createCoverageWorkspace(opts: {
+    rolledOut: boolean;
+    role?: string;
+  }): Promise<string> {
+    const ws = await fs.mkdtemp(path.join(os.tmpdir(), "cov-ws-"));
+    const metadataDir = path.join(ws, "metadata");
+    await fs.ensureDir(metadataDir);
+    if (opts.rolledOut) {
+      await fs.ensureDir(path.join(ws, "coverage-anchors"));
+    }
+    await fs.writeFile(
+      path.join(metadataDir, "theme.yaml"),
+      yaml.dump({
+        apiVersion: "extensions.backstage.io/v1alpha1",
+        kind: "Package",
+        metadata: { name: "theme" },
+        spec: {
+          packageName: "@red-hat-developer-hub/backstage-plugin-theme",
+          dynamicArtifact: OCI_REF,
+          ...(opts.role ? { backstage: { role: opts.role } } : {}),
+        },
+      }),
+    );
+    return metadataDir;
+  }
+
+  const config: DynamicPluginsConfig = {
+    plugins: [{ package: OCI_REF, disabled: false }],
+  };
+
+  async function resolveWith(metadataDir: string): Promise<string> {
+    const result = await processPluginsForDeployment(
+      config,
+      metadataDir,
+      new Set(), // empty DPDY → OCI-direct branch, not {{inherit}}
+    );
+    return result.plugins![0].package;
+  }
+
+  it("swaps to the __coverage image for a rolled-out frontend plugin when opted in", async () => {
+    process.env.E2E_NIGHTLY_COVERAGE = "true";
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: true,
+      role: "frontend-plugin",
+    });
+    try {
+      const pkg = await resolveWith(metadataDir);
+      assert.strictEqual(
+        pkg,
+        "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-theme:bs_1.49.4__0.14.5__coverage!red-hat-developer-hub-backstage-plugin-theme",
+        "tag must get the __coverage suffix, the !path must be preserved",
+      );
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
+  });
+
+  it("does NOT swap in the functional nightly (E2E_NIGHTLY_COVERAGE unset), even with E2E_COLLECT_COVERAGE on", async () => {
+    // The functional nightly runs with E2E_COLLECT_COVERAGE=true by default but
+    // must keep deploying the released image — swapping there could point at a
+    // __coverage tag that doesn't exist and break the deployment.
+    process.env.E2E_COLLECT_COVERAGE = "true";
+    delete process.env.E2E_NIGHTLY_COVERAGE;
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: true,
+      role: "frontend-plugin",
+    });
+    try {
+      assert.strictEqual(
+        await resolveWith(metadataDir),
+        OCI_REF,
+        "functional nightly resolution must be unchanged (no swap)",
+      );
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
+  });
+
+  it("does not swap when the workspace has no coverage-anchors (not rolled out)", async () => {
+    process.env.E2E_NIGHTLY_COVERAGE = "true";
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: false,
+      role: "frontend-plugin",
+    });
+    try {
+      assert.strictEqual(await resolveWith(metadataDir), OCI_REF);
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
+  });
+
+  it("does not swap a non-frontend plugin even when rolled out and opted in", async () => {
+    process.env.E2E_NIGHTLY_COVERAGE = "true";
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: true,
+      role: "backend-plugin",
+    });
+    try {
+      assert.strictEqual(await resolveWith(metadataDir), OCI_REF);
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
   });
 });

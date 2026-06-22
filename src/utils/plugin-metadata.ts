@@ -206,6 +206,13 @@ function toDisplayName(packageName: string): string {
   return packageName.replace(/^@/, "").replace(/\//g, "-");
 }
 
+// Append the __coverage suffix to an OCI image tag, before the optional
+// !<extractPath>. The instrumented variant the overlay builds. The regex is
+// greedy up to the first `!`, so the suffix always lands at the end of the tag.
+function toCoverageImageRef(ref: string): string {
+  return ref.replace(/(:[^!]+)/, "$1__coverage");
+}
+
 // ── Metadata Loading ──────────────────────────────────────────────────────────
 
 export const DEFAULT_METADATA_PATH = "../metadata";
@@ -464,6 +471,8 @@ async function resolvePluginPackages(
   metadataPath: string,
   dpdyPackages: Set<string> | null = null,
 ): Promise<PluginEntry[]> {
+  const workspaceRoot = path.resolve(metadataPath, "..");
+
   // Build PR OCI URLs if applicable
   const prNumber = process.env.GIT_PR_NUMBER;
   let prOciUrls: Map<string, string> | null = null;
@@ -471,8 +480,7 @@ async function resolvePluginPackages(
     console.log(
       `[PluginMetadata] PR build detected (PR #${prNumber}), fetching OCI URLs...`,
     );
-    const workspacePath = path.resolve(metadataPath, "..");
-    prOciUrls = await getOCIUrlsForPR(workspacePath, prNumber);
+    prOciUrls = await getOCIUrlsForPR(workspaceRoot, prNumber);
   }
 
   // A dedicated coverage run swaps rolled-out frontend plugins to their
@@ -489,9 +497,7 @@ async function resolvePluginPackages(
   // the swap to rolled-out workspaces.
   const coverageSwap =
     process.env.E2E_NIGHTLY_COVERAGE === "true" &&
-    fs.existsSync(
-      path.join(path.resolve(metadataPath, ".."), "coverage-anchors"),
-    );
+    fs.existsSync(path.join(workspaceRoot, "coverage-anchors"));
 
   return plugins.map((plugin) => {
     const pkg = plugin.package;
@@ -509,9 +515,7 @@ async function resolvePluginPackages(
           const usesCoverage =
             process.env.E2E_COLLECT_COVERAGE === "true" &&
             metadata.role === "frontend-plugin";
-          const resolved = usesCoverage
-            ? prUrl.replace(/(:[^!]+)/, "$1__coverage")
-            : prUrl;
+          const resolved = usesCoverage ? toCoverageImageRef(prUrl) : prUrl;
           console.log(`[PluginMetadata] PR: ${pkg} → ${resolved}`);
           return { ...plugin, package: resolved };
         }
@@ -537,7 +541,7 @@ async function resolvePluginPackages(
       if (metadata.packagePath.startsWith("oci://")) {
         const resolved =
           coverageSwap && metadata.role === "frontend-plugin"
-            ? metadata.packagePath.replace(/(:[^!]+)/, "$1__coverage")
+            ? toCoverageImageRef(metadata.packagePath)
             : metadata.packagePath;
         console.log(`[PluginMetadata] ${pkg} → ${resolved}`);
         return { ...plugin, package: resolved };

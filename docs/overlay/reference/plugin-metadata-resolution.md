@@ -113,9 +113,19 @@ For each plugin, the resolver checks in order:
 
 4. Use metadata's dynamicArtifact as-is
    (OCI ref → OCI ref, wrapper path → wrapper path)
+   In a dedicated coverage run (E2E_NIGHTLY_COVERAGE=true), a frontend plugin
+   whose workspace is rolled out (has a coverage-anchors/ directory) gets its
+   OCI tag swapped to the instrumented __coverage variant:
+     oci://ghcr.io/.../plugin:bs_X__Y!alias → ...:bs_X__Y__coverage!alias
 ```
 
 Metadata is the source of truth for the package reference, except for plugins in `default.packages.yaml` with OCI metadata in nightly mode — these use `{{inherit}}` so RHDH resolves both the OCI tag and config from its built-in DPDY, testing the exact versions and configuration shipped in the RC.
+
+### Coverage image swap (`E2E_NIGHTLY_COVERAGE`)
+
+A nightly run can only collect browser coverage if RHDH deploys the **instrumented** `__coverage` plugin image (built by the overlay release publish). When `E2E_NIGHTLY_COVERAGE=true`, step 4 above swaps a rolled-out frontend plugin's released OCI tag to its `__coverage` variant.
+
+This is a separate flag from the ambient `E2E_COLLECT_COVERAGE` (which only toggles the collector fixture) on purpose: the functional nightly runs with `E2E_COLLECT_COVERAGE=true` by default, and the `__coverage` variant is built non-fatally, so swapping there could point at a tag that doesn't exist and break the deployment. The explicit `E2E_NIGHTLY_COVERAGE` opt-in keeps the functional nightly's resolution unchanged; only a coverage-dedicated run (which ensures the images exist) sets it. Plugins resolved via `{{inherit}}` are never swapped — those are RHDH's catalog images, which can't be instrumented.
 
 ## Resolution Scenarios
 

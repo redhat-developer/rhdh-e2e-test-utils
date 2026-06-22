@@ -2,12 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.0] - Current
+## [2.2.0] - Current
+
+### Added
+
+- **Nightly coverage image swap** (`E2E_NIGHTLY_COVERAGE`): In nightly plugin resolution, an explicit opt-in swaps a rolled-out frontend plugin (workspace with a `coverage-anchors/` directory) from its released OCI image to the instrumented `__coverage` variant, so a coverage-dedicated nightly run can collect browser coverage. Gated separately from the ambient `E2E_COLLECT_COVERAGE` so the functional nightly's resolution is unchanged; `{{inherit}}` (DPDY) plugins are never swapped.
+
+## [2.1.0]
 
 ### Added
 
 - **E2E coverage collection auto-fixture**: New `_coverageCollector` automatic fixture collects Istanbul coverage (`window.__coverage__`) from the browser after each test and writes per-test JSON files to `<outputDir>/coverage/`. Enabled via `E2E_COLLECT_COVERAGE=true`. Zero overhead when disabled — no `page.evaluate` call or fs operations. Designed for use with instrumented dynamic plugin builds (nyc instrument).
-- **Nightly coverage image swap** (`E2E_NIGHTLY_COVERAGE`): In nightly plugin resolution, an explicit opt-in swaps a rolled-out frontend plugin (workspace with a `coverage-anchors/` directory) from its released OCI image to the instrumented `__coverage` variant, so a coverage-dedicated nightly run can collect browser coverage. Gated separately from the ambient `E2E_COLLECT_COVERAGE` so the functional nightly's resolution is unchanged; `{{inherit}}` (DPDY) plugins are never swapped.
 
 ### Fixed
 

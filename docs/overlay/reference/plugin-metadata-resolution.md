@@ -106,16 +106,20 @@ For each plugin, the resolver checks in order:
    No  ↓
 
 3. Is nightly mode AND plugin is in default.packages.yaml AND metadata spec.dynamicArtifact is OCI?
-   Yes → use {{inherit}} tag:  oci://{registry}/plugin:{{inherit}}
+   Yes ↓
+       In a coverage run (E2E_NIGHTLY_COVERAGE=true), a rolled-out frontend plugin
+       bypasses {{inherit}} and uses the ghcr __coverage build instead (see step 4),
+       because the {{inherit}}/Konflux catalog image can't be instrumented.
+       Otherwise → use {{inherit}} tag:  oci://{registry}/plugin:{{inherit}}
          RHDH resolves both the OCI tag (version) and default config from its built-in DPDY.
          Registry: NIGHTLY_DPDY_OCI_REGISTRY_MAP > NIGHTLY_DPDY_OCI_REGISTRY > default registry.access.redhat.com/rhdh
    No  ↓
 
 4. Use metadata's dynamicArtifact as-is
    (OCI ref → OCI ref, wrapper path → wrapper path)
-   In a dedicated coverage run (E2E_NIGHTLY_COVERAGE=true), a frontend plugin
-   whose workspace is rolled out (has a coverage-anchors/ directory) gets its
-   OCI tag swapped to the instrumented __coverage variant:
+   In a coverage run (E2E_NIGHTLY_COVERAGE=true), a rolled-out frontend plugin
+   (workspace has a coverage-anchors/ directory) gets its OCI tag swapped to the
+   instrumented __coverage variant:
      oci://ghcr.io/.../plugin:bs_X__Y!alias → ...:bs_X__Y__coverage!alias
 ```
 
@@ -125,7 +129,9 @@ Metadata is the source of truth for the package reference, except for plugins in
 
 A nightly run can only collect browser coverage if RHDH deploys the **instrumented** `__coverage` plugin image (built by the overlay release publish). When `E2E_NIGHTLY_COVERAGE=true`, step 4 above swaps a rolled-out frontend plugin's released OCI tag to its `__coverage` variant.
 
-This is a separate flag from the ambient `E2E_COLLECT_COVERAGE` (which only toggles the collector fixture) on purpose: the functional nightly runs with `E2E_COLLECT_COVERAGE=true` by default, and the `__coverage` variant is built non-fatally, so swapping there could point at a tag that doesn't exist and break the deployment. The explicit `E2E_NIGHTLY_COVERAGE` opt-in keeps the functional nightly's resolution unchanged; only a coverage-dedicated run (which ensures the images exist) sets it. Plugins resolved via `{{inherit}}` are never swapped — those are RHDH's catalog images, which can't be instrumented.
+This is a separate flag from the ambient `E2E_COLLECT_COVERAGE` (which only toggles the collector fixture) on purpose: the functional nightly runs with `E2E_COLLECT_COVERAGE=true` by default, and the `__coverage` variant is built non-fatally, so swapping there could point at a tag that doesn't exist and break the deployment. The explicit `E2E_NIGHTLY_COVERAGE` opt-in keeps the functional nightly's resolution unchanged; only a coverage-dedicated run (which ensures the images exist) sets it.
+
+In a coverage run this also applies to **DPDY plugins**: instead of resolving to `{{inherit}}` (the Konflux catalog image at `registry.access.redhat.com/rhdh`, which can't be instrumented), a rolled-out frontend DPDY plugin is pointed at the overlay's instrumented ghcr `__coverage` build of the same plugin source. The functional nightly still uses `{{inherit}}` and tests the shipped Konflux build — the coverage run is a separate measurement that deliberately deploys the instrumentable ghcr build instead. No downstream/Konflux pipeline changes are needed.
 
 ## Resolution Scenarios
 

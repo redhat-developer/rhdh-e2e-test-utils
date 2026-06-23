@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **Nightly coverage image swap** (`E2E_NIGHTLY_COVERAGE`): In nightly plugin resolution, an explicit opt-in swaps a rolled-out frontend plugin (workspace with a `coverage-anchors/` directory) from its released OCI image to the instrumented `__coverage` variant, so a coverage-dedicated nightly run can collect browser coverage. Gated separately from the ambient `E2E_COLLECT_COVERAGE` so the functional nightly's resolution is unchanged; `{{inherit}}` (DPDY) plugins are never swapped.
+- **Nightly coverage image swap** (`E2E_NIGHTLY_COVERAGE`): In nightly plugin resolution, an explicit opt-in points a rolled-out frontend plugin (workspace with a `coverage-anchors/` directory) at the overlay's instrumented `__coverage` ghcr build so a coverage-dedicated nightly run can collect browser coverage. This includes DPDY plugins: in a coverage run they bypass `{{inherit}}` (the Konflux catalog image, which can't be instrumented) and use the ghcr build of the same source. Gated separately from the ambient `E2E_COLLECT_COVERAGE`, so the functional nightly's resolution is unchanged — it still deploys the shipped `{{inherit}}`/Konflux builds.
 
 ## [2.1.0]
 

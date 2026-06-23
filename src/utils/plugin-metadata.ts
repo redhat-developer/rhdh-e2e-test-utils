@@ -530,6 +530,17 @@ async function resolvePluginPackages(
         dpdyPackages?.has(metadata.packageName) &&
         metadata.packagePath.startsWith("oci://")
       ) {
+        // In a coverage run, a {{inherit}} ref would deploy the Konflux catalog
+        // image (registry.access.redhat.com/rhdh), which we can't instrument.
+        // Bypass it and deploy the overlay's instrumented __coverage build from
+        // ghcr (metadata.packagePath) — same plugin source, just built by us, so
+        // the run can collect coverage. The functional nightly (no coverage
+        // opt-in) still uses {{inherit}}, i.e. the shipped Konflux build.
+        if (coverageSwap && metadata.role === "frontend-plugin") {
+          const resolved = toCoverageImageRef(metadata.packagePath);
+          console.log(`[PluginMetadata] DPDY coverage: ${pkg} → ${resolved}`);
+          return { ...plugin, package: resolved };
+        }
         const registry = getDpdyRegistry(metadata.packageName);
         const inheritRef = `oci://${registry}/${displayName}:{{inherit}}`;
         console.log(`[PluginMetadata] DPDY inherit: ${pkg} → ${inheritRef}`);

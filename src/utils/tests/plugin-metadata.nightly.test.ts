@@ -1076,11 +1076,10 @@ describe("processPluginsForDeployment — nightly coverage swap", () => {
     }
   });
 
-  it("does not swap a DPDY plugin (resolves to {{inherit}}) even when opted in", async () => {
-    // Safety guarantee: a plugin in default.packages.yaml resolves via the
-    // {{inherit}} branch (RHDH's catalog image, which we can't instrument), so
-    // the coverage swap must never reach it — otherwise the nightly would point
-    // at a __coverage tag that doesn't exist.
+  it("swaps a DPDY plugin to the ghcr __coverage build (bypassing {{inherit}}) when opted in", async () => {
+    // A {{inherit}} ref would deploy the Konflux catalog image, which can't be
+    // instrumented. In a coverage run, a rolled-out frontend DPDY plugin must
+    // instead use the overlay's instrumented ghcr build of the same source.
     process.env.E2E_NIGHTLY_COVERAGE = "true";
     const metadataDir = await createCoverageWorkspace({
       rolledOut: true,
@@ -1094,12 +1093,32 @@ describe("processPluginsForDeployment — nightly coverage swap", () => {
       );
       assert.strictEqual(
         result.plugins![0].package,
-        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-theme:{{inherit}}",
-        "DPDY plugin must resolve to {{inherit}}, never to a __coverage tag",
+        "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/red-hat-developer-hub-backstage-plugin-theme:bs_1.49.4__0.14.5__coverage!red-hat-developer-hub-backstage-plugin-theme",
+        "DPDY plugin in a coverage run must use the ghcr __coverage build, not {{inherit}}",
       );
-      assert.ok(
-        !result.plugins![0].package.includes("__coverage"),
-        "{{inherit}} ref must not be swapped to a __coverage image",
+    } finally {
+      await fs.remove(path.resolve(metadataDir, ".."));
+    }
+  });
+
+  it("keeps a DPDY plugin on {{inherit}} in the functional nightly (no opt-in)", async () => {
+    // The functional nightly (no E2E_NIGHTLY_COVERAGE) must still deploy the
+    // shipped Konflux build via {{inherit}} — unchanged from today.
+    delete process.env.E2E_NIGHTLY_COVERAGE;
+    const metadataDir = await createCoverageWorkspace({
+      rolledOut: true,
+      role: "frontend-plugin",
+    });
+    try {
+      const result = await processPluginsForDeployment(
+        config,
+        metadataDir,
+        new Set(["@red-hat-developer-hub/backstage-plugin-theme"]), // in DPDY
+      );
+      assert.strictEqual(
+        result.plugins![0].package,
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-theme:{{inherit}}",
+        "functional nightly must keep DPDY plugins on {{inherit}}",
       );
     } finally {
       await fs.remove(path.resolve(metadataDir, ".."));

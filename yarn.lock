@@ -391,7 +391,7 @@ __metadata:
     eslint-plugin-playwright: "npm:2.10.1"
     fs-extra: "npm:11.3.4"
     husky: "npm:9.1.7"
-    js-yaml: "npm:4.1.1"
+    js-yaml: "npm:4.2.0"
     lint-staged: "npm:16.4.0"
     lodash.clonedeepwith: "npm:4.5.0"
     lodash.mergewith: "npm:4.6.2"
@@ -1951,7 +1951,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"js-yaml@npm:4.1.1, js-yaml@npm:^4.1.0, js-yaml@npm:^4.1.1":
+"js-yaml@npm:4.2.0":
+  version: 4.2.0
+  resolution: "js-yaml@npm:4.2.0"
+  dependencies:
+    argparse: "npm:^2.0.1"
+  bin:
+    js-yaml: bin/js-yaml.js
+  checksum: 10/51de2067a2b44b07ba5206132e56005f8b568ff279bb4d2f645068958c56fa4827d40a6841c983234671fa0a134bf094d0b0717873c2a3d319185297af145a6d
+  languageName: node
+  linkType: hard
+
+"js-yaml@npm:^4.1.0, js-yaml@npm:^4.1.1":
   version: 4.1.1
   resolution: "js-yaml@npm:4.1.1"
   dependencies:

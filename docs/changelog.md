@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.0] - Current
+## [2.1.1] - Current
+
+### Changed
+
+- **UI Helper clickButton method**: Uses role based locators instead of CSS selectors. As such is now compatible with both MUI and BUI based buttons.
+
+## [2.1.0]
 
 ### Added
 

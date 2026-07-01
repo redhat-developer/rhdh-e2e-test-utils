@@ -3,7 +3,6 @@ import { authenticator } from "otplib";
 import { test, expect } from "@playwright/test";
 import type { Browser, Page, TestInfo } from "@playwright/test";
 import { SETTINGS_PAGE_COMPONENTS } from "../page-objects/page-obj.js";
-import { UI_HELPER_ELEMENTS } from "../page-objects/global-obj.js";
 import * as path from "path";
 import * as fs from "fs";
 import { DEFAULT_USERS } from "../../deployment/keycloak/constants.js";
@@ -213,10 +212,6 @@ export class LoginHelper {
     } catch (error) {
       if (force) throw error;
     }
-  }
-
-  getButtonSelector(label: string): string {
-    return `${UI_HELPER_ELEMENTS.MuiButtonLabel}:has-text("${label}")`;
   }
 
   getLoginBtnSelector(): string {

@@ -94,17 +94,11 @@ export class UIhelper {
       force: false,
     },
   ) {
-    const selector = `${UI_HELPER_ELEMENTS.MuiButtonLabel}`;
     const button = this.page
-      .locator(selector)
-      .getByText(label, { exact: options.exact })
+      .getByRole("button", { name: label, exact: options.exact })
       .first();
+    await button.click({ force: options.force });
 
-    if (options?.force) {
-      await button.click({ force: true });
-    } else {
-      await button.click();
-    }
     return button;
   }
 

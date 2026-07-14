@@ -5,3 +5,6 @@ upstream:
         filename: app-config-rhdh.yaml
     extraEnvVarsSecrets:
       - rhdh-secrets
+global:
+  lightspeed:
+    enabled: false

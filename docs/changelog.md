@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.0] - Current
+## [2.1.2] - Current
+
+### Fixed
+
+- **Lightspeed disabled by default in helm values**: Added `global.lightspeed.enabled: false` to the base helm `value_file.yaml`. Lightspeed is enabled by default in the RHDH helm chart and its `{{inherit}}` OCI ref cannot be resolved in the DPDY for non-lightspeed workspaces, causing `InstallException` during plugin installation. The lightspeed workspace's own `value_file.yaml` overrides this with `enabled: true`.
+
+## [2.2.0]
 
 ### Added
 

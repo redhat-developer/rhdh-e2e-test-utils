@@ -23,7 +23,7 @@ export const baseConfig: PlaywrightTestConfig = {
     [resolve(import.meta.dirname, "../playwright/teardown-reporter.js")],
   ],
   use: {
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: !(process.env.CI || process.env.NODE_EXTRA_CA_CERTS),
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     viewport: { width: 1920, height: 1080 },

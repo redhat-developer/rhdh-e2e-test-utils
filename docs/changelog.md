@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.3] - Current
+## [2.1.4] - Current
+
+### Changed
+
+- replaced wrappers for quickstart and keycloak catalog module config with oci images
+
+## [2.1.3]
 
 ### Fixed
 

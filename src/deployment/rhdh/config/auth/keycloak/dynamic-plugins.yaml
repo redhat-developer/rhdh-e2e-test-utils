@@ -1,5 +1,5 @@
 plugins:
-  - package: ./dynamic-plugins/dist/backstage-community-plugin-catalog-backend-module-keycloak-dynamic
+  - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
     disabled: false
     pluginConfig:
       catalog:

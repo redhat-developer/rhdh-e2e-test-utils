@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.4] - Current
+## [2.1.5] - Current
+
+### Changed
+
+- **Trace retention on all test runs**: Changed Playwright trace setting from `"retain-on-failure"` to `"on"` so traces are always retained, including on passed tests. This enables the fullsend e2e-triage agent to compare passing and failing traces for more accurate root cause analysis.
+
+## [2.1.4]
 
 ### Changed
 

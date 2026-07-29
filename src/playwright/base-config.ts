@@ -24,7 +24,7 @@ export const baseConfig: PlaywrightTestConfig = {
   ],
   use: {
     ignoreHTTPSErrors: true,
-    trace: "retain-on-failure",
+    trace: "on",
     screenshot: "only-on-failure",
     viewport: { width: 1920, height: 1080 },
     video: {

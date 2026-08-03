@@ -57,7 +57,7 @@ test("example", async ({ rhdh }) => {
 | `dynamicPlugins` | `string` | Path to dynamic-plugins YAML |
 | `valueFile` | `string` | Helm values file (Helm only) |
 | `subscription` | `string` | Backstage CR file (Operator only) |
-| `disableWrappers` | `string[]` | Wrapper plugin package names to disable (`GIT_PR_NUMBER` flows) |
+| `disablePlugins` | `string[]` | Default plugins to disable in PR builds (wrapper + OCI `{{inherit}}`) |
 | `useNewFrontendSystem` | `boolean` | Enables the Backstage **new frontend system** shell (app-next / NFS): merges app-next secrets, default OCI **app-auth** and **app-integrations** plugins (as defaults — override in `tests/config/dynamic-plugins.yaml`), and extra Helm values from `config/new-frontend-system/value_file.yaml` plus optional `tests/config/value_file-app-next.yaml`. Omit to **auto-detect**: on when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass `false` to force off. |
 
 ### New frontend system (`useNewFrontendSystem`)

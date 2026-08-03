@@ -10,7 +10,7 @@ import {
   generatePluginsFromMetadata,
   processPluginsForDeployment,
   getNormalizedPluginMergeKey,
-  disablePluginWrappers,
+  disablePlugins,
   type DynamicPluginsConfig,
 } from "../../utils/plugin-metadata.js";
 import { envsubst } from "../../utils/common.js";
@@ -182,8 +182,8 @@ export class RHDHDeployment {
   private async _buildDynamicPluginsConfig(): Promise<Record<string, unknown>> {
     const userConfigPath = this.deploymentConfig.dynamicPlugins;
     const userConfigExists = userConfigPath && fs.existsSync(userConfigPath);
-    const wrapperPlugins = disablePluginWrappers(
-      this.deploymentConfig.disableWrappers,
+    const disabledPlugins = disablePlugins(
+      this.deploymentConfig.disablePlugins,
     );
 
     let config: Record<string, unknown>;
@@ -207,9 +207,9 @@ export class RHDHDeployment {
       WorkspacePaths.metadataDir,
     );
 
-    // Disable wrapper plugins (PR builds only)
+    // Disable default plugins (PR builds only) — covers wrapper + OCI DPDY forms
     if (process.env.GIT_PR_NUMBER) {
-      result = deepMerge(result, wrapperPlugins, {
+      result = deepMerge(result, disabledPlugins, {
         arrayMergeStrategy: "concat",
       }) as DynamicPluginsConfig;
     }
@@ -509,7 +509,7 @@ export class RHDHDeployment {
       appConfig: input.appConfig ?? WorkspacePaths.appConfig,
       secrets: input.secrets ?? WorkspacePaths.secrets,
       dynamicPlugins: input.dynamicPlugins ?? WorkspacePaths.dynamicPlugins,
-      disableWrappers: input.disableWrappers ?? [],
+      disablePlugins: input.disablePlugins ?? [],
       useNewFrontendSystem,
     };
 

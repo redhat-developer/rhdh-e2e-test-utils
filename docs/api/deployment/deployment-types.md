@@ -42,7 +42,7 @@ type DeploymentOptions = {
   method?: DeploymentMethod;
   valueFile?: string;
   subscription?: string;
-  disableWrappers?: string[];
+  disablePlugins?: string[];
   useNewFrontendSystem?: boolean;
 };
 ```
@@ -58,7 +58,7 @@ type DeploymentOptions = {
 | `method` | `DeploymentMethod` | Installation method |
 | `valueFile` | `string` | Helm values file (Helm only) |
 | `subscription` | `string` | Backstage CR file (Operator only) |
-| `disableWrappers` | `string[]` | Wrapper plugins to disable (PR builds) |
+| `disablePlugins` | `string[]` | Default plugins to disable in PR builds (names, paths, or OCI refs) |
 | `useNewFrontendSystem` | `boolean` | New frontend system (app-next / NFS). Omit to auto-detect from namespace suffix `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`; set `false` to disable. See [RHDH deployment](/guide/deployment/rhdh-deployment#new-frontend-system-usenewfrontendsystem) |
 
 ## DeploymentConfigBase
@@ -71,7 +71,7 @@ type DeploymentConfigBase = {
   appConfig: string;
   secrets: string;
   dynamicPlugins: string;
-  disableWrappers: string[];
+  disablePlugins: string[];
   useNewFrontendSystem: boolean;
 };
 ```

@@ -60,7 +60,7 @@ The `e2e-ocp-helm-nightly` job runs E2E tests against **released** OCI images ac
 | **GIT_PR_NUMBER** | Set (PR number) | Not exported |
 | **OCI Images** | PR-built (`pr_` tags) for workspace plugins | Released (from metadata `spec.dynamicArtifact`) |
 | **Metadata injection** | Yes — `appConfigExamples` merged | Skipped |
-| **Wrapper disabling** | Yes (`disableWrappers`) | No |
+| **Plugin disabling** | Yes (`disablePlugins`) | No |
 | **Workspaces Tested** | Changed workspace only | All workspaces |
 | **E2E_NIGHTLY_MODE** | Not set | `true` |
 

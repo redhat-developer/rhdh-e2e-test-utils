@@ -181,20 +181,22 @@ async function processPluginsForDeployment(
 
 ---
 
-### disablePluginWrappers()
+### disablePlugins()
 
-Creates a dynamic plugins config that disables wrapper plugins. Used during PR builds when wrapper plugins would conflict with PR-built OCI images.
+Creates a dynamic plugins config that disables default RHDH plugins. Used during PR builds when DPDY entries would conflict with PR-built OCI images.
+
+For each plugin name it emits both a local wrapper path and an OCI `{{inherit}}` path with `disabled: true`, covering older wrapper-based DPDY and RHDH 1.11+ OCI-based DPDY. Inputs may be bare names, wrapper paths, or OCI refs; duplicates are collapsed.
 
 ```typescript
-function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig;
+function disablePlugins(plugins: string[]): DynamicPluginsConfig;
 ```
 
 **Parameters:**
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `plugins` | `string[]` | Plugin names to disable (e.g., `["backstage-community-plugin-tech-radar"]`) |
+| `plugins` | `string[]` | Plugin names, wrapper paths, and/or OCI refs to disable |
 
-**Returns:** Config with each plugin set to `disabled: true` using local wrapper paths.
+**Returns:** Config with each unique plugin set to `disabled: true` for both `./dynamic-plugins/dist/$name` and `oci://<registry>/$name:{{inherit}}` (registry from `NIGHTLY_DPDY_OCI_REGISTRY` or `registry.access.redhat.com/rhdh`).
 
 ## Types
 

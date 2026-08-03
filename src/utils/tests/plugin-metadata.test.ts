@@ -1,6 +1,6 @@
 /**
  * Pure utility function tests — no env vars, no file system fixtures.
- * Tests: extractPluginName, getNormalizedPluginMergeKey, disablePluginWrappers, generatePluginsFromMetadata
+ * Tests: extractPluginName, getNormalizedPluginMergeKey, disablePlugins, generatePluginsFromMetadata
  */
 import { describe, it } from "node:test";
 import assert from "node:assert";
@@ -8,7 +8,8 @@ import fs from "fs-extra";
 import {
   extractPluginName,
   getNormalizedPluginMergeKey,
-  disablePluginWrappers,
+  disablePlugins,
+  normalizeDisablePluginName,
   generatePluginsFromMetadata,
 } from "../plugin-metadata.js";
 import { createMetadataFixture } from "./helpers.js";
@@ -120,28 +121,108 @@ describe("getNormalizedPluginMergeKey", () => {
   });
 });
 
-// ── disablePluginWrappers ────────────────────────────────────────────────────
+// ── disablePlugins ───────────────────────────────────────────────────────────
 
-describe("disablePluginWrappers", () => {
+describe("normalizeDisablePluginName", () => {
+  it("keeps bare display names and strips -dynamic", () => {
+    assert.strictEqual(
+      normalizeDisablePluginName("backstage-plugin-kubernetes"),
+      "backstage-plugin-kubernetes",
+    );
+    assert.strictEqual(
+      normalizeDisablePluginName("backstage-plugin-kubernetes-backend-dynamic"),
+      "backstage-plugin-kubernetes-backend",
+    );
+  });
+
+  it("extracts names from wrapper paths and OCI refs", () => {
+    assert.strictEqual(
+      normalizeDisablePluginName(
+        "./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic",
+      ),
+      "backstage-plugin-kubernetes",
+    );
+    assert.strictEqual(
+      normalizeDisablePluginName(
+        "oci://registry.access.redhat.com/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}",
+      ),
+      "red-hat-developer-hub-backstage-plugin-global-header",
+    );
+  });
+});
+
+describe("disablePlugins", () => {
   it("returns empty plugins array for empty input", () => {
-    const result = disablePluginWrappers([]);
+    const result = disablePlugins([]);
     assert.deepStrictEqual(result, { plugins: [] });
   });
 
-  it("creates disabled entries with correct local path format", () => {
-    const result = disablePluginWrappers([
+  it("creates disabled local wrapper and OCI {{inherit}} entries per plugin", () => {
+    delete process.env.NIGHTLY_DPDY_OCI_REGISTRY;
+    const result = disablePlugins([
       "backstage-community-plugin-tech-radar",
       "backstage-plugin-kubernetes",
     ]);
-    assert.strictEqual(result.plugins!.length, 2);
+    assert.strictEqual(result.plugins!.length, 4);
     assert.deepStrictEqual(result.plugins![0], {
       package: "./dynamic-plugins/dist/backstage-community-plugin-tech-radar",
       disabled: true,
     });
     assert.deepStrictEqual(result.plugins![1], {
+      package:
+        "oci://registry.access.redhat.com/rhdh/backstage-community-plugin-tech-radar:{{inherit}}",
+      disabled: true,
+    });
+    assert.deepStrictEqual(result.plugins![2], {
       package: "./dynamic-plugins/dist/backstage-plugin-kubernetes",
       disabled: true,
     });
+    assert.deepStrictEqual(result.plugins![3], {
+      package:
+        "oci://registry.access.redhat.com/rhdh/backstage-plugin-kubernetes:{{inherit}}",
+      disabled: true,
+    });
+  });
+
+  it("normalizes mixed input forms and deduplicates", () => {
+    delete process.env.NIGHTLY_DPDY_OCI_REGISTRY;
+    const result = disablePlugins([
+      "./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic",
+      "backstage-plugin-kubernetes",
+      "oci://registry.access.redhat.com/rhdh/backstage-plugin-kubernetes:{{inherit}}",
+    ]);
+    assert.strictEqual(result.plugins!.length, 2);
+    assert.deepStrictEqual(result.plugins![0], {
+      package: "./dynamic-plugins/dist/backstage-plugin-kubernetes",
+      disabled: true,
+    });
+    assert.deepStrictEqual(result.plugins![1], {
+      package:
+        "oci://registry.access.redhat.com/rhdh/backstage-plugin-kubernetes:{{inherit}}",
+      disabled: true,
+    });
+  });
+
+  it("uses NIGHTLY_DPDY_OCI_REGISTRY for OCI disable entries when set", () => {
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY = "quay.io/rhdh";
+    try {
+      const result = disablePlugins([
+        "red-hat-developer-hub-backstage-plugin-global-header",
+      ]);
+      assert.strictEqual(result.plugins!.length, 2);
+      assert.deepStrictEqual(result.plugins![0], {
+        package:
+          "./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-global-header",
+        disabled: true,
+      });
+      assert.deepStrictEqual(result.plugins![1], {
+        package:
+          "oci://quay.io/rhdh/red-hat-developer-hub-backstage-plugin-global-header:{{inherit}}",
+        disabled: true,
+      });
+    } finally {
+      delete process.env.NIGHTLY_DPDY_OCI_REGISTRY;
+    }
   });
 });
 

@@ -2,12 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.5] - Current
+## [2.1.6] - Current
+
+### Changed
+
+- **`disableWrappers` → `disablePlugins`**: Renamed the configure option and helper to reflect that they disable default DPDY plugins (wrapper paths and OCI `{{inherit}}`), not only wrappers. Inputs may be bare names, local paths, or OCI refs; duplicates are collapsed.
+
+### Fixed
+
+- **`disablePlugins` misses OCI-based DPDY entries (RHDH 1.11+)**: Previously only emitted `./dynamic-plugins/dist/$name` with `disabled: true`. After DPDY moved to `oci://registry.access.redhat.com/rhdh/$name:{{inherit}}`, that left the default plugin enabled and caused conflicts (e.g. duplicate `mountPoints`) with PR OCI images. It now also emits the matching OCI `{{inherit}}` disable entry (registry overridable via `NIGHTLY_DPDY_OCI_REGISTRY`).
+
+## [2.1.5]
 
 ### Changed
 
 - **Trace retention on all test runs**: Changed Playwright trace setting from `"retain-on-failure"` to `"on"` so traces are always retained, including on passed tests. This enables the fullsend e2e-triage agent to compare passing and failing traces for more accurate root cause analysis.
-
 ## [2.1.4]
 
 ### Changed

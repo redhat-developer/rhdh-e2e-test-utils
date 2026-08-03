@@ -229,7 +229,7 @@ test.describe("My Plugin", () => {
 | `UIhelper`, `LoginHelper`, `APIHelper`          | `generatePluginsFromMetadata()` |
 | `$`, `WorkspacePaths`, `KubernetesClientHelper` | `injectMetadataConfig()`        |
 | `defineConfig` from `./playwright-config`       | `resolvePluginPackages()`       |
-| `registerTeardownNamespace` from `./teardown`   | `disablePluginWrappers()`       |
+| `registerTeardownNamespace` from `./teardown`   | `disablePlugins()`              |
 
 ## Testing
 
@@ -288,6 +288,6 @@ All in `src/utils/plugin-metadata.ts`. Key functions:
 - `generatePluginsFromMetadata()` — auto-generate from metadata files
 - `resolvePluginPackages()` — OCI URL resolution
 - `injectMetadataConfig()` — merge metadata configs into plugin entries
-- `disablePluginWrappers()` — disable local wrappers when using OCI images
+- `disablePlugins()` — disable local wrappers and OCI `{{inherit}}` DPDY entries when using PR OCI images
 
 Test thoroughly — changes affect all overlay workspaces. Run `yarn build && yarn test` to verify.

@@ -11,7 +11,11 @@ export type DeploymentOptions = {
   method?: DeploymentMethod;
   valueFile?: string;
   subscription?: string;
-  disableWrappers?: string[];
+  /**
+   * Default RHDH plugins to disable during PR builds (wrapper path + OCI
+   * `{{inherit}}`). Accepts display names, local paths, or OCI refs.
+   */
+  disablePlugins?: string[];
   /** When true, merge new-frontend-system (app-next) layers. When omitted, auto-detect: namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass false to disable. */
   useNewFrontendSystem?: boolean;
 };
@@ -33,7 +37,7 @@ export type DeploymentConfigBase = {
   appConfig: string;
   secrets: string;
   dynamicPlugins: string;
-  disableWrappers: string[];
+  disablePlugins: string[];
   /** New frontend system (Backstage app-next / NFS shell). */
   useNewFrontendSystem: boolean;
 };

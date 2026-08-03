@@ -81,7 +81,7 @@ test.beforeAll(async ({ rhdh }) => {
    | No metadata match (cross-workspace plugins, npm packages) | Kept as-is |
 
 4. **Wrapper disabling** (PR builds only, when `GIT_PR_NUMBER` set):
-   - Appends `disabled: true` entries for wrapper plugins listed in `disableWrappers`
+   - Appends `disabled: true` entries for default plugins listed in `disablePlugins`
 
 ::: info Multiple OCI Registries
 Plugin OCI references use the **actual registry** from each plugin's `spec.dynamicArtifact` — not a single hardcoded registry. Plugins can come from `ghcr.io`, `quay.io/rhdh`, `registry.access.redhat.com/rhdh`, or other registries.
@@ -188,7 +188,7 @@ The system operates in three modes based on environment variables:
 | **`default.packages.yaml` OCI plugins**     | PR tags or metadata refs | `{{inherit}}` tag (RHDH provides both OCI tag and config)     | Metadata refs     |
 | **Non-`default.packages.yaml` OCI plugins** | PR tags or metadata refs | Metadata refs + config injection                              | Metadata refs     |
 | **Wrapper plugins**                         | Metadata path            | Metadata path                                                 | Metadata path     |
-| **Wrapper disabling**                       | Yes (`disableWrappers`)  | No                                                            | No                |
+| **Plugin disabling**                       | Yes (`disablePlugins`)  | No                                                            | No                |
 | **Cross-workspace plugins**                 | Kept as-is               | Kept as-is                                                    | Kept as-is        |
 
 ### DPDY vs Non-DPDY in Nightly

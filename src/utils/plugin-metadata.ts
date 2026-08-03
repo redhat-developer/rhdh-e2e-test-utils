@@ -579,21 +579,65 @@ function injectMetadataConfig(
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Generates dynamic-plugins configuration for wrapper plugins
- * that need to be disabled. Each plugin entry contains:
- *  - package: ./dynamic-plugins/dist/$plugin-name
- *  - disabled: true
+ * Normalizes a disablePlugins entry to a DPDY display name.
+ * Accepts bare names, local wrapper paths, or OCI refs.
  *
- * @param plugins list of wrapper plugin names
- * @returns Dynamic plugins configuration that disables listed wrapper plugins
+ * Examples:
+ *  - red-hat-developer-hub-backstage-plugin-global-header
+ *  - ./dynamic-plugins/dist/backstage-plugin-kubernetes-dynamic
+ *  - oci://registry.access.redhat.com/rhdh/backstage-community-plugin-tekton:{{inherit}}
  */
-export function disablePluginWrappers(plugins: string[]): DynamicPluginsConfig {
+export function normalizeDisablePluginName(plugin: string): string {
+  const trimmed = plugin.trim();
+  if (!trimmed) return "";
+
+  if (
+    trimmed.startsWith("oci://") ||
+    trimmed.startsWith("./") ||
+    trimmed.includes("/")
+  ) {
+    return extractPluginName(trimmed);
+  }
+
+  return trimmed.replace(/-dynamic$/, "");
+}
+
+/**
+ * Generates dynamic-plugins configuration that disables default RHDH plugins
+ * listed in `disablePlugins`. For each
+ * normalized plugin name it emits two entries:
+ *  - local wrapper path: ./dynamic-plugins/dist/$plugin-name (older RHDH)
+ *  - OCI DPDY path: oci://<registry>/$plugin-name:{{inherit}} (RHDH 1.11+)
+ *
+ * Both are needed because DPDY moved from wrapper paths to OCI {{inherit}}
+ * refs; disabling only the wrapper leaves the OCI default enabled and causes
+ * mountPoints / config conflicts with the workspace's PR OCI image.
+ *
+ * Registry resolution: NIGHTLY_DPDY_OCI_REGISTRY, else
+ * registry.access.redhat.com/rhdh.
+ *
+ * @param plugins plugin names, wrapper paths, and/or OCI refs to disable
+ * @returns Dynamic plugins configuration that disables listed plugins
+ */
+export function disablePlugins(plugins: string[]): DynamicPluginsConfig {
   const pluginConfig: DynamicPluginsConfig = {
     plugins: [],
   };
+  const registry =
+    process.env.NIGHTLY_DPDY_OCI_REGISTRY || DEFAULT_DPDY_OCI_REGISTRY;
+  const seen = new Set<string>();
+
   for (const plugin of plugins) {
+    const name = normalizeDisablePluginName(plugin);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+
     pluginConfig.plugins!.push({
-      package: `./dynamic-plugins/dist/${plugin}`,
+      package: `./dynamic-plugins/dist/${name}`,
+      disabled: true,
+    });
+    pluginConfig.plugins!.push({
+      package: `oci://${registry}/${name}:{{inherit}}`,
       disabled: true,
     });
   }

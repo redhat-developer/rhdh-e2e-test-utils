@@ -22,7 +22,7 @@ function fakePage(
 ): CoveragePage {
   return {
     isClosed: () => closed,
-    evaluate: async <R>() => coverage as R,
+    evaluate: async () => coverage,
   };
 }
 
@@ -93,9 +93,9 @@ describe("collectCoverageFromBrowser", () => {
     let evaluated = false;
     const closedPage: CoveragePage = {
       isClosed: () => true,
-      evaluate: async <R>() => {
+      evaluate: async () => {
         evaluated = true;
-        return COVERAGE as R;
+        return COVERAGE;
       },
     };
 

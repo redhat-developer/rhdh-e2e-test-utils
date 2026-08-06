@@ -12,19 +12,37 @@
 // `Browser` and `Page`. Depending on the shape rather than the classes is what
 // lets the tests exercise this without launching a browser.
 
-/** Istanbul's per-file coverage, keyed by the instrumented file's path. */
+/**
+ * Istanbul's per-file coverage, keyed by the instrumented file's path.
+ *
+ * The values stay `unknown` on purpose: this module serializes them and never
+ * reads inside, so modelling Istanbul's report shape would buy nothing and
+ * pull a dependency on its types into a package that has none.
+ */
 export type CoverageData = Record<string, unknown>;
 
 export type CoveragePage = {
   isClosed(): boolean;
-  evaluate<R>(pageFunction: () => R): Promise<R>;
+  // Narrower than Playwright's generic `evaluate`, which a real Page still
+  // satisfies. Naming the one return type this needs is what lets a fake
+  // return a plain value instead of asserting its way into a type parameter.
+  evaluate(
+    pageFunction: () => CoverageData | undefined,
+  ): Promise<CoverageData | undefined>;
 };
 
 export type CoverageBrowser = {
   contexts(): readonly { pages(): readonly CoveragePage[] }[];
 };
 
-/** Runs in the browser, so it must not close over anything. */
+/**
+ * Runs in the browser, so it must not close over anything.
+ *
+ * The assertion stands in for a type that cannot exist statically: nyc defines
+ * `__coverage__` at runtime, in the instrumented bundle. Declaring it as a
+ * global would be the alternative, but this package is published, and its
+ * ambient declarations would land in every consumer's type environment.
+ */
 function readInstrumentedGlobal(): CoverageData | undefined {
   return (
     globalThis as unknown as {

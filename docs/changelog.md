@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.6] - Current
+## [2.1.7] - Current
+
+### Fixed
+
+- **`rolloutRestart` / `scaleDownAndRestart` bash syntax error**: Removed manual quotes around `${this._labelSelector}` in zx template strings. zx already escapes `${...}`; wrapping Helm selectors that use `in (...)` in extra `'...'` produced invalid bash (`syntax error near unexpected token '('`), so helm upgrades and mid-suite restarts failed.
+
+## [2.1.6]
 
 ### Changed
 

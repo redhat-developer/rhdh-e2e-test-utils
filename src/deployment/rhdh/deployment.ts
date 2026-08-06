@@ -344,7 +344,7 @@ export class RHDHDeployment {
     this._log(
       `Restarting RHDH deployment in namespace ${this.deploymentConfig.namespace}...`,
     );
-    await $`oc rollout restart deployment -l '${this._labelSelector}' -n ${this.deploymentConfig.namespace}`;
+    await $`oc rollout restart deployment -l ${this._labelSelector} -n ${this.deploymentConfig.namespace}`;
     this._log(
       `RHDH deployment restarted successfully in namespace ${this.deploymentConfig.namespace}`,
     );
@@ -358,9 +358,9 @@ export class RHDHDeployment {
    */
   async scaleDownAndRestart(): Promise<void> {
     const namespace = this.deploymentConfig.namespace;
-    await $`oc scale deployment -l '${this._labelSelector}' --replicas=0 -n ${namespace}`;
-    await $`oc wait --for=delete pod -l '${this._labelSelector}' -n ${namespace} --timeout=120s || true`;
-    await $`oc scale deployment -l '${this._labelSelector}' --replicas=1 -n ${namespace}`;
+    await $`oc scale deployment -l ${this._labelSelector} --replicas=0 -n ${namespace}`;
+    await $`oc wait --for=delete pod -l ${this._labelSelector} -n ${namespace} --timeout=120s || true`;
+    await $`oc scale deployment -l ${this._labelSelector} --replicas=1 -n ${namespace}`;
   }
 
   async waitUntilReady(timeout: number = 500): Promise<void> {

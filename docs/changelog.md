@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.7] - Current
+## [2.1.8] - Current
+
+### Fixed
+
+- **Coverage lost from specs that open their own browser context**: `_coverageCollector` read `window.__coverage__` from the Playwright `page` fixture only. A spec that creates its own context in `beforeAll` (`browser.newContext()` / `context.newPage()`) and runs every test there left the fixture page on `about:blank`, so collection found nothing and returned quietly — the run stayed green while all coverage was discarded. In `rhdh-plugin-export-overlays` this silently zeroed three workspaces (`scorecard`, `intelligent-assistant`, `adoption-insights` — 57 passing tests, 0 coverage files) while the instrumented bundles were deployed and exercised normally. Collection now walks every open context and writes one JSON per covered page; `nyc merge` sums them. A page that crashes or closes mid-collection no longer discards the other pages' coverage, and a test that finds no coverage at all now warns once per worker instead of failing silently.
+
+## [2.1.7]
 
 ### Fixed
 

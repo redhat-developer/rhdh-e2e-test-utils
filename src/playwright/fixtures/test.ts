@@ -4,8 +4,24 @@ import { LoginHelper, UIhelper } from "../helpers/index.js";
 import { runOnce } from "../run-once.js";
 import { $ } from "../../utils/bash.js";
 import { WorkspacePaths } from "../../utils/workspace-paths.js";
+import { collectCoverageFromBrowser } from "../coverage.js";
 import fs from "node:fs";
 import path from "path";
+
+// Asking for coverage and getting none is a failure, but it used to look
+// exactly like success: the collector returned quietly and the run stayed
+// green while every JSON was lost. Say it once per worker — enough to surface
+// in CI logs, quiet enough not to bury the test output.
+let noCoverageWarningIssued = false;
+function warnNoCoverageFound(): void {
+  if (noCoverageWarningIssued) return;
+  noCoverageWarningIssued = true;
+  console.warn(
+    "[coverage] E2E_COLLECT_COVERAGE=true but no open page exposed " +
+      "__coverage__. Either the deployed plugin bundle was not instrumented, " +
+      "or the spec closed its pages before teardown.",
+  );
+}
 
 type RHDHDeploymentTestFixtures = {
   rhdh: RHDHDeployment;
@@ -82,29 +98,29 @@ const baseTest = base.extend<
   ],
   // eslint-disable-next-line @typescript-eslint/naming-convention
   _coverageCollector: [
-    async ({ page }, use, testInfo) => {
+    // Depends on `browser` rather than `page`: coverage can live in a context
+    // the spec opened itself, and reading only the fixture page misses it.
+    // This is also lighter than before — an auto fixture instantiates what it
+    // depends on, so specs that never touch the fixture page no longer pay for
+    // a blank one on every test.
+    async ({ browser }, use, testInfo) => {
       await use();
       if (process.env.E2E_COLLECT_COVERAGE !== "true") return;
-      try {
-        const coverage = await page.evaluate(
-          () =>
-            (
-              globalThis as unknown as {
-                // eslint-disable-next-line @typescript-eslint/naming-convention
-                __coverage__?: Record<string, unknown>;
-              }
-            ).__coverage__,
-        );
-        if (!coverage) return;
-        const dir = path.join(testInfo.project.outputDir, "coverage");
-        fs.mkdirSync(dir, { recursive: true });
+
+      const collected = await collectCoverageFromBrowser(browser);
+      if (collected.length === 0) {
+        warnNoCoverageFound();
+        return;
+      }
+      const dir = path.join(testInfo.project.outputDir, "coverage");
+      fs.mkdirSync(dir, { recursive: true });
+      collected.forEach((coverage, index) => {
+        // The index disambiguates pages collected within the same millisecond.
         fs.writeFileSync(
-          path.join(dir, `${testInfo.testId}-${Date.now()}.json`),
+          path.join(dir, `${testInfo.testId}-${Date.now()}-${index}.json`),
           JSON.stringify(coverage),
         );
-      } catch {
-        // Best-effort: page may have crashed or been closed
-      }
+      });
     },
     { auto: true, scope: "test" },
   ],

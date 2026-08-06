@@ -3,6 +3,7 @@ import path from "path";
 import yaml from "js-yaml";
 import { glob } from "zx";
 import { deepMerge } from "./merge-yamls.js";
+import { isCoverageEnabled } from "./common.js";
 
 const OCI_REGISTRY_PREFIX =
   "oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays";
@@ -489,8 +490,7 @@ async function resolvePluginPackages(
         const prUrl = prOciUrls.get(displayName);
         if (prUrl) {
           const usesCoverage =
-            process.env.E2E_COLLECT_COVERAGE === "true" &&
-            metadata.role === "frontend-plugin";
+            isCoverageEnabled() && metadata.role === "frontend-plugin";
           const resolved = usesCoverage
             ? prUrl.replace(/(:[^!]+)/, "$1__coverage")
             : prUrl;

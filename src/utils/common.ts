@@ -18,4 +18,15 @@ function requireEnv(...varNames: [string, ...string[]]): void {
   }
 }
 
-export { envsubst, requireEnv };
+/**
+ * Whether this run should deploy instrumented bundles and collect coverage.
+ *
+ * Read from two layers that have to agree — plugin resolution picks the
+ * `__coverage` OCI tag, the Playwright fixture reads `__coverage__` back out —
+ * so the check lives in one place rather than as a string compare in each.
+ */
+function isCoverageEnabled(): boolean {
+  return process.env.E2E_COLLECT_COVERAGE === "true";
+}
+
+export { envsubst, requireEnv, isCoverageEnabled };

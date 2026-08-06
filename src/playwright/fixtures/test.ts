@@ -1,5 +1,5 @@
 import { RHDHDeployment } from "../../deployment/rhdh/index.js";
-import { test as base } from "@playwright/test";
+import { test as base, type TestInfo } from "@playwright/test";
 import { LoginHelper, UIhelper } from "../helpers/index.js";
 import { runOnce } from "../run-once.js";
 import { $ } from "../../utils/bash.js";
@@ -8,19 +8,26 @@ import { collectCoverageFromBrowser } from "../coverage.js";
 import fs from "node:fs";
 import path from "path";
 
-// Asking for coverage and getting none is a failure, but it used to look
-// exactly like success: the collector returned quietly and the run stayed
-// green while every JSON was lost. Say it once per worker — enough to surface
-// in CI logs, quiet enough not to bury the test output.
-let noCoverageWarningIssued = false;
-function warnNoCoverageFound(): void {
-  if (noCoverageWarningIssued) return;
-  noCoverageWarningIssued = true;
-  console.warn(
-    "[coverage] E2E_COLLECT_COVERAGE=true but no open page exposed " +
-      "__coverage__. Either the deployed plugin bundle was not instrumented, " +
-      "or the spec closed its pages before teardown.",
-  );
+// Every reason collection can come back empty. Kept together because the
+// message is the only diagnosis a reader gets, and an incomplete list sends
+// them to the wrong place: `collectCoverageFromBrowser` also skips a page whose
+// `evaluate` was rejected, which lands here rather than raising.
+const NO_COVERAGE_FOUND =
+  "E2E_COLLECT_COVERAGE=true but no open page exposed __coverage__. The " +
+  "deployed bundle may not be instrumented, the spec may have closed its " +
+  "pages before teardown, or evaluation may have been blocked in the page.";
+
+// Asking for coverage and getting none used to look exactly like success: the
+// collector returned quietly and the run stayed green while every JSON was
+// lost. Reporting it is deliberately two-channel — an annotation lands in the
+// HTML report beside the result, the way `autoAnnotations` below does, and one
+// console line per worker keeps it in the CI log without burying test output.
+let coverageProblemLogged = false;
+function reportCoverageProblem(testInfo: TestInfo, detail: string): void {
+  testInfo.annotations.push({ type: "coverage", description: detail });
+  if (coverageProblemLogged) return;
+  coverageProblemLogged = true;
+  console.warn(`[coverage] ${detail}`);
 }
 
 type RHDHDeploymentTestFixtures = {
@@ -107,20 +114,27 @@ const baseTest = base.extend<
       await use();
       if (process.env.E2E_COLLECT_COVERAGE !== "true") return;
 
-      const collected = await collectCoverageFromBrowser(browser);
-      if (collected.length === 0) {
-        warnNoCoverageFound();
-        return;
+      try {
+        const collected = await collectCoverageFromBrowser(browser);
+        if (collected.length === 0) {
+          reportCoverageProblem(testInfo, NO_COVERAGE_FOUND);
+          return;
+        }
+        const dir = path.join(testInfo.project.outputDir, "coverage");
+        fs.mkdirSync(dir, { recursive: true });
+        collected.forEach((coverage, index) => {
+          // The index disambiguates pages collected within the same millisecond.
+          fs.writeFileSync(
+            path.join(dir, `${testInfo.testId}-${Date.now()}-${index}.json`),
+            JSON.stringify(coverage),
+          );
+        });
+      } catch (error) {
+        // Never rethrow. This runs in teardown for every test, so an unwritable
+        // outputDir or a browser that died mid-test would otherwise fail a test
+        // that had already passed — coverage is diagnostics, not a verdict.
+        reportCoverageProblem(testInfo, `collection failed: ${error}`);
       }
-      const dir = path.join(testInfo.project.outputDir, "coverage");
-      fs.mkdirSync(dir, { recursive: true });
-      collected.forEach((coverage, index) => {
-        // The index disambiguates pages collected within the same millisecond.
-        fs.writeFileSync(
-          path.join(dir, `${testInfo.testId}-${Date.now()}-${index}.json`),
-          JSON.stringify(coverage),
-        );
-      });
     },
     { auto: true, scope: "test" },
   ],

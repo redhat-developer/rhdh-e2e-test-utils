@@ -60,6 +60,12 @@ function readInstrumentedGlobal(): CoverageData | undefined {
  * A page that carries an empty object is dropped — it is as useless as a page
  * with none, and reporting it as a find would mask the "nothing was
  * instrumented" case that callers warn about.
+ *
+ * Failures are handled at two levels on purpose. A single unusable page is
+ * skipped, because the other pages' coverage is still worth having. A failure
+ * reaching the browser propagates: returning an empty array would be
+ * indistinguishable from "nothing was instrumented", and the caller can only
+ * report accurately what it is allowed to see.
  */
 export async function collectCoverageFromBrowser(
   browser: CoverageBrowser,

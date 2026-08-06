@@ -129,4 +129,20 @@ describe("collectCoverageFromBrowser", () => {
   it("returns nothing when no context is open", async () => {
     assert.deepStrictEqual(await collectCoverageFromBrowser(fakeBrowser()), []);
   });
+
+  it("propagates a browser-level failure instead of reporting no coverage", async () => {
+    // The caller turns this into a diagnostic that names the real cause.
+    // Swallowing it here would return an empty array indistinguishable from
+    // "nothing was instrumented" — the confusion this module exists to end.
+    const deadBrowser: CoverageBrowser = {
+      contexts: () => {
+        throw new Error("Browser has been closed");
+      },
+    };
+
+    await assert.rejects(
+      () => collectCoverageFromBrowser(deadBrowser),
+      /Browser has been closed/,
+    );
+  });
 });

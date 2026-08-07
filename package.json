@@ -112,7 +112,7 @@
     "eslint-plugin-check-file": "3.3.1",
     "eslint-plugin-playwright": "2.10.1",
     "fs-extra": "11.3.4",
-    "js-yaml": "4.1.1",
+    "js-yaml": "4.3.1",
     "lodash.clonedeepwith": "4.5.0",
     "lodash.mergewith": "4.6.2",
     "otplib": "12.0.1",

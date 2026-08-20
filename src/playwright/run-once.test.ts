@@ -7,7 +7,8 @@ import { runOnce } from "./run-once.js";
  * and therefore shared by every test in this file.
  */
 let n = 0;
-const freshKey = (label: string) => `run-once-test-${label}-${process.pid}-${n++}`;
+const freshKey = (label: string) =>
+  `run-once-test-${label}-${process.pid}-${n++}`;
 
 describe("runOnce scope", () => {
   it("runs once across projects by default, which is the historical behaviour", async () => {
@@ -15,12 +16,20 @@ describe("runOnce scope", () => {
     const ran: string[] = [];
 
     for (const project of ["ws", "ws-app-next"]) {
-      await runOnce(key, () => {
-        ran.push(project);
-      }, { project });
+      await runOnce(
+        key,
+        () => {
+          ran.push(project);
+        },
+        { project },
+      );
     }
 
-    assert.deepStrictEqual(ran, ["ws"], "the second project must reuse the first project's flag");
+    assert.deepStrictEqual(
+      ran,
+      ["ws"],
+      "the second project must reuse the first project's flag",
+    );
   });
 
   it("runs once per project when scope is project", async () => {
@@ -28,9 +37,13 @@ describe("runOnce scope", () => {
     const ran: string[] = [];
 
     for (const project of ["ws", "ws-app-next"]) {
-      await runOnce(key, () => {
-        ran.push(project);
-      }, { scope: "project", project });
+      await runOnce(
+        key,
+        () => {
+          ran.push(project);
+        },
+        { scope: "project", project },
+      );
     }
 
     // The bug this option exists for: with a run-scoped key the second project
@@ -43,9 +56,13 @@ describe("runOnce scope", () => {
     let calls = 0;
 
     for (let i = 0; i < 3; i++) {
-      await runOnce(key, () => {
-        calls++;
-      }, { scope: "project", project: "ws-app-next" });
+      await runOnce(
+        key,
+        () => {
+          calls++;
+        },
+        { scope: "project", project: "ws-app-next" },
+      );
     }
 
     assert.strictEqual(calls, 1);
@@ -69,7 +86,11 @@ describe("runOnce scope", () => {
       console.warn = original;
     }
 
-    assert.strictEqual(warnings.length, 1, "the cross-project skip must not be silent");
+    assert.strictEqual(
+      warnings.length,
+      1,
+      "the cross-project skip must not be silent",
+    );
     assert.match(warnings[0], /already run by project "ws"/);
     assert.match(warnings[0], /scope: "project"/);
   });

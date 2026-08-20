@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.9] - Current
+## [2.1.10] - Current
+
+### Added
+
+- **`runOnce` accepts a scope**: `test.runOnce(key, fn, { scope: "project" })` keys the flag file per Playwright project, so setup that belongs to one project runs once for each. The default is unchanged (`"run"`, once for the whole test run) because both intents are real and the API cannot guess: installing an operator into a fixed namespace that every project then uses wants once per run, while anything touching a project's own namespace wants once per project. Callers outside a Playwright context can pass `project` explicitly.
+
+### Fixed
+
+- **`runOnce` silently skipped a second project's setup**: the flag file was keyed by the key string alone, inside a directory keyed only on the runner PID and therefore shared by every project in the run. When one spec was matched by more than one project — which is what adding an `-app-next` lane does — the first project's setup satisfied the second, and the second skipped `configure()` and `deploy()` entirely, then failed much later on a missing element with nothing pointing at the cause. Seen on `rhdh-plugin-export-overlays#3318`. Run-scoped keys now record which project satisfied them, and a skip on behalf of a *different* project logs a warning naming both and pointing at `{ scope: "project" }`; a skip within the same project, the worker-restart case the helper exists for, stays quiet.
+
+## [2.1.9]
 
 ### Changed
 

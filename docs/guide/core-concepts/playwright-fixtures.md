@@ -184,7 +184,7 @@ test.beforeAll(async ({ rhdh }) => {
     await $`bash ${setupScript} ${namespace}`;  // expensive external service
     process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(namespace, "my-service");
     await rhdh.deploy();  // also protected internally, nesting is safe
-  });
+  }, { scope: "project" });   // this setup belongs to one project — see Scope
 });
 ```
 
@@ -194,6 +194,7 @@ test.beforeAll(async ({ rhdh }) => {
 - When a worker restarts after a test failure, `runOnce` detects the flag and skips
 - Any state created by the function (deployments, services, data) stays alive
 - Flags reset automatically between test runs
+- By default one flag covers the **whole run**, every project included — see [Scope](#scope-run-or-project)
 
 ### When to Use
 
@@ -202,6 +203,7 @@ test.beforeAll(async ({ rhdh }) => {
 | Just `configure()` + `deploy()` | Nothing extra — `deploy()` is already protected |
 | Pre-deploy setup (external services, scripts, env vars) + `deploy()` | Wrap the entire block in `test.runOnce` |
 | Multiple independent expensive operations | Use separate `test.runOnce` calls with different keys |
+| The same spec runs under more than one project (e.g. an `-app-next` lane) | Add `{ scope: "project" }`, or the second project skips its setup |
 
 ### Examples
 
@@ -225,7 +227,7 @@ test.beforeAll(async ({ rhdh }) => {
       rhdh.deploymentConfig.namespace, "data-provider"
     );
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
@@ -251,7 +253,7 @@ test.describe("Feature B", () => {
 
 ### Key: Unique Identifier
 
-The `key` must be globally unique across **all spec files and projects** in the same Playwright run. If two `runOnce` calls in different files use the same key, only the first one will execute. Use a prefix that includes the workspace or project name:
+The `key` must be globally unique across **all spec files** in the same Playwright run. If two `runOnce` calls in different files use the same key, only the first one will execute. Use a prefix that includes the workspace name:
 
 ```typescript
 // In tech-radar.spec.ts
@@ -262,6 +264,46 @@ await test.runOnce("tech-radar-data-provider", async () => { ... });
 await test.runOnce("catalog-deploy", async () => { ... });
 await test.runOnce("catalog-seed-data", async () => { ... });
 ```
+
+Whether the key also has to be unique per **project** is what `scope` decides.
+
+### Scope: Run or Project
+
+A Playwright project is a namespace and a deployment of its own. When one spec file
+is matched by more than one project — which is what adding an `-app-next` lane does —
+a single key covers both, and the second project skips setup the first already did:
+
+```typescript
+// playwright.config.ts
+projects: [
+  { name: "tech-radar", testMatch: "tech-radar.spec.ts" },
+  { name: "tech-radar-app-next", testMatch: "tech-radar.spec.ts" },  // same spec
+]
+```
+
+| Scope | Runs | Right for |
+|-------|------|-----------|
+| `"run"` (default) | once for the whole run, every project included | setup genuinely shared by all projects — installing an operator into a fixed namespace they all use |
+| `"project"` | once per Playwright project | anything touching the project's own namespace or deployment — `configure()`, `deploy()`, a service deployed into that namespace |
+
+```typescript
+await test.runOnce("tech-radar-setup", async () => {
+  await rhdh.configure({ auth: "keycloak" });
+  await $`bash deploy-provider.sh ${rhdh.deploymentConfig.namespace}`;
+  await rhdh.deploy();
+}, { scope: "project" });
+```
+
+::: warning The failure is silent
+Without `{ scope: "project" }`, the second project's `beforeAll` returns immediately.
+Nothing is deployed, nothing errors, and the suite fails much later on a missing
+element with nothing pointing at the cause. Since 2.1.10 a run-scoped key skipped on
+behalf of a *different* project logs a warning naming both projects — read the
+`[runOnce]` lines in the run output when a lane fails for no visible reason.
+:::
+
+`rhdh.deploy()` needs no scope of its own: its internal key already carries the
+namespace, and the namespace is the project name.
 
 ### Nesting
 

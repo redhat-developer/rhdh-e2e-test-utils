@@ -95,6 +95,23 @@ describe("runOnce scope", () => {
     assert.match(warnings[0], /scope: "project"/);
   });
 
+  it("warns when scope is project but no project can be determined", async () => {
+    const key = freshKey("no-project");
+    const warnings: string[] = [];
+    const original = console.warn;
+    console.warn = (msg: string) => warnings.push(String(msg));
+    try {
+      // No `project` option, and no Playwright context in a node:test run, so
+      // the scope silently degrades to "run" unless it says something.
+      await runOnce(key, () => {}, { scope: "project" });
+    } finally {
+      console.warn = original;
+    }
+
+    assert.strictEqual(warnings.length, 1);
+    assert.match(warnings[0], /no Playwright project could be determined/);
+  });
+
   it("does not warn when the same project skips its own key", async () => {
     const key = freshKey("no-warn");
     const warnings: string[] = [];

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- **`runOnce` accepts a scope**: `test.runOnce(key, fn, { scope: "project" })` keys the flag file per Playwright project, so setup that belongs to one project runs once for each. The default is unchanged (`"run"`, once for the whole test run) because both intents are real and the API cannot guess: installing an operator into a fixed namespace that every project then uses wants once per run, while anything touching a project's own namespace wants once per project. Callers outside a Playwright context can pass `project` explicitly.
+- **`runOnce` accepts a scope**: `test.runOnce(key, fn, { scope: "project" })` keys the flag file per Playwright project, so setup that belongs to one project runs once for each. The default is unchanged (`"run"`, once for the whole test run) because both intents are real and the API cannot guess: installing an operator into a fixed namespace that every project then uses wants once per run, while anything touching a project's own namespace wants once per project. Callers outside a Playwright context can pass `project` explicitly, and a `{ scope: "project" }` call that cannot see a project warns rather than quietly falling back to once per run. The fixtures and deployment guides now use the option in the examples that wrap `configure()` and `deploy()`, which are per-project by nature.
 
 ### Fixed
 

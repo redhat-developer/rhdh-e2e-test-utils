@@ -62,6 +62,8 @@ function currentProject(): string | undefined {
  * `{ scope: "project" }` for setup that belongs to a single project. When a
  * run-scoped key is skipped because a *different* project already ran it, this
  * logs a warning, because that is nearly always the mistake rather than the intent.
+ * A `{ scope: "project" }` call that cannot see a project warns too, for the same
+ * reason: it silently degrades to once per run otherwise.
  *
  * @param key - Identifier for this setup operation
  * @param fn - Function to execute once
@@ -75,6 +77,15 @@ export async function runOnce(
 ): Promise<boolean> {
   const scope = options.scope ?? "run";
   const project = options.project ?? currentProject();
+  if (scope === "project" && !project) {
+    // Falling back to the bare key would quietly reinstate the run-scoped
+    // behaviour the caller just opted out of, so name it instead.
+    console.warn(
+      `[runOnce] "${key}" asked for { scope: "project" } but no Playwright ` +
+        `project could be determined, so it falls back to once per run. Pass ` +
+        `{ project } explicitly when calling outside a Playwright test.`,
+    );
+  }
   const scopedKey =
     scope === "project" && project ? `${key}--${slug(project)}` : key;
 

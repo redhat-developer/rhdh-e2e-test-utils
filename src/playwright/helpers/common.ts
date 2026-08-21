@@ -1,11 +1,74 @@
 import { UIhelper } from "./ui-helper.js";
 import { authenticator } from "otplib";
 import { test, expect } from "@playwright/test";
-import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { Browser, BrowserContext, Page, TestInfo } from "@playwright/test";
 import { SETTINGS_PAGE_COMPONENTS } from "../page-objects/page-obj.js";
 import * as path from "path";
 import * as fs from "fs";
 import { DEFAULT_USERS } from "../../deployment/keycloak/constants.js";
+
+/**
+ * Where a GitHub storage state is cached, keyed by project as well as user.
+ *
+ * The name used to be a bare relative `authState_<user>.json`, resolved against
+ * `process.cwd()` — which the worker fixture sets to the workspace's `e2e-tests`
+ * directory, the same value for every project in that workspace. So all of a
+ * workspace's lanes shared one file for a given user, with no lock and no owner:
+ * one lane could read another's state, or read a file mid-write and fail on
+ * truncated JSON. Adding a lane adds a writer, so the migration makes it worse.
+ *
+ * Keying by project gives each lane its own file, which removes the sharing. The
+ * remaining writer within a project is handled by the atomic write below.
+ */
+export function githubSessionFile(userid: string, project?: string): string {
+  const scope = project ?? currentProjectName() ?? "no-project";
+  const safe = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return path.resolve(`authState_${safe(scope)}_${safe(userid)}.json`);
+}
+
+/** The Playwright project of the calling test, or undefined outside one. */
+function currentProjectName(): string | undefined {
+  try {
+    return test.info().project.name;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Cookies from a stored session, or `undefined` when there is nothing usable.
+ *
+ * A cached session is an optimisation, so a missing, truncated or malformed file
+ * must fall through to a full login rather than fail the test. Before this, a
+ * partially written file threw out of `JSON.parse` and read as a plugin failure.
+ */
+export type StoredCookies = Parameters<BrowserContext["addCookies"]>[0];
+
+export function readStoredCookies(file: string): StoredCookies | undefined {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const cookies = parsed?.cookies as StoredCookies | undefined;
+    return Array.isArray(cookies) && cookies.length > 0 ? cookies : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Writes the storage state so a concurrent reader never sees a partial file.
+ *
+ * `storageState({ path })` writes in place, so a reader can observe the file
+ * between create and write. Writing to a temp name and renaming makes the
+ * appearance of the final path atomic.
+ */
+export async function writeStorageStateAtomically(
+  page: Page,
+  file: string,
+): Promise<void> {
+  const pending = `${file}.${process.pid}.tmp`;
+  await page.context().storageState({ path: pending });
+  fs.renameSync(pending, file);
+}
 
 export class LoginHelper {
   page: Page;
@@ -102,14 +165,12 @@ export class LoginHelper {
   async loginAsGithubUser(
     userid: string = process.env.VAULT_GH_USER_ID as string,
   ) {
-    const sessionFileName = `authState_${userid}.json`;
+    const sessionFileName = githubSessionFile(userid);
 
     // Check if a session file for this specific user already exists
-    if (fs.existsSync(sessionFileName)) {
+    const cookies = readStoredCookies(sessionFileName);
+    if (cookies) {
       // Load and reuse existing authentication state
-      const cookies = JSON.parse(
-        fs.readFileSync(sessionFileName, "utf-8"),
-      ).cookies;
       await this.page.context().addCookies(cookies);
       console.log(`Reusing existing authentication state for user: ${userid}`);
       await this.page.goto("/");
@@ -147,7 +208,7 @@ export class LoginHelper {
       await this.uiHelper.clickButton("Sign In");
       await this.checkAndReauthorizeGithubApp();
       await this.page.waitForSelector("nav a", { timeout: 10_000 });
-      await this.page.context().storageState({ path: sessionFileName });
+      await writeStorageStateAtomically(this.page, sessionFileName);
       console.log(`Authentication state saved for user: ${userid}`);
     }
   }

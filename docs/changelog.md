@@ -2,7 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.9] - Current
+## [2.1.11] - Current
+
+> Takes 2.1.11 rather than 2.1.10 because #149 claims 2.1.10. Whichever of the two
+> merges second needs its version and this heading moved up: the Version Bump Check
+> compares against `main` only, so it cannot see the collision.
+
+### Added
+
+- **A lane now says which shell it runs, and where that was decided** ([RHIDP-16457](https://redhat.atlassian.net/browse/RHIDP-16457)): `configure()` logs `[nfs] <namespace>: new frontend system ON|off, from <mechanism>`. Three mechanisms can enable NFS — the `-app-next` project name, `USE_NEW_FRONTEND_SYSTEM=true`, and `configure({ useNewFrontendSystem: true })` — and none of them is visible from a single file, so answering "is this lane NFS?" meant reading three. A namespace ending in `-app-next` that was explicitly configured with `useNewFrontendSystem: false` also warns, because it deploys the legacy shell under a name that reads as an NFS lane in every report. Only that direction is checked: a lane that enables NFS without the suffix is legitimate and common.
+- **`SidebarTabs` accepts both shells' scaffolder label** ([RHIDP-16458](https://redhat.atlassian.net/browse/RHIDP-16458)): the union hardcoded `"Self-service"`, the legacy shell's title. Under app-next the same page is `"Create"`, so a spec running there could not type-check without a cast. Both are members now. This does not decide which label a lane should use — that is [RHIDP-16462](https://redhat.atlassian.net/browse/RHIDP-16462), and three different workarounds are in flight for it.
+
+### Fixed
+
+- **A workspace could silently disable the new frontend system it asked for** ([RHIDP-16457](https://redhat.atlassian.net/browse/RHIDP-16457)): the NFS secret layer is merged *before* the workspace's own `tests/config/rhdh-secrets.yaml`, so a workspace setting `APP_CONFIG_app_packageName` or `ENABLE_STANDARD_MODULE_FEDERATION` for its own reasons overrode it and the lane booted the legacy shell. Nothing failed — the legacy suite re-ran and passed, and the one thing the lane existed to prove was never exercised. `deploy()` now checks the merged secret still carries both markers and throws naming the key, the value found, and the file that overrode it. The merge order itself is unchanged: a workspace must be able to override defaults, which is precisely why the outcome needs checking rather than assuming.
+- **The GitHub session file was shared across projects with no locking** ([RHIDP-16459](https://redhat.atlassian.net/browse/RHIDP-16459)): the path was a bare relative `authState_<user>.json`, resolved against `process.cwd()` — which the worker fixture sets to the same workspace directory for every project. A workspace's lanes therefore shared one file per user: one lane could inject another's storage state, and a reader landing mid-write failed on truncated JSON as a flake that looked nothing like the plugin under test. Every added lane adds a writer, so the migration makes it worse. The path is now absolute and keyed by project as well as user, the write goes through a temp file and a rename, and an unreadable or empty session falls through to a full login instead of throwing.
+
+## [2.1.9]
 
 ### Changed
 

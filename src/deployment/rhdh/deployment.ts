@@ -1,5 +1,10 @@
 import { KubernetesClientHelper } from "../../utils/kubernetes-client.js";
 import { WorkspacePaths } from "../../utils/workspace-paths.js";
+import {
+  assertNfsMarkersSurvived,
+  describeNfsIntentConflict,
+  describeNfsSource,
+} from "./nfs-guard.js";
 import { $ } from "../../utils/bash.js";
 import yaml from "js-yaml";
 import os from "os";
@@ -119,6 +124,16 @@ export class RHDHDeployment {
     });
 
     const secretPayload = substituted as Record<string, unknown>;
+
+    if (this.deploymentConfig.useNewFrontendSystem) {
+      // The workspace's own secrets file merges last, so the NFS markers can be
+      // overwritten here and nothing downstream would notice: the lane would boot
+      // the legacy shell and pass.
+      assertNfsMarkersSurvived(
+        (secretPayload as { stringData?: Record<string, unknown> }).stringData,
+        this.deploymentConfig.namespace,
+      );
+    }
 
     await this.k8sClient.applySecretFromObject(
       "rhdh-secrets",
@@ -535,8 +550,28 @@ export class RHDHDeployment {
       this.deploymentConfig = this._buildDeploymentConfig(deploymentOptions);
       this.rhdhUrl = this._buildBaseUrl();
     }
+    this._reportFrontendSystem(deploymentOptions?.useNewFrontendSystem);
     await this.k8sClient.createNamespaceIfNotExists(
       this.deploymentConfig.namespace,
+    );
+  }
+
+  /**
+   * Says which shell this lane will run, and where that was decided.
+   *
+   * Three mechanisms can turn NFS on and none of them is visible from a single
+   * file, so "is this lane NFS?" is otherwise answered by reading a project name,
+   * an environment variable and a `configure()` call together. Logging it once at
+   * configure time puts the answer in the lane's own output.
+   */
+  private _reportFrontendSystem(explicitChoice: boolean | undefined): void {
+    const { namespace, useNewFrontendSystem } = this.deploymentConfig;
+    const conflict = describeNfsIntentConflict(namespace, explicitChoice);
+    if (conflict) console.warn(conflict);
+    console.log(
+      `[nfs] ${namespace}: new frontend system ` +
+        `${useNewFrontendSystem ? "ON" : "off"}, from ` +
+        `${describeNfsSource(namespace, explicitChoice)}`,
     );
   }
 

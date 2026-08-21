@@ -5,42 +5,38 @@ import type { Browser, BrowserContext, Page, TestInfo } from "@playwright/test";
 import { SETTINGS_PAGE_COMPONENTS } from "../page-objects/page-obj.js";
 import * as path from "path";
 import * as fs from "fs";
+import lockfile from "proper-lockfile";
 import { DEFAULT_USERS } from "../../deployment/keycloak/constants.js";
 
 /**
- * Where a GitHub storage state is cached, keyed by project as well as user.
+ * Where a GitHub storage state is cached, and the lock that serialises access to it.
  *
  * The name used to be a bare relative `authState_<user>.json`, resolved against
  * `process.cwd()` — which the worker fixture sets to the workspace's `e2e-tests`
- * directory, the same value for every project in that workspace. So all of a
- * workspace's lanes shared one file for a given user, with no lock and no owner:
- * one lane could read another's state, or read a file mid-write and fail on
- * truncated JSON. Adding a lane adds a writer, so the migration makes it worse.
+ * directory, the same value for every project in that workspace. So every lane and
+ * every worker shared one file with no lock: a reader could land mid-write and fail on
+ * truncated JSON, and a stale file could survive into a run that needed a fresh login.
  *
- * Keying by project gives each lane its own file, which removes the sharing. The
- * remaining writer within a project is handled by the atomic write below.
+ * Deliberately still one file per *user*, not per project. Scoping it per project was
+ * the obvious fix and is the wrong one: `logintoGithub` derives its 2FA code from a
+ * single shared TOTP secret, so two lanes logging in inside the same 30-second window
+ * submit the identical code and GitHub rejects the second — a failure this file already
+ * has retry handling for. Sharing the session is the point of caching it; what was
+ * missing was making concurrent access safe, which is what the lock and the atomic
+ * write below do. RHDH cookies from another lane are harmless: each lane's RHDH lives
+ * on its own namespace hostname, so they are never sent anywhere they matter.
  */
-export function githubSessionFile(userid: string, project?: string): string {
-  const scope = project ?? currentProjectName() ?? "no-project";
-  const safe = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, "_");
-  return path.resolve(`authState_${safe(scope)}_${safe(userid)}.json`);
-}
-
-/** The Playwright project of the calling test, or undefined outside one. */
-function currentProjectName(): string | undefined {
-  try {
-    return test.info().project.name;
-  } catch {
-    return undefined;
-  }
+export function githubSessionFile(userid: string): string {
+  const safe = String(userid).replace(/[^a-zA-Z0-9._-]/g, "_");
+  return path.resolve(`authState_${safe}.json`);
 }
 
 /**
  * Cookies from a stored session, or `undefined` when there is nothing usable.
  *
- * A cached session is an optimisation, so a missing, truncated or malformed file
- * must fall through to a full login rather than fail the test. Before this, a
- * partially written file threw out of `JSON.parse` and read as a plugin failure.
+ * A cached session is an optimisation, so a missing, truncated or malformed file must
+ * fall through to a full login rather than fail the test. Before this, a partially
+ * written file threw out of `JSON.parse` and read as a plugin failure.
  */
 export type StoredCookies = Parameters<BrowserContext["addCookies"]>[0];
 
@@ -57,17 +53,49 @@ export function readStoredCookies(file: string): StoredCookies | undefined {
 /**
  * Writes the storage state so a concurrent reader never sees a partial file.
  *
- * `storageState({ path })` writes in place, so a reader can observe the file
- * between create and write. Writing to a temp name and renaming makes the
- * appearance of the final path atomic.
+ * `storageState({ path })` writes in place, so a reader can observe the file between
+ * create and write. Writing to a temp name and renaming makes the appearance of the
+ * final path atomic. The temp name carries the pid because Playwright workers are
+ * separate processes, and it is removed even when the write fails so failed runs do
+ * not litter the workspace.
  */
 export async function writeStorageStateAtomically(
   page: Page,
   file: string,
 ): Promise<void> {
   const pending = `${file}.${process.pid}.tmp`;
-  await page.context().storageState({ path: pending });
-  fs.renameSync(pending, file);
+  try {
+    await page.context().storageState({ path: pending });
+    fs.renameSync(pending, file);
+  } finally {
+    fs.rmSync(pending, { force: true });
+  }
+}
+
+/**
+ * Runs `fn` with exclusive access to the session file, across workers and lanes.
+ *
+ * Without this the first lane to start would not have finished writing before the
+ * others decided there was no session and each began its own login — which is the
+ * TOTP collision described above, not merely wasted work. The lock target is created
+ * rather than assumed: `proper-lockfile` needs an existing path, and the session file
+ * itself does not exist on the run that has to create it.
+ */
+export async function withGithubSessionLock<T>(
+  file: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const target = `${file}.lock-target`;
+  fs.writeFileSync(target, "", { flag: "a" });
+  const release = await lockfile.lock(target, {
+    retries: { retries: 60, minTimeout: 1_000 },
+    stale: 300_000,
+  });
+  try {
+    return await fn();
+  } finally {
+    await release();
+  }
 }
 
 export class LoginHelper {
@@ -166,7 +194,14 @@ export class LoginHelper {
     userid: string = process.env.VAULT_GH_USER_ID as string,
   ) {
     const sessionFileName = githubSessionFile(userid);
+    // The lock spans read-or-login-and-write, not just the write: two lanes that both
+    // decide there is no session go on to submit the same TOTP code.
+    await withGithubSessionLock(sessionFileName, async () => {
+      await this._loginAsGithubUser(userid, sessionFileName);
+    });
+  }
 
+  private async _loginAsGithubUser(userid: string, sessionFileName: string) {
     // Check if a session file for this specific user already exists
     const cookies = readStoredCookies(sessionFileName);
     if (cookies) {

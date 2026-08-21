@@ -65,6 +65,21 @@ export function assertNfsMarkersSurvived(
   stringData: Record<string, unknown> | undefined,
   namespace: string,
 ): void {
+  // Coerce before comparing AND in place: applySecretFromObject puts stringData
+  // straight on the V1Secret body, so an unquoted YAML `true` reaches the API server
+  // as a JSON boolean and is rejected with "cannot unmarshal bool into Go struct
+  // field ... of type string". Accepting it in the comparison alone would green-light
+  // a config that cannot apply, and the failure would surface as an opaque k8s error
+  // instead of this guard's message.
+  if (stringData) {
+    for (const [key] of NFS_SECRET_MARKERS) {
+      const raw = stringData[key];
+      if (raw !== undefined && typeof raw !== "string") {
+        stringData[key] = String(raw);
+      }
+    }
+  }
+
   const dropped = findDroppedNfsMarkers(stringData);
   if (dropped.length === 0) return;
 

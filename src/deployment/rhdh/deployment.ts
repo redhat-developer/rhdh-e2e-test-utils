@@ -38,6 +38,8 @@ export class RHDHDeployment {
   public k8sClient = new KubernetesClientHelper();
   public rhdhUrl: string;
   public deploymentConfig: DeploymentConfig;
+  /** `configure({ useNewFrontendSystem })` as the caller passed it, for the report. */
+  private _explicitFrontendSystemChoice: boolean | undefined;
 
   constructor(namespace: string) {
     this.deploymentConfig = this._buildDeploymentConfig({ namespace });
@@ -54,6 +56,7 @@ export class RHDHDeployment {
     const executed = await runOnce(
       `deploy-${this.deploymentConfig.namespace}`,
       async () => {
+        this._reportFrontendSystem();
         this._log("Starting RHDH deployment...");
         this._log("RHDH Base URL: " + this.rhdhUrl);
         console.table(this.deploymentConfig);
@@ -512,6 +515,9 @@ export class RHDHDeployment {
       "helm";
 
     const namespace = input.namespace ?? this.deploymentConfig.namespace;
+    // Kept so the deploy-time report can name the mechanism; a resolved boolean
+    // cannot distinguish the three sources.
+    this._explicitFrontendSystemChoice = input.useNewFrontendSystem;
     const useNewFrontendSystem =
       input.useNewFrontendSystem ??
       (namespace.endsWith("-app-next") ||
@@ -550,7 +556,6 @@ export class RHDHDeployment {
       this.deploymentConfig = this._buildDeploymentConfig(deploymentOptions);
       this.rhdhUrl = this._buildBaseUrl();
     }
-    this._reportFrontendSystem(deploymentOptions?.useNewFrontendSystem);
     await this.k8sClient.createNamespaceIfNotExists(
       this.deploymentConfig.namespace,
     );
@@ -561,11 +566,17 @@ export class RHDHDeployment {
    *
    * Three mechanisms can turn NFS on and none of them is visible from a single
    * file, so "is this lane NFS?" is otherwise answered by reading a project name,
-   * an environment variable and a `configure()` call together. Logging it once at
-   * configure time puts the answer in the lane's own output.
+   * an environment variable and a `configure()` call together.
+   *
+   * Reported from `deploy()` rather than `configure()`: the worker fixture calls
+   * `configure()` with no arguments for every project before any spec runs, so a lane
+   * that opts in with `configure({ useNewFrontendSystem: true })` — which is how
+   * `github` and `homepage` do it — would print `off` first and `ON` second, and the
+   * first line is the one a reader greps.
    */
-  private _reportFrontendSystem(explicitChoice: boolean | undefined): void {
+  private _reportFrontendSystem(): void {
     const { namespace, useNewFrontendSystem } = this.deploymentConfig;
+    const explicitChoice = this._explicitFrontendSystemChoice;
     const conflict = describeNfsIntentConflict(namespace, explicitChoice);
     if (conflict) console.warn(conflict);
     console.log(

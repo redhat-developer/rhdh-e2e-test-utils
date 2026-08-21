@@ -3,41 +3,133 @@ import assert from "node:assert";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { githubSessionFile, readStoredCookies } from "./common.js";
+import {
+  githubSessionFile,
+  readStoredCookies,
+  withGithubSessionLock,
+  writeStorageStateAtomically,
+} from "./common.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "gh-session-test-"));
 
 describe("github session file naming", () => {
-  it("gives two projects different files for the same user", () => {
-    // The bug: one workspace's lanes share a cwd, so they shared one file — one
-    // lane could read another's storage state, or read one mid-write.
-    const a = githubSessionFile("rhdh-qe", "bulk-import");
-    const b = githubSessionFile("rhdh-qe", "bulk-import-app-next");
-    assert.notStrictEqual(a, b);
-  });
-
-  it("gives two users different files within one project", () => {
+  it("gives two users different files, and is stable for one user", () => {
     assert.notStrictEqual(
-      githubSessionFile("user-a", "ws"),
-      githubSessionFile("user-b", "ws"),
+      githubSessionFile("user-a"),
+      githubSessionFile("user-b"),
+    );
+    assert.strictEqual(
+      githubSessionFile("rhdh-qe"),
+      githubSessionFile("rhdh-qe"),
     );
   });
 
+  it("is deliberately not keyed by project", () => {
+    // Scoping per project was the obvious fix and is the wrong one: logintoGithub
+    // derives its 2FA code from one shared TOTP secret, so lanes logging in within the
+    // same 30-second window submit the identical code and GitHub rejects the second.
+    // Sharing the session is the point; withGithubSessionLock is what makes it safe.
+    const file = githubSessionFile("rhdh-qe");
+    assert.doesNotMatch(path.basename(file), /app-next|project/);
+  });
+
   it("is absolute, so it does not follow a later chdir", () => {
-    assert.ok(path.isAbsolute(githubSessionFile("rhdh-qe", "ws")));
+    assert.ok(path.isAbsolute(githubSessionFile("rhdh-qe")));
   });
 
-  it("keeps a project name with a path separator inside one file name", () => {
-    // A separator in the project name would otherwise turn into a directory that
-    // does not exist, and the write would fail rather than the read.
-    const file = githubSessionFile("rhdh-qe", "group/ws");
-    assert.strictEqual(path.dirname(file), process.cwd());
+  it("keeps a separator in the user id inside one file name", () => {
+    // Otherwise it becomes a directory that does not exist and the write fails.
+    assert.strictEqual(
+      path.dirname(githubSessionFile("org/user")),
+      process.cwd(),
+    );
   });
 
-  it("falls back to a named scope outside a Playwright context", () => {
-    // node:test has no test.info(), which is the same situation as a helper
-    // called from globalSetup.
-    assert.match(githubSessionFile("rhdh-qe"), /no-project/);
+  it("does not throw when the vault user id is unset", () => {
+    // loginAsGithubUser defaults to `process.env.VAULT_GH_USER_ID as string`, and the
+    // cast hides the undefined. Building the path must not be where that surfaces —
+    // a TypeError here points nowhere near the missing variable.
+    assert.doesNotThrow(() =>
+      githubSessionFile(undefined as unknown as string),
+    );
+  });
+});
+
+describe("the session lock", () => {
+  it("holds off a second caller until the first is done", async () => {
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    const order: string[] = [];
+    let held: () => void = () => {};
+    const acquired = new Promise<void>((resolve) => {
+      held = resolve;
+    });
+
+    // The second caller must not start until the first demonstrably holds the lock —
+    // racing them from the same tick would test the scheduler, not the lock.
+    const first = withGithubSessionLock(file, async () => {
+      order.push("first-in");
+      held();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      order.push("first-out");
+    });
+    await acquired;
+    const second = withGithubSessionLock(file, async () => {
+      order.push("second-in");
+    });
+    await Promise.all([first, second]);
+
+    assert.deepStrictEqual(order, ["first-in", "first-out", "second-in"]);
+  });
+
+  it("releases the lock when the body throws", async () => {
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    await assert.rejects(
+      withGithubSessionLock(file, async () => {
+        throw new Error("boom");
+      }),
+    );
+    // A lock held after a failed login would hang every other lane for `stale`.
+    await withGithubSessionLock(file, async () => {});
+  });
+});
+
+describe("writing a stored session", () => {
+  /** Enough of a Page for the write path; a real one needs a browser. */
+  const fakePage = (write: (file: string) => void) =>
+    ({
+      context: () => ({
+        storageState: async ({ path: target }: { path: string }) =>
+          write(target),
+      }),
+    }) as unknown as Parameters<typeof writeStorageStateAtomically>[0];
+
+  it("leaves only the final file behind", async () => {
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    await writeStorageStateAtomically(
+      fakePage((target) => fs.writeFileSync(target, '{"cookies":[]}')),
+      file,
+    );
+    assert.deepStrictEqual(fs.readdirSync(dir), ["s.json"]);
+  });
+
+  it("removes the temp file when the write fails", async () => {
+    // Otherwise a failed run litters the workspace's e2e-tests directory, where
+    // nothing gitignores authState*.
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    await assert.rejects(
+      writeStorageStateAtomically(
+        fakePage((target) => {
+          fs.writeFileSync(target, "partial");
+          throw new Error("browser went away");
+        }),
+        file,
+      ),
+    );
+    assert.deepStrictEqual(fs.readdirSync(dir), []);
   });
 });
 

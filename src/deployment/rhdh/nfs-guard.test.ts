@@ -42,16 +42,20 @@ describe("nfs secret markers", () => {
     assert.strictEqual(dropped[0].actual, undefined);
   });
 
-  it("accepts an unquoted YAML true, which is the same secret value", () => {
-    // The guard is looking for a *different* value, not for a typing mistake:
-    // unquoted `true` in YAML parses as a boolean but serializes into the Secret
-    // as "true" and enables module federation just the same. Comparing without
-    // coercing would raise a false alarm on a working lane.
-    const dropped = findDroppedNfsMarkers({
-      ...intact(),
-      [MF_KEY]: true,
-    });
+  it("accepts an unquoted YAML true rather than raising a false alarm", () => {
+    // A typing mistake in the workspace's YAML, not a different value — the intent is
+    // plainly the same. Comparing without coercing would fail a working lane.
+    const dropped = findDroppedNfsMarkers({ ...intact(), [MF_KEY]: true });
     assert.deepStrictEqual(dropped, []);
+  });
+
+  it("rewrites a boolean marker to the string the API server requires", () => {
+    // stringData goes straight onto the V1Secret body, so a JSON boolean is rejected
+    // with "cannot unmarshal bool into Go struct field ... of type string". Tolerating
+    // it in the comparison alone would green-light a config that cannot apply.
+    const payload = { ...intact(), [MF_KEY]: true };
+    assertNfsMarkersSurvived(payload, "ws-app-next");
+    assert.strictEqual(payload[MF_KEY], "true");
   });
 
   it("counts a missing stringData block as both markers dropped", () => {

@@ -242,7 +242,7 @@ test.describe("Test tech-radar plugin", () => {
 
       // Deploy RHDH (will use the TECH_RADAR_DATA_URL env var)
       await rhdh.deploy();
-    });
+    }, { scope: "project" });
   });
 
   // beforeEach runs before each test

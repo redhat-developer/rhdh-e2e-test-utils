@@ -36,12 +36,12 @@ test.beforeAll(async ({ rhdh }) => {
 
     // 4. Deploy RHDH (uses the environment variable)
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
 ::: tip When is `test.runOnce` needed?
-`rhdh.deploy()` already skips automatically on worker restarts. But the pre-deploy steps (deploying external services, running scripts) don't have this protection. `test.runOnce` ensures the **entire setup** runs only once. The `key` must be **globally unique** across all spec files and projects in the same Playwright run — prefix it with your workspace name (e.g., `"tech-radar-setup"`). See [`test.runOnce`](/guide/core-concepts/playwright-fixtures#test-runonce-—-run-any-expensive-operation-once) for details.
+`rhdh.deploy()` already skips automatically on worker restarts. But the pre-deploy steps (deploying external services, running scripts) don't have this protection. `test.runOnce` ensures the **entire setup** runs only once. The `key` must be **globally unique** across all spec files — prefix it with your workspace name (e.g., `"tech-radar-setup"`). Pass `{ scope: "project" }` whenever the block touches this project's namespace, as it does here: without it, a second project matching the same spec skips the whole setup and deploys nothing. See [`test.runOnce`](/guide/core-concepts/playwright-fixtures#test-runonce-—-run-any-expensive-operation-once) for details.
 :::
 
 ## Examples
@@ -75,7 +75,7 @@ test.beforeAll(async ({ rhdh }) => {
     );
 
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
@@ -104,7 +104,7 @@ test.beforeAll(async ({ rhdh }) => {
     );
 
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
@@ -125,7 +125,7 @@ test.beforeAll(async ({ rhdh }) => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash ${setupScript} ${project}`;
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
@@ -152,7 +152,7 @@ test.beforeAll(async ({ rhdh }) => {
     ).replace("http://", "");
 
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 

@@ -74,7 +74,7 @@ describe("runOnce scope", () => {
     assert.strictEqual(await runOnce(key, () => {}, { project: "ws" }), false);
   });
 
-  it("warns when a run-scoped key is skipped on behalf of another project", async () => {
+  it("warns when a key with no declared scope is skipped for another project", async () => {
     const key = freshKey("warn");
     const warnings: string[] = [];
     const original = console.warn;
@@ -95,21 +95,41 @@ describe("runOnce scope", () => {
     assert.match(warnings[0], /scope: "project"/);
   });
 
-  it("warns when scope is project but no project can be determined", async () => {
+  it("throws when scope is project but no project can be determined", async () => {
     const key = freshKey("no-project");
+    let ran = false;
+
+    // No `project` option, and no Playwright context in a node:test run. Falling
+    // back to the bare key would be the shared-key bug again, so it must not.
+    await assert.rejects(
+      () =>
+        runOnce(
+          key,
+          () => {
+            ran = true;
+          },
+          { scope: "project" },
+        ),
+      /no Playwright project could be determined/,
+    );
+    assert.strictEqual(ran, false, "the callback must not have run");
+  });
+
+  it("leaves an explicitly chosen run scope alone", async () => {
+    const key = freshKey("explicit-run");
     const warnings: string[] = [];
     const original = console.warn;
     console.warn = (msg: string) => warnings.push(String(msg));
     try {
-      // No `project` option, and no Playwright context in a node:test run, so
-      // the scope silently degrades to "run" unless it says something.
-      await runOnce(key, () => {}, { scope: "project" });
+      // Sharing one key across projects is a real intent — an operator installed
+      // once into a namespace they all use. Saying so must silence the advice.
+      await runOnce(key, () => {}, { scope: "run", project: "ws" });
+      await runOnce(key, () => {}, { scope: "run", project: "ws-app-next" });
     } finally {
       console.warn = original;
     }
 
-    assert.strictEqual(warnings.length, 1);
-    assert.match(warnings[0], /no Playwright project could be determined/);
+    assert.deepStrictEqual(warnings, []);
   });
 
   it("does not warn when the same project skips its own key", async () => {

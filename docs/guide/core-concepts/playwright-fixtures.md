@@ -313,8 +313,11 @@ namespace, and the namespace is the project name.
 await test.runOnce("full-setup", async () => {
   await $`bash setup.sh`;          // protected by outer runOnce
   await rhdh.deploy();             // has its own internal runOnce (harmless)
-});
+}, { scope: "project" });
 ```
+
+Nesting does **not** rescue a missing scope: a run-scoped outer call skips before
+`deploy()` is ever reached, so the inner protection never gets a say.
 
 ## Namespace Cleanup (Teardown)
 

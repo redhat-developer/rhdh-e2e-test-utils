@@ -83,10 +83,14 @@ test("using baseURL", async ({ page, baseURL }) => {
 ## `test.runOnce`
 
 ```typescript
-test.runOnce(key: string, fn: () => Promise<void> | void): Promise<boolean>
+test.runOnce(
+  key: string,
+  fn: () => Promise<void> | void,
+  options?: { scope?: "run" | "project"; project?: string },
+): Promise<boolean>
 ```
 
-Executes `fn` exactly once per test run, even across worker restarts. Returns `true` if executed, `false` if skipped.
+Executes `fn` exactly once, even across worker restarts. Returns `true` if executed, `false` if skipped.
 
 ::: tip
 `rhdh.deploy()` already uses `runOnce` internally, so you don't need to wrap simple deployments. Use `test.runOnce` when you have **additional expensive operations** (external services, scripts, data seeding) alongside `deploy()`.
@@ -94,17 +98,24 @@ Executes `fn` exactly once per test run, even across worker restarts. Returns `t
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `key` | `string` | Unique identifier for this operation |
+| `key` | `string` | Identifier for this operation, unique across all spec files |
 | `fn` | `() => Promise<void> \| void` | Function to execute once |
+| `options.scope` | `"run" \| "project"` | `"run"` (default) executes once for the whole run, every project included. `"project"` executes once per Playwright project — required for anything touching that project's namespace or deployment |
+| `options.project` | `string` | Defaults to the calling test's project. Pass explicitly outside a Playwright context; with `scope: "project"` and no context, `runOnce` throws rather than silently sharing one key |
+
+::: warning Two projects, one key
+A Playwright project is a namespace and a deployment of its own. When one spec is matched by more than one project — what adding an `-app-next` lane does — a run-scoped key means the second project skips setup the first already did, with no error and an empty page much later. Use `{ scope: "project" }` for per-project setup. Since 2.1.10 a key with no declared scope that is skipped for a *different* project logs a `[runOnce]` warning naming both.
+:::
 
 ```typescript
-// Wrap pre-deploy setup that shouldn't repeat
+// Wrap pre-deploy setup that shouldn't repeat.
+// scope: "project" — everything inside belongs to this project's namespace.
 test.beforeAll(async ({ rhdh }) => {
   await test.runOnce("full-setup", async () => {
     await $`bash deploy-external-service.sh`;
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy(); // safe to nest, has its own internal protection
-  });
+  }, { scope: "project" });
 });
 ```
 

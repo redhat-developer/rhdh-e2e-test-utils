@@ -175,7 +175,7 @@ test.beforeAll(async ({ rhdh }) => {
 
     // 4. Deploy RHDH (has its own built-in protection, nesting is safe)
     await rhdh.deploy();
-  });
+  }, { scope: "project" });
 });
 ```
 
@@ -307,7 +307,7 @@ test.describe("Test tech-radar plugin", () => {
         )
       ).replace("http://", "");
       await rhdh.deploy(); // built-in protection, safe to nest inside runOnce
-    });
+    }, { scope: "project" });
   });
 
   test.beforeEach(async ({ loginHelper }) => {

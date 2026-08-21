@@ -24,8 +24,10 @@ export type RunOnceOptions = {
   scope?: RunOnceScope;
   /**
    * Project the call belongs to. Defaults to the Playwright project the calling
-   * test is in. Only read when `scope` is `"project"`; pass it explicitly when
-   * there is no Playwright context (tests of this helper, for instance).
+   * test is in. Read for both scopes: it keys the flag file when `scope` is
+   * `"project"`, and is recorded in the flag file when `scope` is `"run"` so a
+   * later cross-project skip can name who satisfied the key. Pass it explicitly
+   * when there is no Playwright context (tests of this helper, for instance).
    */
   project?: string;
 };
@@ -59,11 +61,11 @@ function currentProject(): string | undefined {
  * project — which is what adding an `-app-next` lane does — a run-scoped key means
  * the first project's setup satisfies the second, and the second skips its own.
  * That is silent and, for anything deployment-related, fatal: pass
- * `{ scope: "project" }` for setup that belongs to a single project. When a
- * run-scoped key is skipped because a *different* project already ran it, this
- * logs a warning, because that is nearly always the mistake rather than the intent.
- * A `{ scope: "project" }` call that cannot see a project warns too, for the same
- * reason: it silently degrades to once per run otherwise.
+ * `{ scope: "project" }` for setup that belongs to a single project. When a key
+ * with *no* declared scope is skipped because a different project already ran it,
+ * this logs a warning, because that is nearly always the mistake rather than the
+ * intent — an explicit `{ scope: "run" }` is left alone. A `{ scope: "project" }`
+ * call that cannot see a project throws rather than degrading to once per run.
  *
  * @param key - Identifier for this setup operation
  * @param fn - Function to execute once
@@ -77,17 +79,22 @@ export async function runOnce(
 ): Promise<boolean> {
   const scope = options.scope ?? "run";
   const project = options.project ?? currentProject();
-  if (scope === "project" && !project) {
-    // Falling back to the bare key would quietly reinstate the run-scoped
-    // behaviour the caller just opted out of, so name it instead.
-    console.warn(
-      `[runOnce] "${key}" asked for { scope: "project" } but no Playwright ` +
-        `project could be determined, so it falls back to once per run. Pass ` +
-        `{ project } explicitly when calling outside a Playwright test.`,
-    );
+  let scopedKey = key;
+  if (scope === "project") {
+    if (!project) {
+      // Falling back to the bare key would quietly reinstate the run-scoped
+      // behaviour the caller just opted out of — the exact failure this option
+      // exists to remove. A warning would be one line lost in CI output, so
+      // this is the one case that throws.
+      throw new Error(
+        `[runOnce] "${key}" asked for { scope: "project" } but no Playwright ` +
+          `project could be determined. Pass { project } explicitly when ` +
+          `calling outside a Playwright test — falling back would silently ` +
+          `give every project one shared key.`,
+      );
+    }
+    scopedKey = `${key}--${slug(project)}`;
   }
-  const scopedKey =
-    scope === "project" && project ? `${key}--${slug(project)}` : key;
 
   const flagFile = path.join(flagDir, `${scopedKey}.done`);
   const lockTarget = path.join(flagDir, scopedKey);
@@ -96,7 +103,7 @@ export async function runOnce(
 
   // already executed, skip without locking
   if (fs.existsSync(flagFile)) {
-    warnIfAnotherProjectRanIt(flagFile, scope, project, key);
+    warnIfAnotherProjectRanIt(flagFile, options.scope, project, key);
     return false;
   }
 
@@ -111,12 +118,17 @@ export async function runOnce(
   try {
     // Double-check after acquiring lock
     if (fs.existsSync(flagFile)) {
-      warnIfAnotherProjectRanIt(flagFile, scope, project, key);
+      warnIfAnotherProjectRanIt(flagFile, options.scope, project, key);
       return false;
     }
     await fn();
-    // Recorded so a later skip can say which project satisfied the key.
-    fs.writeFileSync(flagFile, project ?? "");
+    // Recorded so a later skip can say which project satisfied the key. Written
+    // through a temp file because the lock-free fast path above reads it from
+    // another process, and writeFileSync truncates before it writes — a reader
+    // landing between the two steps would see an empty file and drop the warning.
+    const pending = `${flagFile}.${process.pid}.tmp`;
+    fs.writeFileSync(pending, project ?? "");
+    fs.renameSync(pending, flagFile);
     return true;
   } finally {
     await release();
@@ -124,16 +136,25 @@ export async function runOnce(
 }
 
 /**
- * A run-scoped key skipped on behalf of a different project is the shape of the
- * bug this option exists for, so say so rather than skipping quietly.
+ * A key skipped on behalf of a different project is the shape of the bug this
+ * option exists for, so say so rather than skipping quietly.
+ *
+ * Only for callers that never chose a scope. Sharing one key across projects is
+ * a real intent — an operator installed once into a namespace they all use —
+ * and an author who wrote `{ scope: "run" }` has already answered this question.
+ * Nagging them once per project would be noise, and the advice would be wrong.
+ *
+ * @param declaredScope - `options.scope` as the caller passed it, not the
+ *   resolved value: `undefined` is what distinguishes "did not think about it"
+ *   from "decided".
  */
 function warnIfAnotherProjectRanIt(
   flagFile: string,
-  scope: RunOnceScope,
+  declaredScope: RunOnceScope | undefined,
   project: string | undefined,
   key: string,
 ): void {
-  if (scope !== "run" || !project) return;
+  if (declaredScope !== undefined || !project) return;
   let ranBy: string;
   try {
     ranBy = fs.readFileSync(flagFile, "utf-8").trim();

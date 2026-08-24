@@ -2,11 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.11] - Current
-
-> Takes 2.1.11 rather than 2.1.10 because #149 claims 2.1.10. Whichever of the two
-> merges second needs its version and this heading moved up: the Version Bump Check
-> compares against `main` only, so it cannot see the collision.
+## [2.1.10] - Current
 
 ### Added
 

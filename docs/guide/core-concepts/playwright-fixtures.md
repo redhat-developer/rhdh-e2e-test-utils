@@ -179,12 +179,12 @@ While `rhdh.deploy()` has built-in protection, you may have **other expensive op
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-setup", async () => {
+  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash ${setupScript} ${namespace}`;  // expensive external service
     process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(namespace, "my-service");
     await rhdh.deploy();  // also protected internally, nesting is safe
-  }, { scope: "project" });   // this setup belongs to one project — see Scope
+  });
 });
 ```
 
@@ -194,7 +194,6 @@ test.beforeAll(async ({ rhdh }) => {
 - When a worker restarts after a test failure, `runOnce` detects the flag and skips
 - Any state created by the function (deployments, services, data) stays alive
 - Flags reset automatically between test runs
-- By default one flag covers the **whole run**, every project included — see [Scope](#scope-run-or-project)
 
 ### When to Use
 
@@ -203,7 +202,6 @@ test.beforeAll(async ({ rhdh }) => {
 | Just `configure()` + `deploy()` | Nothing extra — `deploy()` is already protected |
 | Pre-deploy setup (external services, scripts, env vars) + `deploy()` | Wrap the entire block in `test.runOnce` |
 | Multiple independent expensive operations | Use separate `test.runOnce` calls with different keys |
-| The same spec runs under more than one project (e.g. an `-app-next` lane) | Add `{ scope: "project" }`, or the second project skips its setup |
 
 ### Examples
 
@@ -220,14 +218,14 @@ test.beforeAll(async ({ rhdh }) => {
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-full-setup", async () => {
+  await test.runOnce(`tech-radar-full-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash deploy-external-service.sh ${rhdh.deploymentConfig.namespace}`;
     process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(
       rhdh.deploymentConfig.namespace, "data-provider"
     );
     await rhdh.deploy();
-  }, { scope: "project" });
+  });
 });
 ```
 
@@ -253,71 +251,74 @@ test.describe("Feature B", () => {
 
 ### Key: Unique Identifier
 
-The `key` must be globally unique across **all spec files** in the same Playwright run. If two `runOnce` calls in different files use the same key, only the first one will execute. Use a prefix that includes the workspace name:
+The `key` must be globally unique across **all spec files and projects** in the same Playwright run. If two `runOnce` calls use the same key, only the first one executes.
+
+Across spec files, a workspace prefix is enough:
 
 ```typescript
 // In tech-radar.spec.ts
-await test.runOnce("tech-radar-deploy", async () => { ... });
 await test.runOnce("tech-radar-data-provider", async () => { ... });
 
 // In catalog.spec.ts
-await test.runOnce("catalog-deploy", async () => { ... });
 await test.runOnce("catalog-seed-data", async () => { ... });
 ```
 
-Whether the key also has to be unique per **project** is what `scope` decides.
+Across **projects** it is not, and this is the half that is easy to miss. The flag
+directory is keyed on the Playwright runner's PID alone:
 
-### Scope: Run or Project
-
-A Playwright project is a namespace and a deployment of its own. When one spec file
-is matched by more than one project — which is what adding an `-app-next` lane does —
-a single key covers both, and the second project skips setup the first already did:
-
-```typescript
-// playwright.config.ts
-projects: [
-  { name: "tech-radar", testMatch: "tech-radar.spec.ts" },
-  { name: "tech-radar-app-next", testMatch: "tech-radar.spec.ts" },  // same spec
-]
+```ts
+const flagDir = path.join(os.tmpdir(), `playwright-once-${process.ppid}`);
+const flagFile = path.join(flagDir, `${key}.done`);
 ```
 
-| Scope | Runs | Right for |
-|-------|------|-----------|
-| `"run"` (default) | once for the whole run, every project included | setup genuinely shared by all projects — installing an operator into a fixed namespace they all use |
-| `"project"` | once per Playwright project | anything touching the project's own namespace or deployment — `configure()`, `deploy()`, a service deployed into that namespace |
+Nothing in it comes from the project. So when one spec runs in two projects — which is
+what adding an `-app-next` lane does — the first project's setup satisfies the second,
+and the second silently skips its own. For anything that deploys, that means no
+deployment at all, then a failure much later on a missing element with nothing pointing
+at the cause.
+
+**Put the namespace in the key whenever the setup belongs to one project.** This is what
+`deploy()` does internally (`deploy-${namespace}`), and it is why `deploy()` was never
+affected:
 
 ```typescript
-await test.runOnce("tech-radar-setup", async () => {
-  await rhdh.configure({ auth: "keycloak" });
-  await $`bash deploy-provider.sh ${rhdh.deploymentConfig.namespace}`;
-  await rhdh.deploy();
-}, { scope: "project" });
+test.beforeAll(async ({ rhdh }) => {
+  await test.runOnce(
+    `tech-radar-setup-${rhdh.deploymentConfig.namespace}`,
+    async () => {
+      await rhdh.configure({ auth: "keycloak" });
+      await $`bash deploy-provider.sh ${rhdh.deploymentConfig.namespace}`;
+      await rhdh.deploy();
+    },
+  );
+});
 ```
 
-::: warning The failure is silent
-Without `{ scope: "project" }`, the second project's `beforeAll` returns immediately.
-Nothing is deployed, nothing errors, and the suite fails much later on a missing
-element with nothing pointing at the cause. Since 2.1.10 a run-scoped key skipped on
-behalf of a *different* project logs a warning naming both projects — read the
-`[runOnce]` lines in the run output when a lane fails for no visible reason.
-:::
+A **literal** key is the right choice when the setup really is shared — installing an
+operator into a fixed namespace that every project then uses. Both intents are real, and
+the key is where you say which one you mean:
 
-`rhdh.deploy()` needs no scope of its own: its internal key already carries the
-namespace, and the namespace is the project name.
+```typescript
+// Once per project: its own namespace, its own deployment.
+await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, ...);
+
+// Once per run: one operator, in a namespace that is not the project's.
+await test.runOnce("my-plugin-install-operator", ...);
+```
 
 ### Nesting
 
-`test.runOnce` can be safely nested. Since `rhdh.deploy()` uses `runOnce` internally, wrapping it in an outer `test.runOnce` is harmless — the outer call skips everything on worker restart, and the inner one never runs:
+`test.runOnce` can be safely nested. Since `rhdh.deploy()` uses `runOnce` internally, wrapping it in an outer `test.runOnce` is harmless — the outer call skips everything on worker restart, and the inner one never runs.
+
+Nesting does **not** rescue an unscoped outer key, though: a key shared across projects
+skips before `deploy()` is ever reached, so its internal protection never gets a say.
 
 ```typescript
-await test.runOnce("full-setup", async () => {
+await test.runOnce(`full-setup-${rhdh.deploymentConfig.namespace}`, async () => {
   await $`bash setup.sh`;          // protected by outer runOnce
   await rhdh.deploy();             // has its own internal runOnce (harmless)
-}, { scope: "project" });
+});
 ```
-
-Nesting does **not** rescue a missing scope: a run-scoped outer call skips before
-`deploy()` is ever reached, so the inner protection never gets a say.
 
 ## Namespace Cleanup (Teardown)
 

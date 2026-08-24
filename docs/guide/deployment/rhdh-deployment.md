@@ -302,9 +302,8 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.beforeAll(async ({ rhdh }) => {
-  // Wrap in test.runOnce because the setup script is also expensive.
-  // scope: "project" because everything inside belongs to this project's namespace.
-  await test.runOnce("my-plugin-setup", async () => {
+  // Wrap in test.runOnce because the setup script is also expensive
+  await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const namespace = rhdh.deploymentConfig.namespace;
 
     // Configure RHDH
@@ -321,6 +320,6 @@ test.beforeAll(async ({ rhdh }) => {
 
     // Deploy RHDH (has built-in protection, safe to nest inside runOnce)
     await rhdh.deploy();
-  }, { scope: "project" });
+  });
 });
 ```

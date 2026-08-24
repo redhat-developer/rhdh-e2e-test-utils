@@ -62,7 +62,10 @@ export const AUTH_CONFIG_PATHS: Record<
       "dist/deployment/rhdh/config/auth/guest/app-config.yaml",
     ),
     secrets: "",
-    dynamicPlugins: "",
+    dynamicPlugins: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/guest/dynamic-plugins.yaml",
+    ),
   },
   keycloak: {
     appConfig: path.join(
@@ -87,7 +90,10 @@ export const AUTH_CONFIG_PATHS: Record<
       PACKAGE_ROOT,
       "dist/deployment/rhdh/config/auth/github/secrets.yaml",
     ),
-    dynamicPlugins: "",
+    dynamicPlugins: path.join(
+      PACKAGE_ROOT,
+      "dist/deployment/rhdh/config/auth/github/dynamic-plugins.yaml",
+    ),
     mergeStrategy: { arrayMergeStrategy: { byKey: "target" } },
   },
 };

@@ -156,7 +156,7 @@ const setupScript = path.join(
 );
 
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-setup", async () => {
+  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
 
     // 1. Configure RHDH first
@@ -296,7 +296,7 @@ const setupScript = path.join(
 
 test.describe("Test tech-radar plugin", () => {
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce("tech-radar-setup", async () => {
+    await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
       const project = rhdh.deploymentConfig.namespace;
       await rhdh.configure({ auth: "keycloak" });
       await $`bash ${setupScript} ${project}`;

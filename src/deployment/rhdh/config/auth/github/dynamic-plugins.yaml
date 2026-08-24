@@ -1,0 +1,12 @@
+plugins:
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-github-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-github-provider:bs_1.52.0__0.5.4
+    disabled: false
+    pluginConfig:
+      auth:
+        providers:
+          github:
+            production:
+              clientId: ${GITHUB_OAUTH_APP_ID}
+              clientSecret: ${GITHUB_OAUTH_APP_SECRET}
+              callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame

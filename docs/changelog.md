@@ -14,6 +14,12 @@ All notable changes to this project will be documented in this file.
 - **A workspace could silently disable the new frontend system it asked for** ([RHIDP-16457](https://redhat.atlassian.net/browse/RHIDP-16457)): the NFS secret layer is merged *before* the workspace's own `tests/config/rhdh-secrets.yaml`, so a workspace setting `APP_CONFIG_app_packageName` or `ENABLE_STANDARD_MODULE_FEDERATION` for its own reasons overrode it and the lane booted the legacy shell. Nothing failed — the legacy suite re-ran and passed, and the one thing the lane existed to prove was never exercised. `deploy()` now checks the merged secret still carries both markers and throws naming the key, the value found, and the file that overrode it. The merge order itself is unchanged: a workspace must be able to override defaults, which is precisely why the outcome needs checking rather than assuming.
 - **The GitHub session file was shared with no locking** ([RHIDP-16459](https://redhat.atlassian.net/browse/RHIDP-16459)): the path was a bare relative `authState_<user>.json`, resolved against `process.cwd()` — which the worker fixture sets to the same workspace directory for every project. So every lane and every worker shared one file with no lock: a reader landing mid-write failed on truncated JSON, as a flake that looked nothing like the plugin under test, and every added lane adds a writer. Access is now serialised across the whole run, the write goes through a temp file and a rename (removed even when it fails), the path is absolute, and an unreadable or empty session falls through to a full login instead of throwing. Deliberately still **one file per user, not per project**: scoping it per project is the obvious fix and is the wrong one, because `logintoGithub` derives its 2FA code from a single shared TOTP secret, so lanes logging in inside the same 30-second window submit the identical code and GitHub rejects the second.
 
+## [2.1.10]
+
+### Fixed
+
+- **Auth provider dynamic plugins**: Guest, GitHub, and Keycloak (OIDC) auth profiles now enable the matching dynamic plugins. Auth providers are no longer installed statically.
+
 ## [2.1.9]
 
 ### Changed

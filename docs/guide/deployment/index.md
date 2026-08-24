@@ -156,6 +156,7 @@ Configurations are merged in layers:
 ```
 Package defaults      → auth/guest/     → Your configs
                       → auth/keycloak/  →
+                      → auth/github/    →
 ```
 
 Later configurations override earlier ones, allowing you to customize only what you need.

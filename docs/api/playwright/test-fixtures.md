@@ -94,13 +94,22 @@ Executes `fn` exactly once per test run, even across worker restarts. Returns `t
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `key` | `string` | Unique identifier for this operation |
+| `key` | `string` | Unique identifier for this operation, across every spec file **and every project** in the run |
 | `fn` | `() => Promise<void> \| void` | Function to execute once |
+
+::: warning One key, two projects
+The flag file is keyed on the key string alone, in a directory shared by every project in
+the run. When one spec runs in two projects — which is what adding an `-app-next` lane
+does — the first project's setup satisfies the second, and the second silently skips its
+own. End the key with `${rhdh.deploymentConfig.namespace}` whenever the setup belongs to
+one project, the way `deploy()` does internally. A literal key is correct only when the
+setup really is shared by every project.
+:::
 
 ```typescript
 // Wrap pre-deploy setup that shouldn't repeat
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("full-setup", async () => {
+  await test.runOnce(`full-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await $`bash deploy-external-service.sh`;
     await rhdh.configure({ auth: "keycloak" });
     await rhdh.deploy(); // safe to nest, has its own internal protection

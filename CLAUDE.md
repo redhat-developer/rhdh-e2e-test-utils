@@ -133,7 +133,7 @@ Worker fixture creates `RHDHDeployment(projectName)` from the Playwright project
 
 ### runOnce — Cross-Worker Deduplication
 
-`deploy()` uses `runOnce()` internally to execute exactly once per test run, even when Playwright restarts workers after test failures. Uses file-based flags with `proper-lockfile` in `/tmp/playwright-once-{ppid}/`.
+`deploy()` uses `runOnce()` internally to execute exactly once, even when Playwright restarts workers after test failures. Uses file-based flags with `proper-lockfile` in `/tmp/playwright-once-{ppid}/`. That directory is keyed on the runner PID alone, so a key is shared by every project in the run — `deploy()` is unaffected only because its key carries the namespace (`deploy-${namespace}`), and callers whose setup belongs to one project must do the same.
 
 ### Teardown Reporter
 

@@ -1,5 +1,8 @@
+# catalog-backend-module-keycloak and oidc-provider are disabled in default.packages.yaml,
+# so {{inherit}} fails at install. Use explicit overlays tags until these images are on quay.io/rhdh.
 plugins:
-  - package: oci://quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}}
+  # TODO: switch to oci://quay.io/rhdh/backstage-community-plugin-catalog-backend-module-keycloak:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-community-plugin-catalog-backend-module-keycloak:bs_1.49.4__3.19.2
     disabled: false
     pluginConfig:
       catalog:
@@ -18,3 +21,28 @@ plugins:
                   seconds: 15
                 timeout:
                   minutes: 1
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-oidc-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-oidc-provider:bs_1.52.0__0.4.17
+    disabled: false
+    pluginConfig:
+      auth:
+        providers:
+          oidc:
+            production:
+              metadataUrl: ${KEYCLOAK_METADATA_URL}
+              clientId: ${KEYCLOAK_CLIENT_ID}
+              clientSecret: ${KEYCLOAK_CLIENT_SECRET}
+              prompt: auto
+              callbackUrl: ${RHDH_BASE_URL}/api/auth/oidc/handler/frame
+              signIn:
+                resolvers:
+                  - resolver: emailLocalPartMatchingUserEntityName
+  # Workspaces using auth: "keycloak" may still call loginAsGuest() (e.g. topology RBAC).
+  # TODO: switch to oci://quay.io/rhdh/backstage-plugin-auth-backend-module-guest-provider:{{inherit}} once published on quay
+  - package: oci://ghcr.io/redhat-developer/rhdh-plugin-export-overlays/backstage-plugin-auth-backend-module-guest-provider:bs_1.52.0__0.2.20
+    disabled: false
+    pluginConfig:
+      auth:
+        providers:
+          guest:
+            dangerouslyAllowOutsideDevelopment: true

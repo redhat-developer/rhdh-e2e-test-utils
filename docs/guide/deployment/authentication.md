@@ -48,6 +48,8 @@ SKIP_KEYCLOAK_DEPLOYMENT=true yarn playwright test
 
 Keycloak provides OIDC authentication for realistic auth testing.
 
+This profile signs in with stock OIDC (`auth.providers.oidc`, `signInPage: oidc`) against a Keycloak IdP, and loads `oidc-provider` plus the Keycloak catalog module as dynamic plugins. You do not need to add those packages to the workspace `dynamic-plugins.yaml`.
+
 ### Configuration
 
 ```typescript
@@ -120,7 +122,7 @@ test.beforeAll(async ({ rhdh }) => {
 
 ## GitHub Authentication
 
-Allows authentication using github OAuth application. 
+Allows authentication using github OAuth application.
 
 ### Configuration
 
@@ -190,13 +192,15 @@ Package configs:
 │   └── rhdh-secrets.yaml
 └── auth/
     ├── guest/                 # Applied when auth: "guest"
-    │   └── app-config.yaml
+    │   ├── app-config.yaml
+    │   └── dynamic-plugins.yaml
     └── keycloak/              # Applied when auth: "keycloak"
     │   ├── app-config.yaml
     │   ├── dynamic-plugins.yaml
     │   └── secrets.yaml
     └── github/                # Applied when auth: "github"
         ├── app-config.yaml
+        ├── dynamic-plugins.yaml
         └── secrets.yaml
 ```
 

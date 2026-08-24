@@ -179,7 +179,7 @@ While `rhdh.deploy()` has built-in protection, you may have **other expensive op
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-setup", async () => {
+  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash ${setupScript} ${namespace}`;  // expensive external service
     process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(namespace, "my-service");
@@ -218,7 +218,7 @@ test.beforeAll(async ({ rhdh }) => {
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-full-setup", async () => {
+  await test.runOnce(`tech-radar-full-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     await rhdh.configure({ auth: "keycloak" });
     await $`bash deploy-external-service.sh ${rhdh.deploymentConfig.namespace}`;
     process.env.DATA_URL = await rhdh.k8sClient.getRouteLocation(
@@ -251,24 +251,70 @@ test.describe("Feature B", () => {
 
 ### Key: Unique Identifier
 
-The `key` must be globally unique across **all spec files and projects** in the same Playwright run. If two `runOnce` calls in different files use the same key, only the first one will execute. Use a prefix that includes the workspace or project name:
+The `key` must be globally unique across **all spec files and projects** in the same Playwright run. If two `runOnce` calls use the same key, only the first one executes.
+
+Across spec files, a workspace prefix is enough:
 
 ```typescript
 // In tech-radar.spec.ts
-await test.runOnce("tech-radar-deploy", async () => { ... });
 await test.runOnce("tech-radar-data-provider", async () => { ... });
 
 // In catalog.spec.ts
-await test.runOnce("catalog-deploy", async () => { ... });
 await test.runOnce("catalog-seed-data", async () => { ... });
+```
+
+Across **projects** it is not, and this is the half that is easy to miss. The flag
+directory is keyed on the Playwright runner's PID alone:
+
+```ts
+const flagDir = path.join(os.tmpdir(), `playwright-once-${process.ppid}`);
+const flagFile = path.join(flagDir, `${key}.done`);
+```
+
+Nothing in it comes from the project. So when one spec runs in two projects — which is
+what adding an `-app-next` lane does — the first project's setup satisfies the second,
+and the second silently skips its own. For anything that deploys, that means no
+deployment at all, then a failure much later on a missing element with nothing pointing
+at the cause.
+
+**Put the namespace in the key whenever the setup belongs to one project.** This is what
+`deploy()` does internally (`deploy-${namespace}`), and it is why `deploy()` was never
+affected:
+
+```typescript
+test.beforeAll(async ({ rhdh }) => {
+  await test.runOnce(
+    `tech-radar-setup-${rhdh.deploymentConfig.namespace}`,
+    async () => {
+      await rhdh.configure({ auth: "keycloak" });
+      await $`bash deploy-provider.sh ${rhdh.deploymentConfig.namespace}`;
+      await rhdh.deploy();
+    },
+  );
+});
+```
+
+A **literal** key is the right choice when the setup really is shared — installing an
+operator into a fixed namespace that every project then uses. Both intents are real, and
+the key is where you say which one you mean:
+
+```typescript
+// Once per project: its own namespace, its own deployment.
+await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, ...);
+
+// Once per run: one operator, in a namespace that is not the project's.
+await test.runOnce("my-plugin-install-operator", ...);
 ```
 
 ### Nesting
 
-`test.runOnce` can be safely nested. Since `rhdh.deploy()` uses `runOnce` internally, wrapping it in an outer `test.runOnce` is harmless — the outer call skips everything on worker restart, and the inner one never runs:
+`test.runOnce` can be safely nested. Since `rhdh.deploy()` uses `runOnce` internally, wrapping it in an outer `test.runOnce` is harmless — the outer call skips everything on worker restart, and the inner one never runs.
+
+Nesting does **not** rescue an unscoped outer key, though: a key shared across projects
+skips before `deploy()` is ever reached, so its internal protection never gets a say.
 
 ```typescript
-await test.runOnce("full-setup", async () => {
+await test.runOnce(`full-setup-${rhdh.deploymentConfig.namespace}`, async () => {
   await $`bash setup.sh`;          // protected by outer runOnce
   await rhdh.deploy();             // has its own internal runOnce (harmless)
 });

@@ -135,7 +135,7 @@ Namespace cleanup uses a custom Playwright Reporter, not `afterAll` hooks or fix
 3-level cascade: package defaults -> auth-specific -> user overrides. Arrays use "replace" strategy by default. Plugin arrays use `byKey: "package"` with normalized keys (strips `-dynamic` suffix).
 
 ### deploy() Has Built-in Protection
-`rhdh.deploy()` uses `runOnce()` internally — it executes exactly once per test run, even across worker restarts. No wrapping needed unless there's other expensive setup (use `test.runOnce("key", fn)` for that).
+`rhdh.deploy()` uses `runOnce()` internally — its key carries the namespace (`deploy-${namespace}`), so it is already once per project, even across worker restarts. No wrapping needed unless there's other expensive setup: use `test.runOnce(`key-${rhdh.deploymentConfig.namespace}`, fn)` for that, because the flag directory is shared by every project in the run and a literal key would leave a second project with no setup.
 
 ### E2E_NIGHTLY_MODE Accepts Both Values
 The code checks `=== "true" || === "1"`. Document both.

@@ -303,7 +303,7 @@ import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.beforeAll(async ({ rhdh }) => {
   // Wrap in test.runOnce because the setup script is also expensive
-  await test.runOnce("my-plugin-setup", async () => {
+  await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const namespace = rhdh.deploymentConfig.namespace;
 
     // Configure RHDH

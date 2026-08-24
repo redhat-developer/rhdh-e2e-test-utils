@@ -222,7 +222,7 @@ test.describe("Test tech-radar plugin", () => {
   // Wrap in runOnce — the external service deployment is expensive
   // and should not re-run when Playwright restarts the worker after a test failure
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce("tech-radar-setup", async () => {
+    await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
       const project = rhdh.deploymentConfig.namespace;
 
       // Configure RHDH with Keycloak authentication

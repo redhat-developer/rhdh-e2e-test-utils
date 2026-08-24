@@ -22,7 +22,7 @@ Deploy pre-requisites **after** `rhdh.configure()` but **before** `rhdh.deploy()
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("my-plugin-setup", async () => {
+  await test.runOnce(`my-plugin-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
 
     // 1. Configure RHDH first
@@ -41,7 +41,7 @@ test.beforeAll(async ({ rhdh }) => {
 ```
 
 ::: tip When is `test.runOnce` needed?
-`rhdh.deploy()` already skips automatically on worker restarts. But the pre-deploy steps (deploying external services, running scripts) don't have this protection. `test.runOnce` ensures the **entire setup** runs only once. The `key` must be **globally unique** across all spec files and projects in the same Playwright run — prefix it with your workspace name (e.g., `"tech-radar-setup"`). See [`test.runOnce`](/guide/core-concepts/playwright-fixtures#test-runonce-—-run-any-expensive-operation-once) for details.
+`rhdh.deploy()` already skips automatically on worker restarts. But the pre-deploy steps (deploying external services, running scripts) don't have this protection. `test.runOnce` ensures the **entire setup** runs only once. The `key` must be **globally unique** across all spec files and projects in the same Playwright run: prefix it with your workspace name, and — because the setup below deploys into this project's namespace — end it with the namespace, exactly as `deploy()` does internally. Without that, a second project matching the same spec finds the flag already set and deploys nothing. See [`test.runOnce`](/guide/core-concepts/playwright-fixtures#test-runonce-—-run-any-expensive-operation-once) for details.
 :::
 
 ## Examples
@@ -54,7 +54,7 @@ You can deploy pre-requisites directly in TypeScript using the Kubernetes client
 import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("my-plugin-k8s-setup", async () => {
+  await test.runOnce(`my-plugin-k8s-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
     const k8s = rhdh.k8sClient;
 
@@ -88,7 +88,7 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 import { $ } from "@red-hat-developer-hub/e2e-test-utils/utils";
 
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("my-plugin-oc-setup", async () => {
+  await test.runOnce(`my-plugin-oc-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
 
     await rhdh.configure({ auth: "keycloak" });
@@ -119,7 +119,7 @@ import path from "path";
 const setupScript = path.join(import.meta.dirname, "deploy-service.sh");
 
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("my-plugin-script-setup", async () => {
+  await test.runOnce(`my-plugin-script-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
 
     await rhdh.configure({ auth: "keycloak" });
@@ -135,7 +135,7 @@ The tech-radar plugin requires an external data provider:
 
 ```typescript
 test.beforeAll(async ({ rhdh }) => {
-  await test.runOnce("tech-radar-setup", async () => {
+  await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
     const project = rhdh.deploymentConfig.namespace;
 
     await rhdh.configure({ auth: "keycloak" });

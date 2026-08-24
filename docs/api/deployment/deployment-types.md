@@ -24,7 +24,7 @@ Installation method for RHDH.
 ## AuthProvider
 
 ```typescript
-type AuthProvider = "guest" | "keycloak";
+type AuthProvider = "guest" | "keycloak" | "github";
 ```
 
 Authentication provider configuration.

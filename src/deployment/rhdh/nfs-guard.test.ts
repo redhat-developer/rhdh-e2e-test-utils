@@ -3,6 +3,7 @@ import assert from "node:assert";
 import {
   NFS_SECRET_MARKERS,
   assertNfsMarkersSurvived,
+  assertNfsIntentMatches,
   describeNfsIntentConflict,
   describeNfsSource,
   findDroppedNfsMarkers,
@@ -105,6 +106,24 @@ describe("nfs intent conflict", () => {
       describeNfsIntentConflict("quay-app-next", undefined),
       undefined,
     );
+  });
+
+  it("fails the deploy on the conflict, rather than only naming it", () => {
+    // A warning on a run that exits 0 is the failure this module exists to stop:
+    // the legacy suite re-runs, everything passes, and nothing proved NFS works.
+    assert.throws(
+      () => assertNfsIntentMatches("quay-app-next", false),
+      /named -app-next/,
+    );
+  });
+
+  it("lets every non-conflicting combination through", () => {
+    assert.doesNotThrow(() => assertNfsIntentMatches("quay-app-next", true));
+    assert.doesNotThrow(() =>
+      assertNfsIntentMatches("quay-app-next", undefined),
+    );
+    assert.doesNotThrow(() => assertNfsIntentMatches("quay", false));
+    assert.doesNotThrow(() => assertNfsIntentMatches("github", true));
   });
 
   it("does not flag the reverse, which is legitimate", () => {

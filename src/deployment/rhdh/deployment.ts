@@ -1,8 +1,8 @@
 import { KubernetesClientHelper } from "../../utils/kubernetes-client.js";
 import { WorkspacePaths } from "../../utils/workspace-paths.js";
 import {
+  assertNfsIntentMatches,
   assertNfsMarkersSurvived,
-  describeNfsIntentConflict,
   describeNfsSource,
 } from "./nfs-guard.js";
 import { $ } from "../../utils/bash.js";
@@ -577,13 +577,14 @@ export class RHDHDeployment {
   private _reportFrontendSystem(): void {
     const { namespace, useNewFrontendSystem } = this.deploymentConfig;
     const explicitChoice = this._explicitFrontendSystemChoice;
-    const conflict = describeNfsIntentConflict(namespace, explicitChoice);
-    if (conflict) console.warn(conflict);
+    // Logged before the check so the resolved state is on record even when the
+    // next line ends the run.
     console.log(
       `[nfs] ${namespace}: new frontend system ` +
         `${useNewFrontendSystem ? "ON" : "off"}, from ` +
         `${describeNfsSource(namespace, explicitChoice)}`,
     );
+    assertNfsIntentMatches(namespace, explicitChoice);
   }
 
   private _buildBaseUrl(): string {

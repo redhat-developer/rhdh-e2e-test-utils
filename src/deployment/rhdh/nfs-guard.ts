@@ -131,6 +131,25 @@ export function describeNfsIntentConflict(
 }
 
 /**
+ * Throws on the conflict {@link describeNfsIntentConflict} finds.
+ *
+ * Reporting it is not enough. The lane exists to prove the plugin works under NFS,
+ * and a warning on a run that exits 0 is indistinguishable from a run that had
+ * nothing to say — which is the exact failure this module is here to stop. Both
+ * ways out are cheap: rename the project, or drop the override.
+ *
+ * @param namespace - the lane's namespace, which is its Playwright project name
+ * @param explicitChoice - `configure({ useNewFrontendSystem })` as the caller passed it
+ */
+export function assertNfsIntentMatches(
+  namespace: string,
+  explicitChoice: boolean | undefined,
+): void {
+  const conflict = describeNfsIntentConflict(namespace, explicitChoice);
+  if (conflict) throw new Error(conflict);
+}
+
+/**
  * Which of the three mechanisms decided this lane's frontend, for the deploy log.
  *
  * There is no single documented way to enable NFS (RHIDP-16461), so a lane's output

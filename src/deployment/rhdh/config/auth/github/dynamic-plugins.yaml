@@ -10,3 +10,6 @@ plugins:
               clientId: ${GITHUB_OAUTH_APP_ID}
               clientSecret: ${GITHUB_OAUTH_APP_SECRET}
               callbackUrl: ${RHDH_BASE_URL}/api/auth/github/handler/frame
+              signIn:
+                resolvers:
+                  - resolver: usernameMatchingUserEntityName

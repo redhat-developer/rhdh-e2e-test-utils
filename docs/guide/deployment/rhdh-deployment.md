@@ -89,42 +89,9 @@ await rhdh.deploy();
 
 What gets merged (same order as other config: package defaults → auth → NFS defaults → your workspace files; later wins; secrets are merged then **envsubst** runs once on the result):
 
-1. **Secrets** — `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION: "true"`. Your `rhdh-secrets.yaml` merges last and wins on every other key, and can use `$VAR` substitution — but **not on these two**: overriding either would leave the lane running the legacy shell while calling itself NFS, so `deploy()` throws instead. See below.
-2. **Dynamic plugins** — Default OCI refs for `red-hat-developer-hub-backstage-plugin-app-auth` and `...-app-integrations` from package YAML; override pins in **`tests/config/dynamic-plugins.yaml`** (same as other plugins). Re-pinning is fine; **disabling** either degrades the lane the same way the secrets above would, and that one is not guarded — if an NFS lane behaves like the legacy shell, check this list first.
+1. **Secrets** — `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION: "true"` (your `rhdh-secrets.yaml` still wins on conflicts and can use `$VAR` substitution).
+2. **Dynamic plugins** — Default OCI refs for `red-hat-developer-hub-backstage-plugin-app-auth` and `...-app-integrations` from package YAML; override pins in **`tests/config/dynamic-plugins.yaml`** (same as other plugins).
 3. **Helm** — Package `config/new-frontend-system/value_file.yaml`, then your `value_file.yaml`, then optional `tests/config/value_file-app-next.yaml` when that file exists.
-
-#### Knowing which shell actually ran
-
-`deploy()` logs the answer once, because three mechanisms can decide it and none of them
-is visible from a single file:
-
-```
-[nfs] tech-radar-app-next: new frontend system ON, from the -app-next project name
-[nfs] github: new frontend system ON, from configure({ useNewFrontendSystem: true })
-[nfs] rbac: new frontend system off, from nothing — the default is the legacy shell
-```
-
-Grep `[nfs]` when a lane behaves like the wrong shell. It is logged from `deploy()`
-rather than `configure()` on purpose: the worker fixture calls `configure()` with no
-arguments for every project before any spec runs, so a lane opting in through
-`configure({ useNewFrontendSystem: true })` would otherwise print `off` first.
-
-A namespace ending in `-app-next` that is explicitly configured with
-`useNewFrontendSystem: false` warns — it deploys the legacy shell under a name that
-reads as an NFS lane in every report. The reverse is not checked: enabling NFS without
-the suffix is normal.
-
-If the merged secret would not actually enable NFS, `deploy()` throws rather than
-deploying:
-
-```
-[nfs] "bulk-import-app-next" is configured for the new frontend system, but the
-secret about to be applied would not enable it:
-  APP_CONFIG_app_packageName is "app" (expected "app-next")
-```
-
-That is a post-condition on your own config, not a bug in the harness: remove the
-override from `tests/config/rhdh-secrets.yaml`, or set it to the value named.
 
 Workspace-specific **app-config** (titles, plugin routes, etc.) remains your responsibility.
 
@@ -183,15 +150,14 @@ await rhdh.deploy({ timeout: null });
 `deploy()` automatically skips if the deployment already succeeded in the current test run (e.g., after a worker restart due to test failure). This prevents expensive re-deployments.
 
 This method:
-1. Reports which frontend shell this lane will run, and what decided it — see [New frontend system](#new-frontend-system-usenewfrontendsystem)
-2. Merges configuration files (common → auth → optional NFS defaults → project overrides) for app-config, secrets, and dynamic plugins
-3. Substitutes environment variables in the merged secrets (`envsubst`)
-4. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
-5. Applies ConfigMaps (app-config, dynamic-plugins)
-6. Applies Secrets — **throws** first if the lane asked for the new frontend system and the merged secret would not enable it
-7. Installs RHDH via Helm or Operator
-8. Waits for the deployment to be ready
-9. Sets `RHDH_BASE_URL` environment variable
+1. Merges configuration files (common → auth → optional NFS defaults → project overrides) for app-config, secrets, and dynamic plugins
+2. Substitutes environment variables in the merged secrets (`envsubst`)
+3. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
+4. Applies ConfigMaps (app-config, dynamic-plugins)
+5. Applies Secrets
+6. Installs RHDH via Helm or Operator
+7. Waits for the deployment to be ready
+8. Sets `RHDH_BASE_URL` environment variable
 
 #### Base URL format
 

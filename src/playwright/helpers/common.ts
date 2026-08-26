@@ -98,6 +98,35 @@ export async function withGithubSessionLock<T>(
   }
 }
 
+/**
+ * Creates the shared GitHub session if it is missing, and says which happened.
+ *
+ * Only creation needs to be exclusive: it drives a real GitHub sign-in whose 2FA
+ * code comes from one shared TOTP secret, so two lanes doing it inside the same
+ * 30-second window submit the identical code and the second is rejected. Reusing
+ * an existing session is just cookies plus a Sign In click against a different
+ * namespace host, and serialising that behind the lock made every lane queue for
+ * a sign-in it did not need — long enough that a waiter could exhaust Playwright's
+ * default test timeout before the lock's own retries ran out. `test.setTimeout`
+ * is raised inside the login itself, which is precisely the path a waiter is not on.
+ *
+ * The re-read inside the lock is what keeps that safe: whoever held the lock before
+ * us has almost certainly just created the session, and logging in again would be
+ * the same collision the lock exists to prevent.
+ */
+export async function ensureGithubSession(
+  file: string,
+  create: () => Promise<void>,
+): Promise<"reused" | "created"> {
+  if (readStoredCookies(file)) return "reused";
+
+  return await withGithubSessionLock(file, async () => {
+    if (readStoredCookies(file)) return "reused";
+    await create();
+    return "created";
+  });
+}
+
 export class LoginHelper {
   page: Page;
   uiHelper: UIhelper;
@@ -194,58 +223,65 @@ export class LoginHelper {
     userid: string = process.env.VAULT_GH_USER_ID as string,
   ) {
     const sessionFileName = githubSessionFile(userid);
-    // The lock spans read-or-login-and-write, not just the write: two lanes that both
-    // decide there is no session go on to submit the same TOTP code.
-    await withGithubSessionLock(sessionFileName, async () => {
-      await this._loginAsGithubUser(userid, sessionFileName);
-    });
+    const outcome = await ensureGithubSession(sessionFileName, () =>
+      this._createGithubSession(userid, sessionFileName),
+    );
+    // Creating already left this page signed in; replaying the reuse path would
+    // click Sign In a second time against a session that is already live.
+    if (outcome === "reused") {
+      await this._reuseGithubSession(userid, sessionFileName);
+    }
   }
 
-  private async _loginAsGithubUser(userid: string, sessionFileName: string) {
-    // Check if a session file for this specific user already exists
+  private async _reuseGithubSession(userid: string, sessionFileName: string) {
     const cookies = readStoredCookies(sessionFileName);
-    if (cookies) {
-      // Load and reuse existing authentication state
-      await this.page.context().addCookies(cookies);
-      console.log(`Reusing existing authentication state for user: ${userid}`);
-      await this.page.goto("/");
-      await this.uiHelper.waitForLoad(12000);
-      await this.uiHelper.clickButton("Sign In");
-
-      // Wait for either: sidebar appears (auto-login) or popup opens (needs auth)
-      const navPromise = this.page
-        .waitForSelector("nav a", { timeout: 15_000 })
-        .then(() => "nav" as const)
-        .catch(() => null);
-
-      const popupPromise = this.page
-        .waitForEvent("popup", { timeout: 15_000 })
-        .then((popup) => ({ popup }))
-        .catch(() => null);
-
-      const result = await Promise.race([navPromise, popupPromise]);
-
-      if (result === null) {
-        throw new Error(
-          "GitHub login failed: neither sidebar nor popup appeared after Sign In — session file may be stale",
-        );
-      }
-
-      if (typeof result === "object" && "popup" in result) {
-        // Popup opened — handle reauthorization
-        await this.handleGithubPopupReauth(result.popup);
-      }
-    } else {
-      // Perform login if no session file exists, then save the state
-      await this.logintoGithub(userid);
-      await this.page.goto("/");
-      await this.uiHelper.waitForLoad(240000);
-      await this.uiHelper.clickButton("Sign In");
-      await this.checkAndReauthorizeGithubApp();
-      await this.page.waitForSelector("nav a", { timeout: 10_000 });
-      await writeStorageStateAtomically(this.page, sessionFileName);
-      console.log(`Authentication state saved for user: ${userid}`);
+    if (!cookies) {
+      throw new Error(
+        `GitHub session file for ${userid} disappeared between the check and the read: ${sessionFileName}`,
+      );
     }
+
+    // Load and reuse existing authentication state
+    await this.page.context().addCookies(cookies);
+    console.log(`Reusing existing authentication state for user: ${userid}`);
+    await this.page.goto("/");
+    await this.uiHelper.waitForLoad(12000);
+    await this.uiHelper.clickButton("Sign In");
+
+    // Wait for either: sidebar appears (auto-login) or popup opens (needs auth)
+    const navPromise = this.page
+      .waitForSelector("nav a", { timeout: 15_000 })
+      .then(() => "nav" as const)
+      .catch(() => null);
+
+    const popupPromise = this.page
+      .waitForEvent("popup", { timeout: 15_000 })
+      .then((popup) => ({ popup }))
+      .catch(() => null);
+
+    const result = await Promise.race([navPromise, popupPromise]);
+
+    if (result === null) {
+      throw new Error(
+        "GitHub login failed: neither sidebar nor popup appeared after Sign In — session file may be stale",
+      );
+    }
+
+    if (typeof result === "object" && "popup" in result) {
+      // Popup opened — handle reauthorization
+      await this.handleGithubPopupReauth(result.popup);
+    }
+  }
+
+  private async _createGithubSession(userid: string, sessionFileName: string) {
+    await this.logintoGithub(userid);
+    await this.page.goto("/");
+    await this.uiHelper.waitForLoad(240000);
+    await this.uiHelper.clickButton("Sign In");
+    await this.checkAndReauthorizeGithubApp();
+    await this.page.waitForSelector("nav a", { timeout: 10_000 });
+    await writeStorageStateAtomically(this.page, sessionFileName);
+    console.log(`Authentication state saved for user: ${userid}`);
   }
 
   async checkAndReauthorizeGithubApp() {

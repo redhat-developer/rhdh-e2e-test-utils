@@ -4,6 +4,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
+  ensureGithubSession,
   githubSessionFile,
   readStoredCookies,
   withGithubSessionLock,
@@ -170,5 +171,93 @@ describe("reading a stored session", () => {
     const file = path.join(dir, "s.json");
     fs.writeFileSync(file, JSON.stringify({ origins: [] }));
     assert.strictEqual(readStoredCookies(file), undefined);
+  });
+});
+
+describe("ensuring the shared session", () => {
+  const writeSession = (file: string) =>
+    fs.writeFileSync(file, JSON.stringify({ cookies: [{ name: "a" }] }));
+
+  it("reuses an existing session without taking the lock", async () => {
+    // The point of the split: reuse is cookies plus a Sign In against a different
+    // namespace host. Holding the lock across it made every lane queue behind one
+    // sign-in it did not need. Proven by holding the lock elsewhere — if reuse
+    // still waited on it, this would block until the holder released.
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    writeSession(file);
+
+    let release: () => void = () => {};
+    const holding = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let held: () => void = () => {};
+    const acquired = new Promise<void>((resolve) => {
+      held = resolve;
+    });
+    const holder = withGithubSessionLock(file, async () => {
+      held();
+      await holding;
+    });
+    // Wait until the lock is demonstrably held. Starting from the same tick races
+    // the scheduler instead of the lock, and the result then depends on how loaded
+    // the run is — it passed alone and passed under the full suite for different
+    // reasons, neither of them the one under test.
+    await acquired;
+
+    try {
+      // Bounded rather than a plain await: if reuse ever waits on the lock again
+      // this deadlocks, and a hung CI job is harder to read than a failed
+      // assertion. proper-lockfile retries for 60s, far past this deadline.
+      const outcome = await Promise.race([
+        ensureGithubSession(file, async () => {
+          throw new Error("must not create when a session already exists");
+        }),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error("reuse waited on the session lock")),
+            2_000,
+          ).unref();
+        }),
+      ]);
+      assert.strictEqual(outcome, "reused");
+    } finally {
+      release();
+      await holder;
+    }
+  });
+
+  it("creates once when two callers find no session at the same time", async () => {
+    // Both pass the outer check, so the re-read inside the lock is the only thing
+    // stopping the second from logging in again and submitting the same TOTP code.
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    let creates = 0;
+
+    const create = async () => {
+      creates += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      writeSession(file);
+    };
+
+    const outcomes = await Promise.all([
+      ensureGithubSession(file, create),
+      ensureGithubSession(file, create),
+    ]);
+
+    assert.strictEqual(creates, 1);
+    assert.deepStrictEqual(outcomes.filter((o) => o === "created").length, 1);
+    assert.deepStrictEqual(outcomes.filter((o) => o === "reused").length, 1);
+  });
+
+  it("reports creation so the caller does not replay the reuse path", async () => {
+    // Creating leaves the page signed in. A "created" that read as "reused" would
+    // click Sign In a second time against a live session.
+    const dir = tmp();
+    const file = path.join(dir, "s.json");
+    const outcome = await ensureGithubSession(file, async () =>
+      writeSession(file),
+    );
+    assert.strictEqual(outcome, "created");
   });
 });

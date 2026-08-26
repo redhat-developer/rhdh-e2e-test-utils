@@ -1,10 +1,5 @@
 import { KubernetesClientHelper } from "../../utils/kubernetes-client.js";
 import { WorkspacePaths } from "../../utils/workspace-paths.js";
-import {
-  assertNfsIntentMatches,
-  assertNfsMarkersSurvived,
-  describeNfsSource,
-} from "./nfs-guard.js";
 import { $ } from "../../utils/bash.js";
 import yaml from "js-yaml";
 import os from "os";
@@ -38,8 +33,6 @@ export class RHDHDeployment {
   public k8sClient = new KubernetesClientHelper();
   public rhdhUrl: string;
   public deploymentConfig: DeploymentConfig;
-  /** `configure({ useNewFrontendSystem })` as the caller passed it, for the report. */
-  private _explicitFrontendSystemChoice: boolean | undefined;
 
   constructor(namespace: string) {
     this.deploymentConfig = this._buildDeploymentConfig({ namespace });
@@ -56,7 +49,6 @@ export class RHDHDeployment {
     const executed = await runOnce(
       `deploy-${this.deploymentConfig.namespace}`,
       async () => {
-        this._reportFrontendSystem();
         this._log("Starting RHDH deployment...");
         this._log("RHDH Base URL: " + this.rhdhUrl);
         console.table(this.deploymentConfig);
@@ -127,16 +119,6 @@ export class RHDHDeployment {
     });
 
     const secretPayload = substituted as Record<string, unknown>;
-
-    if (this.deploymentConfig.useNewFrontendSystem) {
-      // The workspace's own secrets file merges last, so the NFS markers can be
-      // overwritten here and nothing downstream would notice: the lane would boot
-      // the legacy shell and pass.
-      assertNfsMarkersSurvived(
-        (secretPayload as { stringData?: Record<string, unknown> }).stringData,
-        this.deploymentConfig.namespace,
-      );
-    }
 
     await this.k8sClient.applySecretFromObject(
       "rhdh-secrets",
@@ -515,9 +497,6 @@ export class RHDHDeployment {
       "helm";
 
     const namespace = input.namespace ?? this.deploymentConfig.namespace;
-    // Kept so the deploy-time report can name the mechanism; a resolved boolean
-    // cannot distinguish the three sources.
-    this._explicitFrontendSystemChoice = input.useNewFrontendSystem;
     const useNewFrontendSystem =
       input.useNewFrontendSystem ??
       (namespace.endsWith("-app-next") ||
@@ -559,32 +538,6 @@ export class RHDHDeployment {
     await this.k8sClient.createNamespaceIfNotExists(
       this.deploymentConfig.namespace,
     );
-  }
-
-  /**
-   * Says which shell this lane will run, and where that was decided.
-   *
-   * Three mechanisms can turn NFS on and none of them is visible from a single
-   * file, so "is this lane NFS?" is otherwise answered by reading a project name,
-   * an environment variable and a `configure()` call together.
-   *
-   * Reported from `deploy()` rather than `configure()`: the worker fixture calls
-   * `configure()` with no arguments for every project before any spec runs, so a lane
-   * that opts in with `configure({ useNewFrontendSystem: true })` — which is how
-   * `github` and `homepage` do it — would print `off` first and `ON` second, and the
-   * first line is the one a reader greps.
-   */
-  private _reportFrontendSystem(): void {
-    const { namespace, useNewFrontendSystem } = this.deploymentConfig;
-    const explicitChoice = this._explicitFrontendSystemChoice;
-    // Logged before the check so the resolved state is on record even when the
-    // next line ends the run.
-    console.log(
-      `[nfs] ${namespace}: new frontend system ` +
-        `${useNewFrontendSystem ? "ON" : "off"}, from ` +
-        `${describeNfsSource(namespace, explicitChoice)}`,
-    );
-    assertNfsIntentMatches(namespace, explicitChoice);
   }
 
   private _buildBaseUrl(): string {

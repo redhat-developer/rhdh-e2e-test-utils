@@ -62,3 +62,42 @@ export type KeycloakConnectionConfig = {
   username?: string;
   password?: string;
 };
+
+export type KeycloakLdapFederationConfig = {
+  name?: string;
+  connectionUrl: string;
+  bindDn: string;
+  bindCredential: string;
+  usersDn: string;
+  usernameLdapAttribute?: string;
+  rdnLdapAttribute?: string;
+  uuidLdapAttribute?: string;
+  userObjectClasses?: string;
+  vendor?: string;
+  editMode?: string;
+  importEnabled?: boolean;
+  pagination?: boolean;
+  searchScope?: string;
+  trustEmail?: boolean;
+};
+
+export type KeycloakLdapMapperConfig = {
+  name: string;
+  providerId: string;
+  config: Record<string, string>;
+};
+
+export type KeycloakProtocolMapperConfig = {
+  name: string;
+  protocol?: string;
+  protocolMapper: string;
+  config: Record<string, string>;
+};
+
+export type KeycloakLdapRealmOptions = {
+  realm: string;
+  client?: Partial<KeycloakClientConfig>;
+  ldap: KeycloakLdapFederationConfig;
+  /** Protocol mapper claim name for LDAP UUID (default ldap_uuid). */
+  ldapUuidClaim?: string;
+};

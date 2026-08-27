@@ -19,6 +19,10 @@ import type {
   KeycloakGroupConfig,
   KeycloakRealmConfig,
   KeycloakConnectionConfig,
+  KeycloakLdapFederationConfig,
+  KeycloakLdapMapperConfig,
+  KeycloakProtocolMapperConfig,
+  KeycloakLdapRealmOptions,
 } from "./types.js";
 
 export class KeycloakHelper {
@@ -425,6 +429,250 @@ export class KeycloakHelper {
   }
 
   /**
+   * Create (or return existing) LDAP user federation component on a realm.
+   * Requires admin credentials via connect()/deploy().
+   */
+  async createLdapUserFederation(
+    realm: string,
+    config: KeycloakLdapFederationConfig,
+  ): Promise<string> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const name = config.name ?? "openldap";
+    const existing = await this.getLdapUserFederation(realm, name);
+    if (existing?.id) {
+      this._log(`LDAP federation ${name} already exists (${existing.id})`);
+      await this.updateLdapUserFederation(existing.id, config, realm);
+      return existing.id;
+    }
+
+    const realmRep = await this._adminClient!.realms.findOne({ realm });
+    if (!realmRep?.id) {
+      throw new Error(`Realm ${realm} not found`);
+    }
+
+    const { id } = await this._adminClient!.components.create({
+      realm,
+      name,
+      providerId: "ldap",
+      providerType: "org.keycloak.storage.UserStorageProvider",
+      parentId: realmRep.id,
+      config: this._ldapFederationConfigToComponent(config),
+    });
+    this._log(`Created LDAP federation: ${name} (${id})`);
+    return id;
+  }
+
+  async getLdapUserFederation(
+    realm: string,
+    name?: string,
+  ): Promise<{ id: string; name?: string } | undefined> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const components = await this._adminClient!.components.find({
+      realm,
+      type: "org.keycloak.storage.UserStorageProvider",
+    });
+    const match = name
+      ? components.find((c) => c.name === name && c.providerId === "ldap")
+      : components.find((c) => c.providerId === "ldap");
+    return match?.id ? { id: match.id, name: match.name } : undefined;
+  }
+
+  async updateLdapUserFederation(
+    id: string,
+    config: KeycloakLdapFederationConfig,
+    realm: string,
+  ): Promise<void> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const current = await this._adminClient!.components.findOne({ id, realm });
+    if (!current) {
+      throw new Error(`LDAP federation component ${id} not found`);
+    }
+
+    await this._adminClient!.components.update(
+      { id, realm },
+      {
+        ...current,
+        config: {
+          ...current.config,
+          ...this._ldapFederationConfigToComponent(config),
+        },
+      },
+    );
+    this._log(`Updated LDAP federation: ${id}`);
+  }
+
+  async deleteLdapUserFederation(id: string, realm: string): Promise<void> {
+    await this._ensureAdminClient();
+    await this._adminClient!.components.del({ id, realm });
+    this._log(`Deleted LDAP federation: ${id}`);
+  }
+
+  async createLdapMapper(
+    realm: string,
+    parentId: string,
+    mapper: KeycloakLdapMapperConfig,
+  ): Promise<string> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const existing = await this.listLdapMappers(realm, parentId);
+    const found = existing.find((m) => m.name === mapper.name);
+    if (found?.id) {
+      this._log(`LDAP mapper ${mapper.name} already exists`);
+      return found.id;
+    }
+
+    const configEntries: Record<string, string[]> = {};
+    for (const [key, value] of Object.entries(mapper.config)) {
+      configEntries[key] = [value];
+    }
+
+    const { id } = await this._adminClient!.components.create({
+      realm,
+      name: mapper.name,
+      parentId,
+      providerId: mapper.providerId,
+      providerType: "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
+      config: configEntries,
+    });
+    this._log(`Created LDAP mapper: ${mapper.name}`);
+    return id;
+  }
+
+  async listLdapMappers(
+    realm: string,
+    parentId: string,
+  ): Promise<Array<{ id?: string; name?: string }>> {
+    await this._ensureAdminClient();
+    return this._adminClient!.components.find({
+      realm,
+      parent: parentId,
+      type: "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
+    });
+  }
+
+  async syncLdapUsers(
+    federationId: string,
+    action: "triggerFullSync" | "triggerChangedUsersSync" = "triggerFullSync",
+  ): Promise<void> {
+    await this._ensureAdminClient();
+    await this._adminClient!.userStorageProvider.sync({
+      id: federationId,
+      action,
+    });
+    this._log(`Triggered LDAP sync (${action}) for ${federationId}`);
+  }
+
+  /**
+   * Add an OIDC protocol mapper on a client (e.g. ldap_uuid user attribute → claim).
+   */
+  async addClientProtocolMapper(
+    realm: string,
+    clientId: string,
+    mapper: KeycloakProtocolMapperConfig,
+  ): Promise<void> {
+    await this._ensureAdminClient();
+    this._adminClient!.setConfig({ realmName: realm });
+
+    const clients = await this._adminClient!.clients.find({ clientId });
+    if (clients.length === 0 || !clients[0].id) {
+      throw new Error(`Client ${clientId} not found in realm ${realm}`);
+    }
+    const id = clients[0].id;
+
+    const existing = await this._adminClient!.clients.listProtocolMappers({
+      id,
+      realm,
+    });
+    if (existing.some((m) => m.name === mapper.name)) {
+      this._log(`Protocol mapper ${mapper.name} already exists on ${clientId}`);
+      return;
+    }
+
+    await this._adminClient!.clients.addProtocolMapper(
+      { id, realm },
+      {
+        name: mapper.name,
+        protocol: mapper.protocol ?? "openid-connect",
+        protocolMapper: mapper.protocolMapper,
+        config: mapper.config,
+      },
+    );
+    this._log(`Added protocol mapper ${mapper.name} on client ${clientId}`);
+  }
+
+  /**
+   * One-shot: separate LDAP-fed realm + client + OpenLDAP federation + ldap_uuid claim.
+   * Connect as Keycloak admin first (username/password), not the RHDH service account.
+   */
+  async configureLdapRealm(options: KeycloakLdapRealmOptions): Promise<void> {
+    await this._ensureAdminClient();
+
+    const realmName = options.realm;
+    await this.createRealm({ realm: realmName, enabled: true });
+
+    const clientConfig: KeycloakClientConfig = {
+      ...DEFAULT_RHDH_CLIENT,
+      clientId: "rhdh-ldap-client",
+      clientSecret: "rhdh-ldap-client-secret",
+      name: "RHDH LDAP Client",
+      ...options.client,
+    };
+    await this.createClient(realmName, clientConfig);
+    await this._assignServiceAccountRoles(realmName, clientConfig.clientId);
+
+    const federationId = await this.createLdapUserFederation(
+      realmName,
+      options.ldap,
+    );
+
+    // Map LDAP entryUUID into a Keycloak user attribute for the token claim.
+    /* eslint-disable @typescript-eslint/naming-convention -- Keycloak Admin API mapper config keys */
+    const ldapUuidMapperConfig = {
+      "user.model.attribute": "ldap_uuid",
+      "ldap.attribute": options.ldap.uuidLdapAttribute ?? "entryUUID",
+      "read.only": "true",
+      "always.read.value.from.ldap": "true",
+      "is.binary.attribute": "false",
+    };
+    const claim = options.ldapUuidClaim ?? "ldap_uuid";
+    const ldapUuidClaimConfig = {
+      "user.attribute": "ldap_uuid",
+      "claim.name": claim,
+      "jsonType.label": "String",
+      "id.token.claim": "true",
+      "access.token.claim": "true",
+      "userinfo.token.claim": "true",
+    };
+    /* eslint-enable @typescript-eslint/naming-convention */
+
+    await this.createLdapMapper(realmName, federationId, {
+      name: "ldap-uuid",
+      providerId: "user-attribute-ldap-mapper",
+      config: ldapUuidMapperConfig,
+    });
+
+    await this.addClientProtocolMapper(realmName, clientConfig.clientId, {
+      name: "ldap-uuid-claim",
+      protocolMapper: "oidc-usermodel-attribute-mapper",
+      config: ldapUuidClaimConfig,
+    });
+
+    await this.syncLdapUsers(federationId);
+
+    this.realm = realmName;
+    this.clientId = clientConfig.clientId;
+    this.clientSecret = clientConfig.clientSecret;
+    this._log(`Configured LDAP realm ${realmName}`);
+  }
+
+  /**
    * Teardown Keycloak deployment
    */
   async teardown(): Promise<void> {
@@ -614,6 +862,38 @@ spec:
     } else {
       this._log(`  Warning: Group ${groupName} not found`);
     }
+  }
+
+  private _ldapFederationConfigToComponent(
+    config: KeycloakLdapFederationConfig,
+  ): Record<string, string[]> {
+    const bool = (v: boolean | undefined, fallback: boolean) =>
+      String(v ?? fallback);
+    return {
+      enabled: ["true"],
+      priority: ["0"],
+      vendor: [config.vendor ?? "other"],
+      connectionUrl: [config.connectionUrl],
+      bindDn: [config.bindDn],
+      bindCredential: [config.bindCredential],
+      usersDn: [config.usersDn],
+      usernameLDAPAttribute: [config.usernameLdapAttribute ?? "uid"],
+      rdnLDAPAttribute: [config.rdnLdapAttribute ?? "uid"],
+      uuidLDAPAttribute: [config.uuidLdapAttribute ?? "entryUUID"],
+      userObjectClasses: [
+        config.userObjectClasses ?? "inetOrgPerson, organizationalPerson",
+      ],
+      editMode: [config.editMode ?? "READ_ONLY"],
+      importEnabled: [bool(config.importEnabled, true)],
+      pagination: [bool(config.pagination, true)],
+      searchScope: [config.searchScope ?? "1"],
+      trustEmail: [bool(config.trustEmail, true)],
+      authType: ["simple"],
+      syncRegistrations: ["false"],
+      useTruststoreSpi: ["ldapsOnly"],
+      connectionPooling: ["true"],
+      cachePolicy: ["DEFAULT"],
+    };
   }
 
   private _isConflictError(error: unknown): boolean {

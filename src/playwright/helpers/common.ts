@@ -206,17 +206,30 @@ export class LoginHelper {
     await popup.locator("#kc-login").click();
   }
 
+  /**
+   * Sign in via Keycloak popup. Supports both OIDC ("Sign In") and the
+   * community keycloak provider ("Sign in using Keycloak").
+   */
   async loginAsKeycloakUser(
     userid: string = DEFAULT_USERS[0].username,
     password: string = DEFAULT_USERS[0].password,
   ) {
     await this.page.goto("/");
     await this.uiHelper.waitForLoad(240000);
+
     const popupPromise = this.page.waitForEvent("popup");
-    await this.uiHelper.clickButton("Sign In");
+    const keycloakProviderBtn = this.page.getByRole("button", {
+      name: /sign in using keycloak/i,
+    });
+    if (await keycloakProviderBtn.isVisible().catch(() => false)) {
+      await keycloakProviderBtn.click();
+    } else {
+      await this.uiHelper.clickButton("Sign In");
+    }
+
     const popup = await popupPromise;
     await this.logintoKeycloak(popup, userid, password);
-    await this.page.waitForSelector("nav a", { timeout: 10_000 });
+    await this.page.waitForSelector("nav a", { timeout: 30_000 });
   }
 
   async loginAsGithubUser(

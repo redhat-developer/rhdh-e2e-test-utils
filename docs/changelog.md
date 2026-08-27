@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.12] - Current
+## [2.1.13] - Current
+
+### Added
+
+- **OpenLDAP helper (`./openldap`)**: Orchestrator-style `OpenLDAPHelper` deploys Bitnami legacy OpenLDAP into a test namespace with seeded users/groups (`dc=rhdh,dc=test`). Call from `test.runOnce` — not globalSetup.
+- **Keycloak LDAP federation APIs**: `createLdapUserFederation`, mappers, sync, `addClientProtocolMapper`, and `configureLdapRealm` for a separate LDAP-fed realm (OIDC claim `ldap_uuid`).
+
+### Changed
+
+- **`loginAsKeycloakUser`**: Clicks "Sign in using Keycloak" when the community auth provider is present, otherwise falls back to the built-in OIDC "Sign In" button.
+
+## [2.1.12]
 
 ### Fixed
 

@@ -187,7 +187,7 @@ OCI URL generation is strict - deployment will fail if required files are missin
 
 ## Secrets in CI
 
-Vault setup and usage details are documented here: [Using Secrets](/overlay/tutorials/using-secrets).
+Secret setup and usage details are documented here: [Using Secrets](/overlay/tutorials/using-secrets).
 
 See [Configuration Files - rhdh-secrets.yaml](/overlay/test-structure/configuration-files#rhdh-secrets-yaml-optional) for more details on the secrets flow.
 
@@ -207,7 +207,7 @@ The following environment variables are available during CI execution:
 | `JOB_MODE` | `nightly` or `pr-check` — set by step registry |
 | `E2E_NIGHTLY_MODE` | `true` for nightly jobs |
 | `E2E_TEST_UTILS_VERSION` | Pinned e2e-test-utils version (nightly only) |
-| `VAULT_*` | All Vault secrets with this prefix |
+| `VAULT_*` | All CI secret values with this legacy prefix |
 
 ### Plugin Metadata Variables
 
@@ -245,9 +245,9 @@ CI logs are available on the PR. Look for:
 ### Common CI Issues
 
 **Secrets not available:**
-- Verify the secret has `VAULT_` prefix
-- Check Vault path has correct annotations
-- Ensure you have access to the Vault path
+- Verify the secret has the `VAULT_` prefix
+- Check the CI secret collection and mounted file configuration
+- For local runs, verify `BW_SESSION` is set and unlocked
 
 **Deployment timeout:**
 - Check cluster resources
@@ -256,7 +256,7 @@ CI logs are available on the PR. Look for:
 
 **Tests pass locally but fail in CI:**
 - Check for hardcoded values that work locally
-- Verify all required secrets are in Vault
+- Verify all required secrets are in the CI secret collection
 - Ensure env vars are properly prefixed with `VAULT_`
 
 ## Local Testing Before CI
@@ -266,11 +266,11 @@ Before pushing to CI, test locally:
 ```bash
 cd workspaces/<plugin>/e2e-tests
 
-# Set required Vault secrets locally
-export VAULT_MY_SECRET="local-value"
+# Set required local secret values through Bitwarden.
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
 
 # Run tests
-yarn test
+yarn test:secrets
 ```
 
 ## Related Pages

@@ -108,8 +108,8 @@ For GitHub integration:
 | Variable                  | Description                  | Required     |
 | ------------------------- | ---------------------------- | ------------ |
 | `VAULT_GITHUB_USER_TOKEN` | GitHub personal access token | For API/auth |
-| `VAULT_GH_USER_NAME`      | GitHub username              | For login    |
-| `VAULT_GH_USER_PASSWORD`  | GitHub password              | For login    |
+| `VAULT_GH_USER_ID`        | GitHub username              | For login    |
+| `VAULT_GH_USER_PASS`      | GitHub password              | For login    |
 | `VAULT_GH_2FA_SECRET`     | 2FA secret for OTP           | For login    |
 
 ## Custom Variables
@@ -145,7 +145,7 @@ GITHUB_TOKEN=ghp_xxxxx
 MY_API_KEY=secret-value
 ```
 
-The `.env` file is automatically loaded by global setup. Variables defined here take priority over Vault secrets.
+The `.env` file is automatically loaded by global setup. Variables already supplied by the local secret wrapper are preserved; `.env` fills only missing values.
 
 ### CI/CD
 

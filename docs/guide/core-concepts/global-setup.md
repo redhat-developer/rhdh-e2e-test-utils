@@ -4,31 +4,20 @@ The package includes a global setup function that runs once before all tests. Th
 
 ## What Global Setup Does
 
-### 1. Vault Secret Loading (Local Development)
+### 1. Provider-Neutral Setup
 
-When `VAULT=1` or `VAULT=true` is set, global setup fetches secrets from HashiCorp Vault before anything else runs:
-
-- Checks that the `vault` CLI is installed
-- Logs in via OIDC if not already authenticated (opens browser)
-- Fetches global secrets and per-workspace secrets
-- Injects all `VAULT_*` keys into `process.env`
-- Only logs key names, never secret values
+Global setup does not access a secret provider. For local runs, invoke the
+standalone `rhdh-e2e-secrets` command before Playwright so selected values are
+available before configuration files, imports, and global setup execute:
 
 ```bash
-# From workspace
-VAULT=1 yarn test
-
-# From repo root
-VAULT=1 ./run-e2e.sh -w argocd
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
+rhdh-e2e-secrets exec --profile e2e-secrets.profile.json --workspace argocd -- yarn playwright test
 ```
 
-If you don't have Vault access, request it in Slack: `#rhdh-e2e-tests`.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VAULT` | Enable Vault secret loading (`1` or `true`) | - |
-| `VAULT_ADDR` | Vault server URL | `https://vault.ci.openshift.org` |
-| `VAULT_BASE_PATH` | Base path in Vault | `selfservice/rhdh-plugin-export-overlays` |
+The wrapper reads only the prefixes declared by the profile and passes the
+selected values to the child process. Existing environment values take
+priority over `.env` values loaded by global setup.
 
 ### 2. Binary Validation
 

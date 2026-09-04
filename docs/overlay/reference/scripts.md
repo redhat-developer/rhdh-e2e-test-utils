@@ -22,15 +22,16 @@ Equivalent to:
 playwright test
 ```
 
-### yarn test:vault
+### yarn test:secrets
 
-Run tests with secrets automatically fetched from Vault:
+Run tests with selected secrets fetched from Bitwarden:
 
 ```bash
-yarn test:vault
+yarn test:secrets
 ```
 
-Equivalent to `VAULT=1 yarn test`. Handles OIDC login, fetches global and per-workspace secrets. See [Running Locally - Secrets from Vault](/overlay/tutorials/running-locally#secrets-from-vault) for details.
+The script runs `rhdh-e2e-secrets exec` with the workspace profile. Export an
+unlocked `BW_SESSION` first. See [Running Locally - Secrets from Bitwarden](/overlay/tutorials/running-locally#secrets-from-bitwarden) for details.
 
 ### yarn test:headed
 
@@ -149,7 +150,7 @@ Standard `package.json` scripts section:
 {
   "scripts": {
     "test": "playwright test",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace <workspace> -- playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",

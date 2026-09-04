@@ -29,7 +29,6 @@ workspaces/<plugin>/e2e-tests/
 The `tests/config/` directory can be empty. Configuration is auto-generated from plugin metadata. See [Configuration Files](./configuration-files) for when to create specific files.
 :::
 
-
 ## Root Files
 
 ### package.json
@@ -49,7 +48,7 @@ Defines the test package with dependencies and scripts:
   "packageManager": "yarn@4.12.0",
   "scripts": {
     "test": "playwright test",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace <workspace> -- playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -63,7 +62,7 @@ Defines the test package with dependencies and scripts:
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.33",
+    "@red-hat-developer-hub/e2e-test-utils": "2.2.0",
     "@types/node": "25.5.2",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",
@@ -141,13 +140,13 @@ Contains YAML configuration files that are merged with defaults when deploying R
 **All configuration files in this directory are optional.** The package provides sensible defaults. Only create files when you need to override or extend defaults.
 :::
 
-| File | Purpose | When to Create |
-|------|---------|----------------|
-| `app-config-rhdh.yaml` | RHDH configuration | Plugin-specific settings needed |
-| `rhdh-secrets.yaml` | Kubernetes secrets | Using env vars in RHDH configs |
+| File                   | Purpose              | When to Create                          |
+| ---------------------- | -------------------- | --------------------------------------- |
+| `app-config-rhdh.yaml` | RHDH configuration   | Plugin-specific settings needed         |
+| `rhdh-secrets.yaml`    | Kubernetes secrets   | Using env vars in RHDH configs          |
 | `dynamic-plugins.yaml` | Plugin configuration | **Usually not needed** - auto-generated |
-| `value_file.yaml` | Helm values | Override Helm defaults |
-| `subscription.yaml` | Operator config | Override Operator defaults |
+| `value_file.yaml`      | Helm values          | Override Helm defaults                  |
+| `subscription.yaml`    | Operator config      | Override Operator defaults              |
 
 See [Configuration Files](./configuration-files) for complete details on each file.
 
@@ -197,20 +196,20 @@ deploy_external_service "$1"
 
 ## File Naming Conventions
 
-| File Type | Convention | Example |
-|-----------|-----------|---------|
-| Spec files | `<plugin-name>.spec.ts` | `tech-radar.spec.ts` |
-| Deployment scripts | `deploy-<service>.sh` | `deploy-customization-provider.sh` |
-| Config files | Standard names | `app-config-rhdh.yaml` |
+| File Type          | Convention              | Example                            |
+| ------------------ | ----------------------- | ---------------------------------- |
+| Spec files         | `<plugin-name>.spec.ts` | `tech-radar.spec.ts`               |
+| Deployment scripts | `deploy-<service>.sh`   | `deploy-customization-provider.sh` |
+| Config files       | Standard names          | `app-config-rhdh.yaml`             |
 
 ## Path Resolution (WorkspacePaths)
 
 Tests in this repo can run from two different working directories:
 
-| Context | CWD | How |
-|---------|-----|-----|
-| Individual workspace | `workspaces/<plugin>/e2e-tests/` | `cd workspaces/tech-radar/e2e-tests && yarn test` |
-| Repo root (unified runner) | Repository root | `./run-e2e.sh -w tech-radar` |
+| Context                    | CWD                              | How                                               |
+| -------------------------- | -------------------------------- | ------------------------------------------------- |
+| Individual workspace       | `workspaces/<plugin>/e2e-tests/` | `cd workspaces/tech-radar/e2e-tests && yarn test` |
+| Repo root (unified runner) | Repository root                  | `./run-e2e.sh -w tech-radar`                      |
 
 Configuration files live under `tests/config/` relative to each workspace's `e2e-tests/` directory. If paths were resolved from `process.cwd()`, they would break when running from the repo root.
 

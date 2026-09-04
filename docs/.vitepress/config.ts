@@ -33,7 +33,7 @@ export default defineConfig({
       { text: "Examples", link: "/examples/" },
       { text: "Overlay Testing", link: "/overlay/" },
       {
-        text: "v2.2.0",
+        text: "v2.1.13",
         items: [{ text: "Changelog", link: "/changelog" }],
       },
     ],
@@ -276,6 +276,11 @@ export default defineConfig({
             { text: "envsubst", link: "/api/utils/common" },
             { text: "Plugin Metadata", link: "/api/utils/plugin-metadata" },
           ],
+        },
+        {
+          text: "Secrets",
+          collapsed: true,
+          items: [{ text: "Secrets API", link: "/api/secrets" }],
         },
         {
           text: "ESLint",

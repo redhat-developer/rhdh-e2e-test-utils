@@ -238,31 +238,24 @@ oc login --token=<token> --server=<server>
 ### "Tests pass locally but fail in CI"
 
 **Common causes:**
-- Missing Vault secrets
+- Missing secret values
 - Secrets not prefixed with `VAULT_`
-- Missing Vault annotations
+- Missing CI secret configuration
 - Different cluster configuration
 
 **Solutions:**
 - Check CI logs for specific error
-- Verify secrets in Vault have `VAULT_` prefix
-- Check Vault path has correct annotations:
-  ```json
-  {
-    "secretsync/target-name": "rhdh-plugin-export-overlays",
-    "secretsync/target-namespace": "test-credentials"
-  }
-  ```
+- Verify the selected secret item has the `VAULT_` prefix
+- Check the CI secret collection or local Bitwarden profile
 
-### "Vault secret not available"
+### "Secret not available"
 
-**Problem:** Environment variable from Vault is undefined.
+**Problem:** A required environment variable is undefined.
 
 **Solutions:**
 - Verify secret name starts with `VAULT_`
-- Check secret is in correct Vault path (global or workspace-specific)
-- Verify Vault path has required annotations
-- Request Vault access in team-rhdh channel if needed
+- Check the item is under the correct `global/` or `workspaces/<name>/` prefix
+- For local runs, verify `BW_SESSION` is set and `bw status` reports `unlocked`
 
 ### "Resource quota exceeded"
 

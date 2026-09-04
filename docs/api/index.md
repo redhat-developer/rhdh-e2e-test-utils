@@ -14,6 +14,7 @@ Complete API documentation for all exports from `@red-hat-developer-hub/e2e-test
 | [`/helpers`](/api/helpers/ui-helper) | Helper classes |
 | [`/pages`](/api/pages/catalog-page) | Page object classes |
 | [`/eslint`](/api/eslint/create-eslint-config) | ESLint configuration |
+| [`/secrets`](/api/secrets) | Bitwarden local secret execution |
 
 ## Categories
 
@@ -56,6 +57,10 @@ Complete API documentation for all exports from `@red-hat-developer-hub/e2e-test
 - [YAML Merging](/api/utils/merge-yamls) - YAML utilities
 - [envsubst](/api/utils/common) - Environment substitution
 - [Plugin Metadata](/api/utils/plugin-metadata) - Plugin metadata injection
+
+### Secrets
+
+- [Secrets](/api/secrets) - Bitwarden-backed local execution APIs
 
 ### ESLint
 

@@ -66,10 +66,10 @@ metadata/*.yaml
   -> deploy RHDH
 ```
 
-### Vault → Secrets → Config
+### Local Secrets → Config
 
 ```text
-Vault / .env
+Bitwarden wrapper / .env
   -> rhdh-secrets.yaml
   -> app-config-rhdh.yaml
   -> deploy RHDH

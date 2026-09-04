@@ -45,7 +45,7 @@ Create `package.json` with the following content:
   "description": "E2E tests for <your-plugin>",
   "scripts": {
     "test": "playwright test",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace <your-plugin> -- playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -59,7 +59,7 @@ Create `package.json` with the following content:
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "<latest-version>",
+    "@red-hat-developer-hub/e2e-test-utils": "2.2.0",
     "@types/node": "25.5.2",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",

@@ -140,7 +140,7 @@ test.beforeEach(async ({ loginHelper }) => {
   await loginHelper.loginAsGithubUser();
 });
 ```
-By default, test user credentials will be pulled from the global workspace in vault.
+When supplied by a local secret wrapper or CI, test user credentials are read from the global secret set.
 
 ::: warning
 GitHub authentication requires 2FA secret for automated logins. This is more complex to set up than guest or Keycloak auth.
@@ -154,7 +154,7 @@ No additional environment variables required.
 
 ### Keycloak Auth
 
-These are automatically set by `KeycloakHelper.configureForRHDH()` or populated from global workspace in the vault:
+These are automatically set by `KeycloakHelper.configureForRHDH()` or populated from the caller's environment:
 
 | Variable                        | Description           |
 | ------------------------------- | --------------------- |
@@ -169,7 +169,7 @@ These are automatically set by `KeycloakHelper.configureForRHDH()` or populated 
 
 ### GitHub Auth
 
-Configuring github auth provider will populate the following variables from global workspace in the vault:
+Configuring the GitHub auth provider consumes the following variables from the caller's environment:
 
 | Variable | Description |
 |----------|-------------|

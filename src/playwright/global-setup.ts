@@ -10,12 +10,11 @@ import { KubernetesClientHelper } from "../utils/kubernetes-client.js";
 import { $ } from "../utils/bash.js";
 import { KeycloakHelper } from "../deployment/keycloak/index.js";
 import { installRHDHOperator } from "../deployment/rhdh/operator-setup.js";
+import { removeProviderEnvironmentVariables } from "../secrets/environment.js";
 import {
   DEFAULT_KEYCLOAK_CONFIG,
   DEFAULT_RHDH_CLIENT,
-  DEFAULT_USERS,
 } from "../deployment/keycloak/constants.js";
-import { loadLocalVaultSecrets } from "../utils/vault.js";
 
 const REQUIRED_BINARIES = ["oc", "kubectl", "helm"] as const;
 
@@ -72,20 +71,14 @@ async function deployKeycloak(): Promise<void> {
   process.env.KEYCLOAK_METADATA_URL = `${keycloak.keycloakUrl}/realms/${realm}`;
   process.env.KEYCLOAK_BASE_URL = keycloak.keycloakUrl;
 
-  console.table({
-    keycloakURL: keycloak.keycloakUrl,
-    adminUser: keycloak.deploymentConfig.adminUser,
-    adminPassword: keycloak.deploymentConfig.adminPassword,
-    testUsername: DEFAULT_USERS[0].username,
-    testPassword: DEFAULT_USERS[0].password,
-  });
+  console.log(`Keycloak URL: ${keycloak.keycloakUrl}`);
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
   console.log("Running global setup...");
   await checkRequiredBinaries();
-  await loadLocalVaultSecrets();
   loadDotenvFromProjects(config);
+  removeProviderEnvironmentVariables(process.env);
   await setClusterRouterBaseEnv();
   await Promise.all([installRHDHOperator(), deployKeycloak()]);
   console.log("Global setup completed successfully");
@@ -93,15 +86,16 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
 /**
  * Loads .env files from each project's e2e-tests directory.
- * Uses `override: true` so local .env values take priority over Vault secrets.
+ * Existing values supplied by the caller take priority over local .env values.
  */
-function loadDotenvFromProjects(config: FullConfig): void {
+export function loadDotenvFromProjects(config: FullConfig): void {
   const seen = new Set<string>();
   for (const project of config.projects) {
     // testDir points to e2e-tests/tests, go up one level to e2e-tests/
     const e2eRoot = resolve(project.testDir, "..");
     if (seen.has(e2eRoot)) continue;
     seen.add(e2eRoot);
-    dotenv.config({ path: resolve(e2eRoot, ".env"), override: true });
+    dotenv.config({ path: resolve(e2eRoot, ".env"), override: false });
   }
+  removeProviderEnvironmentVariables(process.env);
 }

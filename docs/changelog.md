@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.13] - Current
+## [2.1.14] - Current
+
+### Added
+
+- **Bitwarden local secret execution**: Added the `./secrets` export and `rhdh-e2e-secrets exec` command for scoped, value-free profile loading into a child test process.
+- **Bitwarden attachment-backed items**: Supports one validated attachment as an in-memory secret payload while preserving note-backed items.
+
+### Changed
+
+- **Playwright global setup**: Secret-provider access is now external to global setup, and `.env` values fill only missing environment variables.
+- **Overlay local workflows**: Secret-backed tests use the `test:secrets` command and preserve the existing `VAULT_*` payload variable names.
+
+## [2.1.13]
 
 ### Added
 

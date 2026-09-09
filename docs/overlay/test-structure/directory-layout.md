@@ -62,7 +62,7 @@ Defines the test package with dependencies and scripts:
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "2.2.0",
+    "@red-hat-developer-hub/e2e-test-utils": "2.1.14",
     "@types/node": "25.5.2",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",

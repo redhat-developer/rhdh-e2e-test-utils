@@ -158,7 +158,7 @@ Creates a root `package.json` with:
   ],
   "resolutions": {
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "2.2.0"
+    "@red-hat-developer-hub/e2e-test-utils": "2.1.14"
   }
 }
 ```

@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- **Playwright global setup**: Secret-provider access and credential cleanup are external to global setup, and `.env` values fill only missing environment variables.
+- **Playwright global setup**: Secret-provider access and credential cleanup are external to global setup. Local `.env` values override inherited values, while CI environment values remain authoritative.
 - **Overlay local workflows**: Secret-backed tests use the `test:secrets` command and preserve the existing `VAULT_*` payload variable names.
 
 ## [2.1.13]

@@ -16,8 +16,9 @@ rhdh-e2e-secrets exec --profile e2e-secrets.profile.json --workspace argocd -- y
 ```
 
 The wrapper reads only the prefixes declared by the profile and passes the
-selected values to the child process. Existing environment values take
-priority over `.env` values loaded by global setup.
+selected values to the child process. Local `.env` values override inherited
+values, including selected secrets. In CI, inherited values take priority and
+`.env` only fills missing values.
 
 The wrapper removes Bitwarden and Vault provider credentials while constructing
 the child environment. Global setup itself does not remove provider variables;

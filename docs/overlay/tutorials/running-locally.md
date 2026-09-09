@@ -235,6 +235,10 @@ INSTALLATION_METHOD=helm
 SKIP_KEYCLOAK_DEPLOYMENT=false
 ```
 
+Values in this file override inherited environment values, including secrets
+selected by the Bitwarden wrapper. Keep `.env` out of version control if it
+contains secret overrides.
+
 ### Common Variables
 
 | Variable                   | Description                                        | Default         |

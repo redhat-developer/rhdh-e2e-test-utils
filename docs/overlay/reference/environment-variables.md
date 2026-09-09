@@ -188,6 +188,10 @@ VAULT_MY_SECRET=local-test-value
 VAULT_GITHUB_TOKEN=ghp_xxx
 ```
 
+For local runs, `.env` values override inherited values, including values from
+the Bitwarden wrapper. In CI, inherited environment values take priority and
+`.env` only fills missing values.
+
 ### In Test Code
 
 Set dynamically in `beforeAll`:

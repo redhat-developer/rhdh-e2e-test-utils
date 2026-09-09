@@ -8,7 +8,7 @@ import test from "node:test";
 import type { FullConfig } from "@playwright/test";
 import { loadDotenvFromProjects } from "./global-setup.js";
 
-test("dotenv preserves parent values and loads missing provider variables", async () => {
+test("dotenv precedence follows the execution environment", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "global-setup-test-"));
   const e2eRoot = path.join(root, "e2e-tests");
   const testDir = path.join(e2eRoot, "tests");
@@ -22,16 +22,37 @@ test("dotenv preserves parent values and loads missing provider variables", asyn
   const previousSession = process.env.BW_SESSION;
   const previousProviderToken = process.env.VAULT_TOKEN;
   const previousLocal = process.env.LOCAL_ONLY;
-  process.env.VAULT_GITHUB_TOKEN = "bitwarden-value";
-  process.env.BW_SESSION = "parent-session";
-  delete process.env.VAULT_TOKEN;
-  delete process.env.LOCAL_ONLY;
+  const previousCi = process.env.CI;
   try {
-    loadDotenvFromProjects({ projects: [{ testDir }] } as FullConfig);
-    assert.equal(process.env.VAULT_GITHUB_TOKEN, "bitwarden-value");
-    assert.equal(process.env.BW_SESSION, "parent-session");
-    assert.equal(process.env.VAULT_TOKEN, "dotenv-token");
-    assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
+    await context.test("local .env values override inherited values", () => {
+      delete process.env.CI;
+      process.env.VAULT_GITHUB_TOKEN = "bitwarden-value";
+      process.env.BW_SESSION = "parent-session";
+      process.env.VAULT_TOKEN = "parent-token";
+      delete process.env.LOCAL_ONLY;
+
+      loadDotenvFromProjects({ projects: [{ testDir }] } as FullConfig);
+
+      assert.equal(process.env.VAULT_GITHUB_TOKEN, "dotenv-value");
+      assert.equal(process.env.BW_SESSION, "dotenv-session");
+      assert.equal(process.env.VAULT_TOKEN, "dotenv-token");
+      assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
+    });
+
+    await context.test("CI values override local .env values", () => {
+      process.env.CI = "true";
+      process.env.VAULT_GITHUB_TOKEN = "ci-value";
+      process.env.BW_SESSION = "ci-session";
+      process.env.VAULT_TOKEN = "ci-token";
+      delete process.env.LOCAL_ONLY;
+
+      loadDotenvFromProjects({ projects: [{ testDir }] } as FullConfig);
+
+      assert.equal(process.env.VAULT_GITHUB_TOKEN, "ci-value");
+      assert.equal(process.env.BW_SESSION, "ci-session");
+      assert.equal(process.env.VAULT_TOKEN, "ci-token");
+      assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
+    });
   } finally {
     if (previousToken === undefined) delete process.env.VAULT_GITHUB_TOKEN;
     else process.env.VAULT_GITHUB_TOKEN = previousToken;
@@ -41,6 +62,8 @@ test("dotenv preserves parent values and loads missing provider variables", asyn
     else process.env.VAULT_TOKEN = previousProviderToken;
     if (previousLocal === undefined) delete process.env.LOCAL_ONLY;
     else process.env.LOCAL_ONLY = previousLocal;
+    if (previousCi === undefined) delete process.env.CI;
+    else process.env.CI = previousCi;
     await rm(root, { recursive: true, force: true });
   }
 });

@@ -84,7 +84,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
 /**
  * Loads .env files from each project's e2e-tests directory.
- * Existing values supplied by the caller take priority over local .env values.
+ * Local .env values take priority outside CI, where inherited values remain authoritative.
  */
 export function loadDotenvFromProjects(config: FullConfig): void {
   const seen = new Set<string>();
@@ -93,6 +93,9 @@ export function loadDotenvFromProjects(config: FullConfig): void {
     const e2eRoot = resolve(project.testDir, "..");
     if (seen.has(e2eRoot)) continue;
     seen.add(e2eRoot);
-    dotenv.config({ path: resolve(e2eRoot, ".env"), override: false });
+    dotenv.config({
+      path: resolve(e2eRoot, ".env"),
+      override: !process.env.CI,
+    });
   }
 }

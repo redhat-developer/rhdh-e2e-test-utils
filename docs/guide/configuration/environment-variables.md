@@ -155,7 +155,10 @@ GITHUB_TOKEN=ghp_xxxxx
 MY_API_KEY=secret-value
 ```
 
-The `.env` file is automatically loaded by global setup. Variables already supplied by the local secret wrapper are preserved; `.env` fills only missing values.
+The `.env` file is automatically loaded by global setup. During local runs,
+`.env` values override inherited values, including values supplied by the local
+secret wrapper. In CI, inherited environment values take priority and `.env`
+only fills missing values.
 
 ### CI/CD
 
@@ -186,7 +189,9 @@ test.beforeAll(async ({ rhdh }) => {
 
 ## Variable Precedence
 
-1. Runtime (`process.env`)
-2. CI/CD environment
-3. `.env` file
-4. Default values (`${VAR:-default}`)
+During global setup:
+
+- Local runs: `.env` > inherited environment > default values
+- CI runs: inherited environment > `.env` > default values
+
+Values assigned to `process.env` after global setup override both sources.

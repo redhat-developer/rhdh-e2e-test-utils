@@ -293,3 +293,244 @@ test("fails required selectors and permits empty optional selectors", async () =
   }).read("rhdh-qe", [selectors[1]!]);
   assert.deepEqual(secrets, []);
 });
+
+function attachmentSelector(): ExpandedSecretSelector {
+  return selectors[0]!;
+}
+
+function attachmentRunner(
+  item: Record<string, unknown>,
+  attachmentResult = result("synthetic-attachment"),
+  calls: Array<readonly string[]> = [],
+): BitwardenCommandRunner {
+  return async (_command, args) => {
+    calls.push(args);
+    if (args[0] === "--version") return result("2026.5.0\n");
+    if (args[0] === "status")
+      return result(JSON.stringify({ status: "unlocked" }));
+    if (args[0] === "sync") return result();
+    if (args[0] === "list" && args[1] === "collections") {
+      return result(
+        JSON.stringify([
+          {
+            id: "collection-id",
+            name: "Rhdh Qe Ci Secrets",
+            organizationId: "org-id",
+          },
+        ]),
+      );
+    }
+    if (args[0] === "list" && args[1] === "items") {
+      return result(JSON.stringify([{ id: item.id }]));
+    }
+    if (args[0] === "get" && args[1] === "item") {
+      return result(JSON.stringify(item));
+    }
+    if (args[0] === "get" && args[1] === "attachment") {
+      return attachmentResult;
+    }
+    throw new Error(`Unexpected command: ${args.join(" ")}`);
+  };
+}
+
+test("reads one attachment through the raw Bitwarden command", async () => {
+  const calls: Array<readonly string[]> = [];
+  const runner = attachmentRunner(
+    {
+      id: "item-id",
+      name: "global/VAULT_CERT_PEM",
+      notes: null,
+      type: 2,
+      collectionIds: ["collection-id"],
+      organizationId: "org-id",
+      attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }],
+    },
+    result("synthetic-attachment"),
+    calls,
+  );
+
+  const [secret] = await new BitwardenClient({
+    env: { BW_SESSION: "synthetic-session" },
+    runner,
+  }).read("rhdh-qe", [attachmentSelector()]);
+
+  assert.equal(secret?.value, "synthetic-attachment");
+  assert.deepEqual(calls.at(-1), [
+    "get",
+    "attachment",
+    "VAULT_CERT_PEM",
+    "--itemid",
+    "item-id",
+    "--raw",
+  ]);
+});
+
+test("preserves multiline attachment contents", async () => {
+  const contents =
+    "-----BEGIN CERTIFICATE-----\nline\n-----END CERTIFICATE-----\n";
+  const runner = attachmentRunner(
+    {
+      id: "item-id",
+      name: "global/VAULT_CERT_PEM",
+      notes: "",
+      type: 2,
+      collectionIds: ["collection-id"],
+      organizationId: "org-id",
+      attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }],
+    },
+    result(contents),
+  );
+
+  const [secret] = await new BitwardenClient({
+    env: { BW_SESSION: "synthetic-session" },
+    runner,
+  }).read("rhdh-qe", [attachmentSelector()]);
+
+  assert.equal(secret?.value, contents);
+});
+
+test("rejects items with multiple attachments", async () => {
+  const runner = attachmentRunner({
+    id: "item-id",
+    name: "global/VAULT_CERT_PEM",
+    notes: null,
+    type: 2,
+    collectionIds: ["collection-id"],
+    organizationId: "org-id",
+    attachments: [
+      { id: "attachment-id", fileName: "VAULT_CERT_PEM" },
+      { id: "other-attachment-id", fileName: "other" },
+    ],
+  });
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    /exactly one attachment/i,
+  );
+});
+
+test("rejects invalid attachment metadata", async () => {
+  const runner = attachmentRunner({
+    id: "item-id",
+    name: "global/VAULT_CERT_PEM",
+    notes: null,
+    type: 2,
+    collectionIds: ["collection-id"],
+    organizationId: "org-id",
+    attachments: [{ id: "attachment-id" }],
+  });
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    /invalid attachment metadata/i,
+  );
+});
+
+test("rejects an attachment filename that does not match the sanitized item basename", async () => {
+  const runner = attachmentRunner({
+    id: "item-id",
+    name: "global/VAULT_CERT key",
+    notes: null,
+    type: 2,
+    collectionIds: ["collection-id"],
+    organizationId: "org-id",
+    attachments: [{ id: "attachment-id", fileName: "VAULT_CERT-key" }],
+  });
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    /attachment filename.*basename/i,
+  );
+});
+
+test("rejects a non-empty note combined with an attachment", async () => {
+  const runner = attachmentRunner({
+    id: "item-id",
+    name: "global/VAULT_CERT_PEM",
+    notes: "synthetic-note",
+    type: 2,
+    collectionIds: ["collection-id"],
+    organizationId: "org-id",
+    attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }],
+  });
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    /notes.*attachment/i,
+  );
+});
+
+test("rejects non-string note metadata on attachment-backed items", async () => {
+  const runner = attachmentRunner({
+    id: "item-id",
+    name: "global/VAULT_CERT_PEM",
+    notes: 42,
+    type: 2,
+    collectionIds: ["collection-id"],
+    organizationId: "org-id",
+    attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }],
+  });
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.equal(
+        error.message,
+        "Bitwarden item notes must be null or empty when an attachment is present for global/",
+      );
+      assert.doesNotMatch(error.message, /synthetic-attachment/);
+      return true;
+    },
+  );
+});
+
+test("does not expose attachment command output when the command fails", async () => {
+  const attachmentPayload = "synthetic-private-attachment";
+  const runner = attachmentRunner(
+    {
+      id: "item-id",
+      name: "global/VAULT_CERT_PEM",
+      notes: null,
+      type: 2,
+      collectionIds: ["collection-id"],
+      organizationId: "org-id",
+      attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }],
+    },
+    { status: 1, stdout: attachmentPayload, stderr: attachmentPayload },
+  );
+
+  await assert.rejects(
+    () =>
+      new BitwardenClient({
+        env: { BW_SESSION: "synthetic-session" },
+        runner,
+      }).read("rhdh-qe", [attachmentSelector()]),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.match(error.message, /attachment read failed/i);
+      assert.doesNotMatch(error.message, /synthetic-private-attachment/);
+      return true;
+    },
+  );
+});

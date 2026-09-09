@@ -13,6 +13,7 @@ export {
 export {
   BitwardenClient,
   type BitwardenClientOptions,
+  type BitwardenAttachment,
   type BitwardenSecret,
 } from "./bitwarden.js";
 export {

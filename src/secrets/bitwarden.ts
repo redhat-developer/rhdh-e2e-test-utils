@@ -23,6 +23,11 @@ export interface BitwardenSecret {
   selector: ExpandedSecretSelector;
 }
 
+export interface BitwardenAttachment {
+  id: string;
+  fileName: string;
+}
+
 interface BitwardenCollection {
   id: string;
   name: string;
@@ -203,7 +208,6 @@ export class BitwardenClient {
       if (
         value.id !== id ||
         value.type !== 2 ||
-        typeof value.notes !== "string" ||
         !Array.isArray(value.collectionIds) ||
         value.collectionIds.length !== 1 ||
         value.collectionIds[0] !== collection.id ||
@@ -213,10 +217,45 @@ export class BitwardenClient {
           `Bitwarden item ${typeof value.name === "string" ? value.name : id} is not a secure note in the selected collection`,
         );
       }
+
+      const attachment = parseAttachment(value.attachments, selector.prefix);
+      if (attachment === undefined) {
+        if (typeof value.notes !== "string") {
+          throw new Error(
+            `Bitwarden item ${value.name} is not a secure note in the selected collection`,
+          );
+        }
+        items.push({
+          id,
+          name: value.name,
+          value: value.notes,
+          selector,
+        });
+        continue;
+      }
+
+      if (
+        value.notes !== null &&
+        (typeof value.notes !== "string" || value.notes.length > 0)
+      ) {
+        throw new Error(
+          `Bitwarden item notes must be null or empty when an attachment is present for ${selector.prefix}`,
+        );
+      }
+      if (attachment.fileName !== attachmentFileName(value.name)) {
+        throw new Error(
+          `Bitwarden attachment filename does not match the item basename for ${selector.prefix}`,
+        );
+      }
+
+      const attachmentResult = await this.runOrThrow(
+        ["get", "attachment", attachment.fileName, "--itemid", id, "--raw"],
+        `Bitwarden attachment read failed for ${selector.prefix}`,
+      );
       items.push({
         id,
         name: value.name,
-        value: value.notes,
+        value: attachmentResult.stdout,
         selector,
       });
     }
@@ -248,4 +287,42 @@ function parseJson(result: CommandResult, label: string): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseAttachment(
+  value: unknown,
+  prefix: string,
+): BitwardenAttachment | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Bitwarden item has invalid attachment metadata for ${prefix}`,
+    );
+  }
+  if (value.length === 0) return undefined;
+  if (value.length !== 1) {
+    throw new Error(
+      `Bitwarden item must have exactly one attachment for ${prefix}`,
+    );
+  }
+
+  const attachment = value[0];
+  if (
+    !isRecord(attachment) ||
+    typeof attachment.id !== "string" ||
+    attachment.id.length === 0 ||
+    typeof attachment.fileName !== "string" ||
+    attachment.fileName.length === 0
+  ) {
+    throw new Error(
+      `Bitwarden item has invalid attachment metadata for ${prefix}`,
+    );
+  }
+  return { id: attachment.id, fileName: attachment.fileName };
+}
+
+function attachmentFileName(name: string): string {
+  const basename = name.split("/").at(-1) ?? name;
+  const sanitized = basename.replace(/[^A-Za-z0-9._-]/g, "_");
+  return sanitized || "secret";
 }

@@ -21,8 +21,10 @@ if (args[0] === "--version") process.stdout.write("2026.5.0\\n");
 else if (args[0] === "status") process.stdout.write(JSON.stringify({ status: "unlocked" }));
 else if (args[0] === "sync") {}
 else if (args[0] === "list" && args[1] === "collections") process.stdout.write(JSON.stringify([{ id: "collection-id", name: "Rhdh Qe Ci Secrets", organizationId: "organization-id" }]));
-else if (args[0] === "list" && args[1] === "items") process.stdout.write(JSON.stringify([{ id: "item-id" }]));
-else if (args[0] === "get" && args[1] === "item") process.stdout.write(JSON.stringify({ id: args[2], name: "global/VAULT_TOKEN", notes: "synthetic-value", type: 2, collectionIds: ["collection-id"], organizationId: "organization-id" }));
+else if (args[0] === "list" && args[1] === "items") process.stdout.write(JSON.stringify([{ id: "note-item-id" }, { id: "attachment-item-id" }]));
+else if (args[0] === "get" && args[1] === "item" && args[2] === "note-item-id") process.stdout.write(JSON.stringify({ id: "note-item-id", name: "global/VAULT_TOKEN", notes: "synthetic-note-value", type: 2, collectionIds: ["collection-id"], organizationId: "organization-id" }));
+else if (args[0] === "get" && args[1] === "item" && args[2] === "attachment-item-id") process.stdout.write(JSON.stringify({ id: "attachment-item-id", name: "global/VAULT_CERT_PEM", notes: null, type: 2, collectionIds: ["collection-id"], organizationId: "organization-id", attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }] }));
+else if (args[0] === "get" && args[1] === "attachment" && args[2] === "VAULT_CERT_PEM" && args[3] === "--itemid" && args[4] === "attachment-item-id" && args[5] === "--raw") process.stdout.write("synthetic-attachment-value");
 else process.exitCode = 1;
 `,
   );
@@ -56,7 +58,7 @@ else process.exitCode = 1;
         "--",
         process.execPath,
         "-e",
-        "if (process.env.VAULT_TOKEN === 'synthetic-value' && !process.env.BW_SESSION) process.stdout.write('child-ran'); else process.exit(1)",
+        "if (process.env.VAULT_TOKEN === 'synthetic-note-value' && process.env.VAULT_CERT_PEM === 'synthetic-attachment-value' && process.env.BW_SESSION === undefined) process.stdout.write('child-ran'); else process.exit(1)",
       ],
       {
         cwd: path.resolve("."),
@@ -70,8 +72,10 @@ else process.exitCode = 1;
     );
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /child-ran/);
-    assert.doesNotMatch(result.stdout, /synthetic-value/);
-    assert.doesNotMatch(result.stderr, /synthetic-value/);
+    assert.doesNotMatch(result.stdout, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(result.stderr, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(result.stdout, /synthetic-session/);
+    assert.doesNotMatch(result.stderr, /synthetic-session/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

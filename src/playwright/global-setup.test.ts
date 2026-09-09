@@ -8,7 +8,7 @@ import test from "node:test";
 import type { FullConfig } from "@playwright/test";
 import { loadDotenvFromProjects } from "./global-setup.js";
 
-test("dotenv values do not override secrets supplied by the parent process", async () => {
+test("dotenv preserves parent values and loads missing provider variables", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "global-setup-test-"));
   const e2eRoot = path.join(root, "e2e-tests");
   const testDir = path.join(e2eRoot, "tests");
@@ -23,14 +23,14 @@ test("dotenv values do not override secrets supplied by the parent process", asy
   const previousProviderToken = process.env.VAULT_TOKEN;
   const previousLocal = process.env.LOCAL_ONLY;
   process.env.VAULT_GITHUB_TOKEN = "bitwarden-value";
-  delete process.env.BW_SESSION;
+  process.env.BW_SESSION = "parent-session";
   delete process.env.VAULT_TOKEN;
   delete process.env.LOCAL_ONLY;
   try {
     loadDotenvFromProjects({ projects: [{ testDir }] } as FullConfig);
     assert.equal(process.env.VAULT_GITHUB_TOKEN, "bitwarden-value");
-    assert.equal(process.env.BW_SESSION, undefined);
-    assert.equal(process.env.VAULT_TOKEN, undefined);
+    assert.equal(process.env.BW_SESSION, "parent-session");
+    assert.equal(process.env.VAULT_TOKEN, "dotenv-token");
     assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
   } finally {
     if (previousToken === undefined) delete process.env.VAULT_GITHUB_TOKEN;

@@ -19,6 +19,10 @@ The wrapper reads only the prefixes declared by the profile and passes the
 selected values to the child process. Existing environment values take
 priority over `.env` values loaded by global setup.
 
+The wrapper removes Bitwarden and Vault provider credentials while constructing
+the child environment. Global setup itself does not remove provider variables;
+it only loads missing values from `.env`.
+
 ### 2. Binary Validation
 
 Checks that required CLI tools are installed and available:

@@ -27,6 +27,16 @@ These are set automatically during deployment:
 | `PLAYWRIGHT_WORKERS` | Number of parallel workers (e.g., `"4"`, `"50%"`) | `"50%"` |
 | `PLAYWRIGHT_RETRIES` | Number of test retries on failure                 | `0`     |
 
+## Local Secret Execution
+
+| Variable     | Description                                                    | Required |
+| ------------ | -------------------------------------------------------------- | -------- |
+| `BW_SESSION` | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
+
+Export `BW_SESSION` in the invoking shell before running
+`rhdh-e2e-secrets exec`. The wrapper uses it to retrieve selected secrets and
+removes it from the child test process.
+
 ## Optional Variables
 
 | Variable                              | Description                                                   | Default                    |

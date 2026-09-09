@@ -53,7 +53,18 @@ test("maps selected notes into a child environment without mutating the parent",
   assert.equal(child.VAULT_ADDR, undefined);
   assert.equal(child.VAULT_BASE_PATH, undefined);
   assert.equal(child.VAULT, undefined);
-  assert.equal(parent.VAULT_GITHUB_TOKEN, "old-value");
+  assert.deepEqual(parent, {
+    PATH: "/usr/bin",
+    VAULT_GITHUB_TOKEN: "old-value",
+    BW_SESSION: "session-value",
+    BW_CLIENTID: "client-id",
+    BW_CLIENTSECRET: "client-secret",
+    BW_PASSWORD: "password",
+    VAULT_TOKEN: "legacy-provider-token",
+    VAULT_ADDR: "legacy-provider-address",
+    VAULT_BASE_PATH: "legacy-provider-path",
+    VAULT: "legacy-provider-setting",
+  });
 });
 
 test("filters item names that do not satisfy requirePrefix", () => {

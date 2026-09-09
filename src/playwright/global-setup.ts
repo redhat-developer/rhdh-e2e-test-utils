@@ -10,7 +10,6 @@ import { KubernetesClientHelper } from "../utils/kubernetes-client.js";
 import { $ } from "../utils/bash.js";
 import { KeycloakHelper } from "../deployment/keycloak/index.js";
 import { installRHDHOperator } from "../deployment/rhdh/operator-setup.js";
-import { removeProviderEnvironmentVariables } from "../secrets/environment.js";
 import {
   DEFAULT_KEYCLOAK_CONFIG,
   DEFAULT_RHDH_CLIENT,
@@ -78,7 +77,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
   console.log("Running global setup...");
   await checkRequiredBinaries();
   loadDotenvFromProjects(config);
-  removeProviderEnvironmentVariables(process.env);
   await setClusterRouterBaseEnv();
   await Promise.all([installRHDHOperator(), deployKeycloak()]);
   console.log("Global setup completed successfully");
@@ -97,5 +95,4 @@ export function loadDotenvFromProjects(config: FullConfig): void {
     seen.add(e2eRoot);
     dotenv.config({ path: resolve(e2eRoot, ".env"), override: false });
   }
-  removeProviderEnvironmentVariables(process.env);
 }

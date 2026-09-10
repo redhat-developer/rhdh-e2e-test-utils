@@ -5,8 +5,8 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { BitwardenClient } from "./bitwarden.js";
-import type { ExpandedSecretSelector } from "./config.js";
+import { BitwardenClient } from "../bitwarden.js";
+import type { ExpandedSecretSelector } from "../config.js";
 
 const selector: ExpandedSecretSelector = {
   prefix: "global/",

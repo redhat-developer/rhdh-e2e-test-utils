@@ -2,7 +2,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseCliArguments, type ExecCliArguments } from "./cli.js";
+import { parseCliArguments, type ExecCliArguments } from "../cli.js";
 
 test("parses the exec profile, repeated workspaces, and command after --", () => {
   const parsed = parseCliArguments([

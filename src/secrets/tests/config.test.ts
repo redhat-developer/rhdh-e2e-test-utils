@@ -7,7 +7,7 @@ import {
   getCollectionMapping,
   parseProfile,
   type SecretProfile,
-} from "./config.js";
+} from "../config.js";
 
 const overlayProfile: SecretProfile = {
   schemaVersion: 1,

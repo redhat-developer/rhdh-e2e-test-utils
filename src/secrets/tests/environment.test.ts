@@ -5,8 +5,8 @@ import test from "node:test";
 import {
   materializeEnvironment,
   type EnvironmentSecret,
-} from "./environment.js";
-import type { ExpandedSecretSelector } from "./config.js";
+} from "../environment.js";
+import type { ExpandedSecretSelector } from "../config.js";
 
 const selector: ExpandedSecretSelector = {
   prefix: "global/",

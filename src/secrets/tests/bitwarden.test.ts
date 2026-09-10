@@ -2,8 +2,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BitwardenClient, type BitwardenCommandRunner } from "./bitwarden.js";
-import type { ExpandedSecretSelector } from "./config.js";
+import { BitwardenClient, type BitwardenCommandRunner } from "../bitwarden.js";
+import type { ExpandedSecretSelector } from "../config.js";
 
 const selectors: ExpandedSecretSelector[] = [
   {

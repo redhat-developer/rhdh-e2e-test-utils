@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { FullConfig } from "@playwright/test";
-import { loadDotenvFromProjects } from "./global-setup.js";
+import { loadDotenvFromProjects } from "../global-setup.js";
 
 test("dotenv precedence follows the execution environment", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "global-setup-test-"));

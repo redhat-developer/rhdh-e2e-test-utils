@@ -2,9 +2,9 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { executeCommand, runChild, type ChildRunner } from "./exec.js";
-import type { BitwardenSecret } from "./bitwarden.js";
-import type { SecretProfile } from "./config.js";
+import { executeCommand, runChild, type ChildRunner } from "../exec.js";
+import type { BitwardenSecret } from "../bitwarden.js";
+import type { SecretProfile } from "../config.js";
 
 const profile: SecretProfile = {
   schemaVersion: 1,

@@ -7,30 +7,30 @@ For using @red-hat-developer-hub/e2e-test-utils in external projects, see the [G
 
 This page documents all environment variables used in overlay E2E tests.
 
-## Vault Secrets (VAULT\_\*)
+## Secret Variables (VAULT\_\*)
 
-In OpenShift CI, secrets are managed through [HashiCorp Vault](https://vault.ci.openshift.org) and automatically exported as environment variables.
+OpenShift CI and the local Bitwarden wrapper expose selected secret values as
+environment variables. The `VAULT_` prefix is a retained secret-name
+convention for these legacy payload names; it does not select a provider.
 
 All secrets **must** start with the `VAULT_` prefix (e.g., `VAULT_API_KEY`, `VAULT_GITHUB_TOKEN`).
 
-For complete Vault setup instructions including paths, annotations, and access requests, see [OpenShift CI Pipeline - Vault Secrets](/overlay/tutorials/ci-pipeline#vault-secrets).
+For local access, use the `e2e-secrets.profile.json` profile and the
+`rhdh-e2e-secrets exec` command.
 
-## Vault Auto-Loading (Local Development)
+## Bitwarden Access (Local Development)
 
-Set `VAULT=1` or `VAULT=true` to automatically fetch secrets from Vault during global setup. This replaces the need to manually copy secrets into `.env` files.
-
-| Variable          | Description                           | Default                                   |
-| ----------------- | ------------------------------------- | ----------------------------------------- |
-| `VAULT`           | Enable automatic Vault secret loading | -                                         |
-| `VAULT_ADDR`      | Vault server URL                      | `https://vault.ci.openshift.org`          |
-| `VAULT_BASE_PATH` | Base path in Vault KV store           | `selfservice/rhdh-plugin-export-overlays` |
+The `--secrets` runner flag or `test:secrets` script invokes the standalone
+wrapper. It requires `BW_SESSION` from an already unlocked `bw` session and
+does not create a persistent secret file.
 
 ```bash
-VAULT=1 yarn test
-VAULT=1 ./run-e2e.sh -w argocd
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
+yarn test:secrets
+./run-e2e.sh --secrets -w argocd
 ```
 
-See [Running Locally - Secrets from Vault](/overlay/tutorials/running-locally#secrets-from-vault) for full details.
+See [Running Locally - Secrets from Bitwarden](/overlay/tutorials/running-locally#secrets-from-bitwarden) for full details.
 
 ## Core Variables
 
@@ -183,10 +183,14 @@ RHDH_VERSION=1.5
 INSTALLATION_METHOD=helm
 SKIP_KEYCLOAK_DEPLOYMENT=false
 
-# Vault secrets for local testing
+# Secret values for local testing may be supplied by Bitwarden.
 VAULT_MY_SECRET=local-test-value
 VAULT_GITHUB_TOKEN=ghp_xxx
 ```
+
+For local runs, `.env` values override inherited values, including values from
+the Bitwarden wrapper. In CI, inherited environment values take priority and
+`.env` only fills missing values.
 
 ### In Test Code
 
@@ -202,9 +206,9 @@ test.beforeAll(async ({ rhdh }) => {
 });
 ```
 
-### In Vault (CI)
+### In CI secret storage
 
-Add secrets to the appropriate Vault path with `VAULT_` prefix:
+Add secrets to the approved CI collection with the `VAULT_` prefix:
 
 ```
 VAULT_MY_SECRET: secret-value

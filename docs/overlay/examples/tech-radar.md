@@ -10,6 +10,7 @@ This is a complete annotated example of E2E tests for the Tech Radar plugin in t
 ## Overview
 
 The Tech Radar plugin displays technology choices in a radar visualization. The E2E tests verify that:
+
 - The plugin loads correctly
 - The radar displays expected sections
 - Specific technologies appear in the correct sections
@@ -52,7 +53,7 @@ workspaces/tech-radar/e2e-tests/
   "description": "E2E tests for Tech Radar plugin",
   "scripts": {
     "test": "playwright test",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace tech-radar -- playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -66,7 +67,7 @@ workspaces/tech-radar/e2e-tests/
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.33",
+    "@red-hat-developer-hub/e2e-test-utils": "2.1.14",
     "@types/node": "25.5.2",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",
@@ -142,6 +143,7 @@ techRadar:
 ```
 
 **Key points:**
+
 - `app.title` - Custom title for the test instance
 - `backend.reading.allow` - Allows RHDH to fetch from the data provider
 - `techRadar.url` - URL to the Tech Radar JSON data
@@ -196,6 +198,7 @@ deploy_test_backstage_customization_provider "$1"
 ```
 
 **Key points:**
+
 - Idempotent - checks if resources exist before creating
 - Dynamic Node.js version detection from cluster
 - Fallback to known working version
@@ -222,27 +225,30 @@ test.describe("Test tech-radar plugin", () => {
   // Wrap in runOnce — the external service deployment is expensive
   // and should not re-run when Playwright restarts the worker after a test failure
   test.beforeAll(async ({ rhdh }) => {
-    await test.runOnce(`tech-radar-setup-${rhdh.deploymentConfig.namespace}`, async () => {
-      const project = rhdh.deploymentConfig.namespace;
+    await test.runOnce(
+      `tech-radar-setup-${rhdh.deploymentConfig.namespace}`,
+      async () => {
+        const project = rhdh.deploymentConfig.namespace;
 
-      // Configure RHDH with Keycloak authentication
-      await rhdh.configure({ auth: "keycloak" });
+        // Configure RHDH with Keycloak authentication
+        await rhdh.configure({ auth: "keycloak" });
 
-      // Deploy the external data provider service
-      await $`bash ${setupScript} ${project}`;
+        // Deploy the external data provider service
+        await $`bash ${setupScript} ${project}`;
 
-      // Get the route URL and set as environment variable
-      // Remove http:// prefix as the config expects just the host
-      process.env.TECH_RADAR_DATA_URL = (
-        await rhdh.k8sClient.getRouteLocation(
-          project,
-          "test-backstage-customization-provider",
-        )
-      ).replace("http://", "");
+        // Get the route URL and set as environment variable
+        // Remove http:// prefix as the config expects just the host
+        process.env.TECH_RADAR_DATA_URL = (
+          await rhdh.k8sClient.getRouteLocation(
+            project,
+            "test-backstage-customization-provider",
+          )
+        ).replace("http://", "");
 
-      // Deploy RHDH (will use the TECH_RADAR_DATA_URL env var)
-      await rhdh.deploy();
-    });
+        // Deploy RHDH (will use the TECH_RADAR_DATA_URL env var)
+        await rhdh.deploy();
+      },
+    );
   });
 
   // beforeEach runs before each test
@@ -282,6 +288,7 @@ async function verifyRadarDetails(page: Page, section: string, text: string) {
 ```
 
 **Key points:**
+
 - Uses `rhdh` fixture for deployment management
 - Uses `$` utility for bash command execution
 - Gets route URL via `k8sClient.getRouteLocation()`

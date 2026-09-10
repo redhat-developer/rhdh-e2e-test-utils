@@ -10,6 +10,7 @@ This is a minimal example of E2E tests for a simple plugin that doesn't require 
 ## Overview
 
 This example shows the simplest possible E2E test setup for a plugin in the overlay repository. Use this as a starting point for plugins that:
+
 - Don't require external data providers
 - Don't need custom Kubernetes resources
 - Have straightforward UI interactions
@@ -49,7 +50,7 @@ workspaces/<plugin>/e2e-tests/
   "description": "E2E tests for <plugin>",
   "scripts": {
     "test": "playwright test",
-    "test:vault": "VAULT=1 playwright test",
+    "test:secrets": "rhdh-e2e-secrets exec --profile ../../../e2e-secrets.profile.json --workspace <workspace> -- playwright test",
     "report": "playwright show-report",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -63,7 +64,7 @@ workspaces/<plugin>/e2e-tests/
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.33",
+    "@red-hat-developer-hub/e2e-test-utils": "2.1.14",
     "@types/node": "25.5.2",
     "eslint": "10.2.0",
     "eslint-plugin-check-file": "3.3.1",
@@ -209,15 +210,15 @@ test.describe("Test <plugin>", () => {
 
 ## Common UIhelper Methods
 
-| Method | Description |
-|--------|-------------|
-| `openSidebar(name)` | Click sidebar navigation item |
-| `verifyHeading(text)` | Verify heading text is visible |
-| `verifyText(text)` | Verify text is visible |
-| `clickButton(name)` | Click button by name |
-| `clickLink(text)` | Click link by text |
-| `fillTextInputByLabel(label, value)` | Fill input field |
-| `waitForLoad()` | Wait for page to finish loading |
+| Method                               | Description                     |
+| ------------------------------------ | ------------------------------- |
+| `openSidebar(name)`                  | Click sidebar navigation item   |
+| `verifyHeading(text)`                | Verify heading text is visible  |
+| `verifyText(text)`                   | Verify text is visible          |
+| `clickButton(name)`                  | Click button by name            |
+| `clickLink(text)`                    | Click link by text              |
+| `fillTextInputByLabel(label, value)` | Fill input field                |
+| `waitForLoad()`                      | Wait for page to finish loading |
 
 See [UIhelper API](/api/helpers/ui-helper) for the full API reference.
 

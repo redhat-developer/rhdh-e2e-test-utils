@@ -89,7 +89,7 @@ If you only need a secret in your test code, just use `process.env.VAULT_*` dire
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│ Vault / .env    │────▶│ rhdh-secrets.yaml│────▶│ app-config-rhdh.yaml│
+│ Secrets / .env  │────▶│ rhdh-secrets.yaml│────▶│ app-config-rhdh.yaml│
 │ VAULT_MY_SECRET │     │ MY_SECRET: $VAR  │     │ ${MY_SECRET}        │
 │                 │     │ (substituted)    │     │ (references secret) │
 └─────────────────┘     └──────────────────┘     └─────────────────────┘
@@ -105,7 +105,7 @@ metadata:
 type: Opaque
 stringData:
   # Left side: name to use in app-config (with ${...})
-  # Right side: reference to env var from Vault/.env (with $)
+  # Right side: reference to a supplied env var (with $)
   SECRET_NAME: $VAULT_SECRET_NAME
 ```
 
@@ -165,9 +165,9 @@ TECH_RADAR_DATA_URL=my-service.apps.cluster.example.com
 GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 ```
 
-### In Vault (CI)
+### In CI secret storage
 
-Add secrets to Vault with `VAULT_` prefix. They are automatically exported during OpenShift CI execution:
+Add secrets to the approved CI collection with the `VAULT_` prefix. They are automatically exported during OpenShift CI execution:
 
 ```
 VAULT_TECH_RADAR_DATA_URL: my-service.apps.cluster.example.com

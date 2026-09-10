@@ -135,13 +135,13 @@ When this file is processed, any `$VAR_NAME` references are replaced with actual
 
 ```
 ┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│ Vault / .env    │────▶│ rhdh-secrets.yaml│────▶│ app-config-rhdh.yaml│
+│ Secrets / .env  │────▶│ rhdh-secrets.yaml│────▶│ app-config-rhdh.yaml│
 │ MY_SECRET=value │     │ MY_SECRET: $VAR  │     │ ${MY_SECRET}        │
 │                 │     │ (substituted)    │     │ (references secret) │
 └─────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
-1. Environment variable exists (from Vault in CI, or `.env` locally)
+1. Environment variable exists (from CI, the Bitwarden wrapper, or `.env` locally)
 2. `rhdh-secrets.yaml` references it with `$VAR_NAME` - **substituted with actual value**
 3. RHDH configs reference the secret with `${VAR_NAME}`
 
@@ -368,9 +368,9 @@ For local development:
 TECH_RADAR_DATA_URL=my-service.example.com
 ```
 
-### 3. In Vault (CI)
+### 3. In CI secret storage
 
-Add secrets to the Vault with `VAULT_` prefix. They are automatically exported during OpenShift CI execution:
+Add secrets to the CI secret collection with the `VAULT_` prefix. They are automatically exported during OpenShift CI execution:
 
 ```
 VAULT_TECH_RADAR_DATA_URL: my-service.apps.cluster.example.com
@@ -384,7 +384,7 @@ techRadar:
 ```
 
 ::: warning Secret Naming
-All secrets in Vault **must** start with `VAULT_` prefix for automatic export.
+All locally readable secrets **must** start with the `VAULT_` prefix for automatic environment mapping.
 :::
 
 ## Common Configuration Patterns

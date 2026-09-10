@@ -74,15 +74,15 @@ import { test } from "@red-hat-developer-hub/e2e-test-utils/test";
 
 test.beforeAll(async ({ rhdh }) => {
   // Set secrets at runtime
-  process.env.GITHUB_TOKEN = await getSecretFromVault("github-token");
-  process.env.API_KEY = await getSecretFromVault("api-key");
+  process.env.GITHUB_TOKEN = await getSecret("github-token");
+  process.env.API_KEY = await getSecret("api-key");
 
   await rhdh.configure({ auth: "keycloak" });
   await rhdh.deploy();
 });
 
-async function getSecretFromVault(name: string): Promise<string> {
-  // Your vault integration
+async function getSecret(name: string): Promise<string> {
+  // Use the secret provider approved for your environment.
   return "secret-value";
 }
 ```

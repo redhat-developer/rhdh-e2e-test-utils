@@ -15,7 +15,6 @@ import {
   DEFAULT_RHDH_CLIENT,
   DEFAULT_USERS,
 } from "../deployment/keycloak/constants.js";
-import { loadLocalVaultSecrets } from "../utils/vault.js";
 
 const REQUIRED_BINARIES = ["oc", "kubectl", "helm"] as const;
 
@@ -84,7 +83,6 @@ async function deployKeycloak(): Promise<void> {
 export default async function globalSetup(config: FullConfig): Promise<void> {
   console.log("Running global setup...");
   await checkRequiredBinaries();
-  await loadLocalVaultSecrets();
   loadDotenvFromProjects(config);
   await setClusterRouterBaseEnv();
   await Promise.all([installRHDHOperator(), deployKeycloak()]);
@@ -93,9 +91,9 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
 /**
  * Loads .env files from each project's e2e-tests directory.
- * Uses `override: true` so local .env values take priority over Vault secrets.
+ * Uses `override: true` so local .env values take priority over inherited values.
  */
-function loadDotenvFromProjects(config: FullConfig): void {
+export function loadDotenvFromProjects(config: FullConfig): void {
   const seen = new Set<string>();
   for (const project of config.projects) {
     // testDir points to e2e-tests/tests, go up one level to e2e-tests/

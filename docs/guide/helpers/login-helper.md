@@ -62,8 +62,8 @@ await loginHelper.loginAsGithubUser();
 ```
 
 Required environment variables:
-- `VAULT_GH_USER_NAME` - GitHub username
-- `VAULT_GH_USER_PASSWORD` - GitHub password
+- `VAULT_GH_USER_ID` - GitHub username
+- `VAULT_GH_USER_PASS` - GitHub password
 - `VAULT_GH_2FA_SECRET` - GitHub 2FA secret (for OTP generation)
 
 ::: warning
@@ -192,8 +192,8 @@ test("login flow", async ({ page, loginHelper }) => {
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `VAULT_GH_USER_NAME` | GitHub username | Yes |
-| `VAULT_GH_USER_PASSWORD` | GitHub password | Yes |
+| `VAULT_GH_USER_ID` | GitHub username | Yes |
+| `VAULT_GH_USER_PASS` | GitHub password | Yes |
 | `VAULT_GH_2FA_SECRET` | 2FA secret for OTP | Yes |
 
 ## Troubleshooting

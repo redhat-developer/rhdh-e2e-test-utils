@@ -27,6 +27,16 @@ These are set automatically during deployment:
 | `PLAYWRIGHT_WORKERS` | Number of parallel workers (e.g., `"4"`, `"50%"`) | `"50%"` |
 | `PLAYWRIGHT_RETRIES` | Number of test retries on failure                 | `0`     |
 
+## Local Secret Execution
+
+| Variable     | Description                                                    | Required |
+| ------------ | -------------------------------------------------------------- | -------- |
+| `BW_SESSION` | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
+
+Export `BW_SESSION` in the invoking shell before running
+`rhdh-e2e-secrets exec`. The wrapper uses it to retrieve selected secrets and
+removes it from the child test process.
+
 ## Optional Variables
 
 | Variable                              | Description                                                   | Default                    |
@@ -108,8 +118,8 @@ For GitHub integration:
 | Variable                  | Description                  | Required     |
 | ------------------------- | ---------------------------- | ------------ |
 | `VAULT_GITHUB_USER_TOKEN` | GitHub personal access token | For API/auth |
-| `VAULT_GH_USER_NAME`      | GitHub username              | For login    |
-| `VAULT_GH_USER_PASSWORD`  | GitHub password              | For login    |
+| `VAULT_GH_USER_ID`        | GitHub username              | For login    |
+| `VAULT_GH_USER_PASS`      | GitHub password              | For login    |
 | `VAULT_GH_2FA_SECRET`     | 2FA secret for OTP           | For login    |
 
 ## Custom Variables
@@ -145,7 +155,10 @@ GITHUB_TOKEN=ghp_xxxxx
 MY_API_KEY=secret-value
 ```
 
-The `.env` file is automatically loaded by global setup. Variables defined here take priority over Vault secrets.
+The `.env` file is automatically loaded by global setup. During local runs,
+`.env` values override inherited values, including values supplied by the local
+secret wrapper. In CI, inherited environment values take priority and `.env`
+only fills missing values.
 
 ### CI/CD
 
@@ -176,7 +189,9 @@ test.beforeAll(async ({ rhdh }) => {
 
 ## Variable Precedence
 
-1. Runtime (`process.env`)
-2. CI/CD environment
-3. `.env` file
-4. Default values (`${VAR:-default}`)
+During global setup:
+
+- Local runs: `.env` > inherited environment > default values
+- CI runs: inherited environment > `.env` > default values
+
+Values assigned to `process.env` after global setup override both sources.

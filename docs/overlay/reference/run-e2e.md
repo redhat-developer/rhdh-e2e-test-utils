@@ -60,29 +60,29 @@ A workspace is discovered when it has a `workspaces/<name>/e2e-tests/` directory
 
 ### RHDH Deployment
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RHDH_VERSION` | RHDH version to deploy (e.g., `1.10`, `next`) | `1.10` |
-| `INSTALLATION_METHOD` | Deployment method: `helm` or `operator` | `helm` |
-| `SKIP_KEYCLOAK_DEPLOYMENT` | Set `true` to skip Keycloak deployment | - |
-| `CATALOG_INDEX_IMAGE` | Override the default catalog index image baked into the RHDH chart | - |
+| Variable                   | Description                                                        | Default |
+| -------------------------- | ------------------------------------------------------------------ | ------- |
+| `RHDH_VERSION`             | RHDH version to deploy (e.g., `1.10`, `next`)                      | `1.10`  |
+| `INSTALLATION_METHOD`      | Deployment method: `helm` or `operator`                            | `helm`  |
+| `SKIP_KEYCLOAK_DEPLOYMENT` | Set `true` to skip Keycloak deployment                             | -       |
+| `CATALOG_INDEX_IMAGE`      | Override the default catalog index image baked into the RHDH chart | -       |
 
 ### Test Framework
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `CI` | Enables CI mode (forbidOnly, namespace teardown) | `true` |
-| `PLAYWRIGHT_VERSION` | Pin `@playwright/test` version | `1.59.1` |
-| `E2E_TEST_UTILS_PATH` | Absolute path to a local `e2e-test-utils` build (for testing unpublished changes) | - |
-| `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version | `latest` (nightly), empty otherwise |
+| Variable                 | Description                                                                       | Default                             |
+| ------------------------ | --------------------------------------------------------------------------------- | ----------------------------------- |
+| `CI`                     | Enables CI mode (forbidOnly, namespace teardown)                                  | `true`                              |
+| `PLAYWRIGHT_VERSION`     | Pin `@playwright/test` version                                                    | `1.59.1`                            |
+| `E2E_TEST_UTILS_PATH`    | Absolute path to a local `e2e-test-utils` build (for testing unpublished changes) | -                                   |
+| `E2E_TEST_UTILS_VERSION` | Pin `@red-hat-developer-hub/e2e-test-utils` npm version                           | `latest` (nightly), empty otherwise |
 
 ### Plugin Resolution
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `E2E_NIGHTLY_MODE` | When `true`, uses released OCI images from metadata; defaults `E2E_TEST_UTILS_VERSION` to `latest` | `false` |
-| `GIT_PR_NUMBER` | PR number for OCI URL generation (uses PR-built images) | - |
-| `JOB_NAME` | CI job name; if contains `periodic-`, disables metadata injection. Also used to [auto-derive skip tags](#skip-tags). | - |
+| Variable           | Description                                                                                                          | Default |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------- | ------- |
+| `E2E_NIGHTLY_MODE` | When `true`, uses released OCI images from metadata; defaults `E2E_TEST_UTILS_VERSION` to `latest`                   | `false` |
+| `GIT_PR_NUMBER`    | PR number for OCI URL generation (uses PR-built images)                                                              | -       |
+| `JOB_NAME`         | CI job name; if contains `periodic-`, disables metadata injection. Also used to [auto-derive skip tags](#skip-tags). | -       |
 
 ## Skip Tags
 
@@ -92,11 +92,11 @@ When `JOB_NAME` is set (by OpenShift CI), the script auto-derives a Playwright t
 
 The job suffix is extracted from `JOB_NAME` by stripping everything up to and including `-e2e-`. A negative lookahead `(?!-)` is appended so each tag matches exactly — `@skip-ocp-helm` won't accidentally filter `@skip-ocp-helm-nightly`:
 
-| JOB_NAME (suffix shown) | `--grep-invert` pattern |
-|--------------------------|-------------------------|
-| `...-e2e-ocp-helm` | `@skip-ocp-helm(?!-)` |
-| `...-e2e-ocp-helm-nightly` | `@skip-ocp-helm-nightly(?!-)` |
-| `...-e2e-ocp-operator` | `@skip-ocp-operator(?!-)` |
+| JOB_NAME (suffix shown)        | `--grep-invert` pattern           |
+| ------------------------------ | --------------------------------- |
+| `...-e2e-ocp-helm`             | `@skip-ocp-helm(?!-)`             |
+| `...-e2e-ocp-helm-nightly`     | `@skip-ocp-helm-nightly(?!-)`     |
+| `...-e2e-ocp-operator`         | `@skip-ocp-operator(?!-)`         |
 | `...-e2e-ocp-operator-nightly` | `@skip-ocp-operator-nightly(?!-)` |
 
 If `JOB_NAME` doesn't contain `-e2e-`, no tag is derived and no filtering is applied.
@@ -146,15 +146,19 @@ Scans `workspaces/*/e2e-tests/` for directories containing both `package.json` a
 ### 3. Generate Root `package.json`
 
 Creates a root `package.json` with:
+
 - **Yarn workspaces** pointing to selected `workspaces/*/e2e-tests` directories
 - **Resolutions** to pin `@playwright/test` and optionally `@red-hat-developer-hub/e2e-test-utils`
 
 ```json
 {
-  "workspaces": ["workspaces/tech-radar/e2e-tests", "workspaces/keycloak/e2e-tests"],
+  "workspaces": [
+    "workspaces/tech-radar/e2e-tests",
+    "workspaces/keycloak/e2e-tests"
+  ],
   "resolutions": {
     "@playwright/test": "1.59.1",
-    "@red-hat-developer-hub/e2e-test-utils": "1.1.30"
+    "@red-hat-developer-hub/e2e-test-utils": "2.1.14"
   }
 }
 ```
@@ -180,6 +184,7 @@ Runs `npx playwright test` with any additional arguments passed through. All arg
 ### 7. Display Summary
 
 Parses `playwright-report/results.json` and displays:
+
 - Duration, passed/failed/flaky/skipped counts
 - Overall status (PASSED/FAILED)
 - Report file location
@@ -245,12 +250,12 @@ All arguments not recognized as `-w`/`--workspace` are forwarded directly to Pla
 
 The script generates these temporary files in the repository root:
 
-| File | Purpose |
-|------|---------|
-| `package.json` | Root workspace config with resolutions |
-| `.yarnrc.yml` | Yarn node-modules linker config |
-| `playwright.config.ts` | Combined Playwright config with all workspace projects |
-| `playwright.list.config.ts` | Lightweight config for `--list` mode (when used) |
+| File                        | Purpose                                                |
+| --------------------------- | ------------------------------------------------------ |
+| `package.json`              | Root workspace config with resolutions                 |
+| `.yarnrc.yml`               | Yarn node-modules linker config                        |
+| `playwright.config.ts`      | Combined Playwright config with all workspace projects |
+| `playwright.list.config.ts` | Lightweight config for `--list` mode (when used)       |
 
 These files are generated fresh on each run.
 
@@ -269,13 +274,13 @@ No changes to test code are needed. The same spec files work both with `yarn tes
 
 Two strategies were evaluated for running all workspace tests in CI:
 
-| | Single root Playwright | Per-workspace shell parallel |
-|---|---|---|
-| **Parallelism** | Worker-level — Playwright auto-balances across all projects | Workspace-level — a large workspace bottlenecks while small ones sit idle |
-| **Keycloak** | `globalSetup` runs once, no races | Multiple processes deploy simultaneously, causing races |
-| **Reporting** | Single report with traces/screenshots/videos | Blob merge step needed, adds a failure point |
-| **Dependency validation** | Yarn resolutions validates upgrades across all workspaces in one run | No way to test a dependency upgrade across all workspaces at once |
-| **CLI** | Standard Playwright flags work (`--project`, `--grep`, `--shard`) | Flags must be forwarded per-process |
+|                           | Single root Playwright                                               | Per-workspace shell parallel                                              |
+| ------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Parallelism**           | Worker-level — Playwright auto-balances across all projects          | Workspace-level — a large workspace bottlenecks while small ones sit idle |
+| **Keycloak**              | `globalSetup` runs once, no races                                    | Multiple processes deploy simultaneously, causing races                   |
+| **Reporting**             | Single report with traces/screenshots/videos                         | Blob merge step needed, adds a failure point                              |
+| **Dependency validation** | Yarn resolutions validates upgrades across all workspaces in one run | No way to test a dependency upgrade across all workspaces at once         |
+| **CLI**                   | Standard Playwright flags work (`--project`, `--grep`, `--shard`)    | Flags must be forwarded per-process                                       |
 
 The single root approach requires [WorkspacePaths](#path-resolution) to resolve config paths correctly, but this change is backward-compatible and benefits all execution modes.
 

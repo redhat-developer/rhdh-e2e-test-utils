@@ -1,20 +1,24 @@
 # Using Secrets
 
-This page explains how to consume Vault secrets in overlay E2E tests.
+This page explains how to consume secret values in overlay E2E tests.
 
 ## Where Secrets Come From
 
-In OpenShift CI, Vault secrets are exported as environment variables with the `VAULT_` prefix.
+In OpenShift CI, mounted secret files are exported as environment variables
+with the `VAULT_` prefix. Local runs use the same variable names through the
+Bitwarden wrapper.
 
-For **local development**, set `VAULT=1` to automatically fetch secrets from Vault instead of manually copying them into `.env` files:
+For **local development**, unlock Bitwarden, export `BW_SESSION`, and run the
+secret-backed script:
 
 ```bash
-VAULT=1 yarn test
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
+yarn test:secrets
 ```
 
-See [Running Locally](/overlay/tutorials/running-locally#secrets-from-vault) for details.
+See [Running Locally](/overlay/tutorials/running-locally#secrets-from-bitwarden) for details.
 
-## Vault Setup (CI)
+## Secret Collections
 
 ### Secret Naming Convention
 
@@ -24,32 +28,27 @@ All secrets must start with the `VAULT_` prefix (e.g., `VAULT_API_KEY`).
 
 Global secrets are available to **all** workspace tests. Use these for shared values.
 
-**Vault Path:** [Global Secrets](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/selfservice%2Frhdh-plugin-export-overlays%2Fglobal/details)
+The local profile selects the `global/` prefix from the approved Bitwarden
+collection.
 
 ### Workspace-Specific Secrets
 
-Secrets for a specific workspace should be stored here:
+Secrets for a specific workspace use this item-name prefix:
 
 ```
-selfservice/rhdh-plugin-export-overlays/workspaces/<workspace-name>
+workspaces/<workspace-name>/
 ```
 
-**Example (tech-radar):** [Tech Radar Secrets](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/selfservice%2Frhdh-plugin-export-overlays%2Fworkspaces%2Ftech-radar/details)
+For example, Tech Radar uses `workspaces/tech-radar/`.
 
-### Required Vault Annotations
+The workspace selector is optional so global-only workspaces can run. The
+global selector remains required.
 
-Each workspace-specific secret path must include:
+## CI Secret Delivery
 
-```json
-{
-  "secretsync/target-name": "rhdh-plugin-export-overlays",
-  "secretsync/target-namespace": "test-credentials"
-}
-```
-
-### Requesting Vault Access
-
-If you don't have access, request it in the team-rhdh channel.
+CI continues to provide secrets through its existing mounted-file and
+environment contracts. This package does not change CI secret mounts or read
+CI secret-manager values.
 
 ## Use in Test Code (Direct Access)
 
@@ -71,7 +70,8 @@ test.beforeAll(async ({ rhdh }) => {
 
 ## Use in RHDH Configuration Files
 
-To use Vault secrets in `app-config-rhdh.yaml` or `dynamic-plugins.yaml`, you must first add them to `rhdh-secrets.yaml`.
+To use secret values in `app-config-rhdh.yaml` or `dynamic-plugins.yaml`, you
+must first add them to `rhdh-secrets.yaml`.
 
 ### Step 1: Add to rhdh-secrets.yaml
 
@@ -84,7 +84,7 @@ metadata:
 type: Opaque
 stringData:
   # Left side: name to use in app-config
-  # Right side: reference to Vault secret (with $)
+  # Right side: reference to a supplied secret environment variable (with $)
   EXTERNAL_HOST: $VAULT_EXTERNAL_HOST
   MY_PLUGIN_API_KEY: $VAULT_MY_PLUGIN_API_KEY
 ```
@@ -110,29 +110,21 @@ myPlugin:
 
 ## Related Pages
 
-- [CI Pipeline](/overlay/tutorials/ci-pipeline) - CI and Vault setup
+- [CI Pipeline](/overlay/tutorials/ci-pipeline) - CI secret delivery
 - [Configuration Files](/overlay/test-structure/configuration-files) - YAML config flow
 
 ## Adding a New Workspace to CI
 
 When adding E2E tests to a new workspace:
 
-1. **Create workspace-specific secret path in Vault:**
-   ```
-   selfservice/rhdh-plugin-export-overlays/workspaces/<your-workspace>
-   ```
+1. **Add workspace-specific secure notes to the approved collection:**
+    ```
+    workspaces/<your-workspace>/
+    ```
 
-2. **Add required annotations:**
-   ```json
-   {
-     "secretsync/target-name": "rhdh-plugin-export-overlays",
-     "secretsync/target-namespace": "test-credentials"
-   }
-   ```
+2. **Add secure notes with the `VAULT_` prefix:**
+    ```
+    VAULT_YOUR_SECRET: <value>
+    ```
 
-3. **Add secrets with `VAULT_` prefix:**
-   ```
-   VAULT_YOUR_SECRET: <value>
-   ```
-
-4. **Reference secrets in your configuration files**
+3. **Reference secrets in your configuration files.**

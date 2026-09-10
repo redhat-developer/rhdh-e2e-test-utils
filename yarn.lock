@@ -404,6 +404,8 @@ __metadata:
     zx: "npm:8.8.5"
   peerDependencies:
     "@playwright/test": ^1.57.0
+  bin:
+    rhdh-e2e-secrets: ./dist/secrets/cli.js
   languageName: unknown
   linkType: soft
 

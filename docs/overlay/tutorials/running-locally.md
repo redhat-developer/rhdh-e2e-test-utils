@@ -196,62 +196,53 @@ If you see odd module-resolution issues while testing a locally linked `e2e-test
 NODE_PRESERVE_SYMLINKS=1 yarn test:headed
 ```
 
-## Secrets from Vault
+## Secrets from Bitwarden
 
-Instead of manually copying secrets from the Vault UI into `.env` files, you can fetch them automatically by setting `VAULT=1`:
+Local secret-backed tests use the standalone `rhdh-e2e-secrets` executable and
+an unlocked Bitwarden Password Manager CLI session. The wrapper runs outside
+Playwright, so secrets are available before configuration files and global
+setup are evaluated.
 
 ```bash
-# From workspace
+# Unlock Bitwarden and export the session key in the current shell.
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
+
+# From a workspace
 cd workspaces/argocd/e2e-tests
-yarn test:vault
+yarn test:secrets
 
-# Or equivalently
-VAULT=1 yarn test
-
-# From repo root
-VAULT=1 ./run-e2e.sh -w argocd
+# From the repository root
+./run-e2e.sh --secrets -w argocd
 ```
 
-This will:
+The overlay profile requests `global/*` and the selected
+`workspaces/<name>/*` prefix. Workspace-specific values are optional, while
+the global prefix is required. Secret values are passed only to the child
+test process; no secret `.env` file is generated.
 
-1. Check that the `vault` CLI is installed
-2. Log you in via OIDC if needed (opens a browser)
-3. Fetch global secrets and all per-workspace secrets from Vault
-4. Inject `VAULT_*` keys into `process.env` for the test run
-
-::: tip
-If you don't have Vault access, request it in Slack: `#rhdh-e2e-tests`.
-:::
-
-**Prerequisites:** Install the [Vault CLI](https://developer.hashicorp.com/vault/downloads).
-
-You can also override the Vault server or base path:
-
-```bash
-VAULT=1 VAULT_ADDR=https://my-vault.example.com VAULT_BASE_PATH=my/path yarn test
-```
+**Prerequisites:** Install the [Bitwarden Password Manager CLI](https://bitwarden.com/help/cli/), unlock it, and make `bw` available on `PATH`.
 
 ## Environment Variables
 
 ### Using .env File
 
-Create `.env` for local configuration (alternative to Vault):
+Create `.env` for non-secret local configuration:
 
 ```bash
 # .env
 RHDH_VERSION=1.5
 INSTALLATION_METHOD=helm
 SKIP_KEYCLOAK_DEPLOYMENT=false
-
-# Secrets (or use VAULT=1 instead)
-VAULT_GITHUB_TOKEN=ghp_xxx
 ```
+
+Values in this file override inherited environment values, including secrets
+selected by the Bitwarden wrapper. Keep `.env` out of version control if it
+contains secret overrides.
 
 ### Common Variables
 
 | Variable                   | Description                                        | Default         |
 | -------------------------- | -------------------------------------------------- | --------------- |
-| `VAULT`                    | Fetch secrets from Vault automatically (`1` or `true`) | -           |
 | `RHDH_VERSION`             | RHDH version to deploy                             | `next` (latest) |
 | `INSTALLATION_METHOD`      | `helm` or `operator`                               | `helm`          |
 | `SKIP_KEYCLOAK_DEPLOYMENT` | Skip Keycloak deployment entirely (for guest auth) | `false`         |

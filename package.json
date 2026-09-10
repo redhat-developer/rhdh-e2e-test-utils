@@ -1,6 +1,6 @@
 {
   "name": "@red-hat-developer-hub/e2e-test-utils",
-  "version": "2.1.13",
+  "version": "2.1.14",
   "description": "Test utilities for RHDH E2E tests",
   "license": "Apache-2.0",
   "repository": {
@@ -56,7 +56,14 @@
     "./openldap": {
       "types": "./dist/deployment/openldap/index.d.ts",
       "default": "./dist/deployment/openldap/index.js"
+    },
+    "./secrets": {
+      "types": "./dist/secrets/index.d.ts",
+      "default": "./dist/secrets/index.js"
     }
+  },
+  "bin": {
+    "rhdh-e2e-secrets": "./dist/secrets/cli.js"
   },
   "publishConfig": {
     "access": "public"
@@ -66,7 +73,7 @@
     "tsconfig.base.json"
   ],
   "scripts": {
-    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/ && cp -r src/deployment/openldap/config dist/deployment/openldap/ && cp src/deployment/orchestrator/install-orchestrator.sh dist/deployment/orchestrator/",
+    "build": "yarn clean && tsc -p tsconfig.build.json && cp -r src/deployment/rhdh/config dist/deployment/rhdh/ && cp -r src/deployment/keycloak/config dist/deployment/keycloak/ && cp -r src/deployment/openldap/config dist/deployment/openldap/ && cp src/deployment/orchestrator/install-orchestrator.sh dist/deployment/orchestrator/ && chmod +x dist/secrets/cli.js",
     "prepare": "husky",
     "check": "yarn typecheck && yarn lint:check && yarn prettier:check",
     "clean": "rm -rf dist",

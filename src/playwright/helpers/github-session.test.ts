@@ -46,7 +46,7 @@ describe("github session file naming", () => {
     );
   });
 
-  it("does not throw when the vault user id is unset", () => {
+  it("does not throw when the GitHub user id is unset", () => {
     // loginAsGithubUser defaults to `process.env.VAULT_GH_USER_ID as string`, and the
     // cast hides the undefined. Building the path must not be where that surfaces —
     // a TypeError here points nowhere near the missing variable.

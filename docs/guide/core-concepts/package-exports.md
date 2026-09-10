@@ -15,6 +15,7 @@ The package provides multiple entry points for different use cases. Each export 
 | `@red-hat-developer-hub/e2e-test-utils/pages` | Page object classes for common RHDH pages |
 | `@red-hat-developer-hub/e2e-test-utils/eslint` | ESLint configuration factory |
 | `@red-hat-developer-hub/e2e-test-utils/tsconfig` | Base TypeScript configuration |
+| `@red-hat-developer-hub/e2e-test-utils/secrets` | Bitwarden local secret execution APIs |
 
 ## Detailed Exports
 
@@ -112,6 +113,21 @@ Factory function for creating ESLint flat config with Playwright and TypeScript 
 ```
 
 Base TypeScript configuration to extend in your project.
+
+### Secrets (`/secrets`)
+
+```typescript
+import {
+  BitwardenClient,
+  executeCommand,
+  parseProfile,
+} from "@red-hat-developer-hub/e2e-test-utils/secrets";
+```
+
+The secrets export provides profile validation, scoped Bitwarden reads, safe
+child-environment materialization, and programmatic command execution. The
+`rhdh-e2e-secrets` CLI is a separate executable and is not imported by
+Playwright global setup.
 
 ## Usage Patterns
 

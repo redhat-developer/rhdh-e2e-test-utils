@@ -8,7 +8,7 @@ import test from "node:test";
 import type { FullConfig } from "@playwright/test";
 import { loadDotenvFromProjects } from "../global-setup.js";
 
-test("dotenv precedence follows the execution environment", async (context) => {
+test("workspace .env values override inherited values", async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "global-setup-test-"));
   const e2eRoot = path.join(root, "e2e-tests");
   const testDir = path.join(e2eRoot, "tests");
@@ -39,7 +39,7 @@ test("dotenv precedence follows the execution environment", async (context) => {
       assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
     });
 
-    await context.test("CI values override local .env values", () => {
+    await context.test("workspace .env values override CI values", () => {
       process.env.CI = "true";
       process.env.VAULT_GITHUB_TOKEN = "ci-value";
       process.env.BW_SESSION = "ci-session";
@@ -48,9 +48,9 @@ test("dotenv precedence follows the execution environment", async (context) => {
 
       loadDotenvFromProjects({ projects: [{ testDir }] } as FullConfig);
 
-      assert.equal(process.env.VAULT_GITHUB_TOKEN, "ci-value");
-      assert.equal(process.env.BW_SESSION, "ci-session");
-      assert.equal(process.env.VAULT_TOKEN, "ci-token");
+      assert.equal(process.env.VAULT_GITHUB_TOKEN, "dotenv-value");
+      assert.equal(process.env.BW_SESSION, "dotenv-session");
+      assert.equal(process.env.VAULT_TOKEN, "dotenv-token");
       assert.equal(process.env.LOCAL_ONLY, "dotenv-only");
     });
   } finally {

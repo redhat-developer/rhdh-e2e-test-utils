@@ -13,6 +13,7 @@ import { installRHDHOperator } from "../deployment/rhdh/operator-setup.js";
 import {
   DEFAULT_KEYCLOAK_CONFIG,
   DEFAULT_RHDH_CLIENT,
+  DEFAULT_USERS,
 } from "../deployment/keycloak/constants.js";
 
 const REQUIRED_BINARIES = ["oc", "kubectl", "helm"] as const;
@@ -70,7 +71,13 @@ async function deployKeycloak(): Promise<void> {
   process.env.KEYCLOAK_METADATA_URL = `${keycloak.keycloakUrl}/realms/${realm}`;
   process.env.KEYCLOAK_BASE_URL = keycloak.keycloakUrl;
 
-  console.log(`Keycloak URL: ${keycloak.keycloakUrl}`);
+  console.table({
+    keycloakURL: keycloak.keycloakUrl,
+    adminUser: keycloak.deploymentConfig.adminUser,
+    adminPassword: keycloak.deploymentConfig.adminPassword,
+    testUsername: DEFAULT_USERS[0].username,
+    testPassword: DEFAULT_USERS[0].password,
+  });
 }
 
 export default async function globalSetup(config: FullConfig): Promise<void> {
@@ -84,7 +91,7 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
 
 /**
  * Loads .env files from each project's e2e-tests directory.
- * Local .env values take priority outside CI, where inherited values remain authoritative.
+ * Uses `override: true` so local .env values take priority over inherited values.
  */
 export function loadDotenvFromProjects(config: FullConfig): void {
   const seen = new Set<string>();
@@ -93,9 +100,6 @@ export function loadDotenvFromProjects(config: FullConfig): void {
     const e2eRoot = resolve(project.testDir, "..");
     if (seen.has(e2eRoot)) continue;
     seen.add(e2eRoot);
-    dotenv.config({
-      path: resolve(e2eRoot, ".env"),
-      override: !process.env.CI,
-    });
+    dotenv.config({ path: resolve(e2eRoot, ".env"), override: true });
   }
 }

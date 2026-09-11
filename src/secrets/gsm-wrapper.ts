@@ -11,10 +11,12 @@ import {
 import os from "node:os";
 import path from "node:path";
 import {
+  assertInteractiveTerminal,
   runCommand,
   type CommandResult,
   type CommandRunner,
 } from "./command.js";
+import type { GsmRunOptions } from "./gsm.js";
 
 const WRAPPER_URL =
   "https://raw.githubusercontent.com/openshift/release/main/hack/secret-manager.sh";
@@ -65,13 +67,18 @@ export class GsmWrapper {
   async run(
     args: readonly string[],
     timeoutMs?: number,
-    stdio: "pipe" | "inherit" = "pipe",
+    options: GsmRunOptions = {},
   ): Promise<GsmWrapperRunResult> {
     const metadata = await this.ensureWrapper();
     const result = await this.commandRunner(
       "bash",
       [metadata.scriptPath, ...args],
-      { env: this.env, timeoutMs, stdio },
+      {
+        env: this.env,
+        timeoutMs,
+        stdio: options.stdio,
+        tty: options.tty,
+      },
     );
     return {
       ...result,
@@ -81,11 +88,15 @@ export class GsmWrapper {
   }
 
   async login(): Promise<GsmWrapperRunResult> {
-    return this.run(["login"], undefined, "inherit");
+    return this.run(["login"], undefined, { stdio: "inherit", tty: true });
   }
 
   async clean(): Promise<GsmWrapperRunResult> {
-    return this.run(["clean"], undefined, "inherit");
+    return this.run(["clean"], undefined, { stdio: "inherit" });
+  }
+
+  async ensureInteractive(): Promise<void> {
+    await assertInteractiveTerminal();
   }
 
   private async ensureWrapper(): Promise<GsmWrapperMetadata> {

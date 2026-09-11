@@ -5,9 +5,9 @@ access and child-process execution for local tests. It does not run from
 Playwright global setup.
 
 The same package exposes the standalone `rhdh-e2e-secrets` executable for
-single-secret Bitwarden and Google Secret Manager (GSM) rotation. Rotation
-updates Bitwarden first, verifies the new value, and then delegates the GSM
-write to OpenShift CI's `secret-manager.sh` wrapper.
+paired Bitwarden and Google Secret Manager (GSM) operations. Mutations update
+Bitwarden first and then delegate the GSM operation to OpenShift CI's
+`secret-manager.sh` wrapper.
 
 ## Local Command
 
@@ -22,42 +22,87 @@ rhdh-e2e-secrets exec \
 The `bw` executable must be installed locally and available on `PATH`. The
 tool does not log in, unlock, lock, or persist the Bitwarden session.
 
-## Rotation
+## Mutations
 
-Dry-run validates the selected Bitwarden secure note, the corresponding GSM
-metadata, and the replacement input without writing either provider:
+Mutation commands apply by default. Add `--dry-run` to validate both providers,
+read the input, and print the value-free plan without writing either provider.
+
+`--from-file` creates or updates an attachment-backed Bitwarden item;
+`--from-stdin` creates or updates a note-backed item. Use exactly one input
+source. `--allow-empty` is required for an empty value.
+
+### Create
 
 ```bash
-rhdh-e2e-secrets rotate \
+rhdh-e2e-secrets create \
   --collection rhdh-qe \
-  --path rhdh/test \
+  rhdh/test \
   --from-file ./replacement.txt
 ```
 
-Use exactly one of `--from-file` and `--from-stdin`. Apply mode requires
-`--apply`; `--allow-empty` is required for an empty replacement. The GSM
-timeout defaults to 600 seconds and can be changed with
-`--gsm-timeout-seconds`.
+Create requires the path to be absent from both providers. `--force` reconciles
+an existing or partially-created target: missing entries are created and
+existing entries are updated. GSM's native create command prompts for its
+non-secret metadata.
 
 ```bash
-cat ./replacement.txt | rhdh-e2e-secrets rotate \
+cat ./replacement.txt | rhdh-e2e-secrets create \
   --collection rhdh-qe \
-  --path rhdh/test \
+  rhdh/test \
   --from-stdin \
-  --apply
+  --force \
+  --dry-run
 ```
 
-If Bitwarden succeeds and GSM fails or times out, the output operation ID can
-resume the same verified value without requesting it again:
+### Update
 
 ```bash
-rhdh-e2e-secrets rotate --resume <rotation-id> --apply
+rhdh-e2e-secrets update \
+  --collection rhdh-qe \
+  rhdh/test \
+  --from-stdin
 ```
 
-The three paired collection names are `rhdh-qe`, `rhdh-test-instance`, and
-`rhdh-plugin-export-overlays`. The GSM path is derived from the original
-Bitwarden path by replacing `.` with `--dot--`; paths containing the encoding
-are rejected as ambiguous. `rhdh-aws-credentials` remains GSM-only.
+Update requires the target to exist in both providers and preserves the
+Bitwarden item's current storage form.
+
+### Delete
+
+```bash
+rhdh-e2e-secrets delete \
+  --collection rhdh-qe \
+  rhdh/test
+```
+
+Delete requires both providers to contain the target. Bitwarden items are
+moved to Trash, while GSM deletes the secret. `--force` deletes whichever
+provider entries exist and skips entries that are already absent.
+
+If a provider operation fails after the other provider was changed, retry the
+same command. Use `--force` for `create` or `delete` when the first attempt
+created or removed only one side. There is no resume journal or stored secret
+value.
+
+## GSM Read Commands
+
+`describe` shows GSM metadata without reading Bitwarden or exposing the secret
+value:
+
+```bash
+rhdh-e2e-secrets describe --collection rhdh-qe rhdh/test --output json
+```
+
+`list` shows the supported paired collections, or GSM paths within one paired
+collection:
+
+```bash
+rhdh-e2e-secrets list
+rhdh-e2e-secrets list --collection rhdh-qe --output json
+```
+
+Both commands support `--output text|json` and do not require `BW_SESSION`.
+
+## GSM Authentication
 
 Before GSM operations, authenticate through the cached OpenShift CI wrapper:
 
@@ -80,15 +125,14 @@ getCollectionMapping(collection: string): CollectionMapping
 new BitwardenClient(options?: BitwardenClientOptions)
 executeCommand(options: ExecuteCommandOptions): Promise<number>
 materializeEnvironment(secrets, selectors, parent?): NodeJS.ProcessEnv
-readRotationInput(options): Promise<RotationInput>
-executeRotation(options): Promise<RotationResult>
-new JournalStore(directory?)
+readSecretInput(options): Promise<SecretInput>
+executeMutation(options): Promise<MutationResult>
+new GsmClient(options?: GsmClientOptions)
 ```
 
 Profiles contain collection and prefix selectors but never secret values. Only
-the approved readable collections are accepted; `rhdh-aws-credentials` is
-explicitly denied. Environment destinations preserve legacy `VAULT_*` names
-when the profile requests the `legacy-env` transformation.
+the approved paired collections are accepted; `rhdh-aws-credentials` is
+explicitly denied for Bitwarden operations.
 
 ## Related Pages
 

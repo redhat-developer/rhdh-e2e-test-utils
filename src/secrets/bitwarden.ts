@@ -31,13 +31,13 @@ export interface BitwardenAttachment {
   fileName: string;
 }
 
-export type BitwardenRotationStorage = "note" | "attachment";
+export type BitwardenSecretStorage = "note" | "attachment";
 
-export interface BitwardenRotationItem {
+export interface BitwardenSecretItem {
   id: string;
   name: string;
   value: string;
-  storage: BitwardenRotationStorage;
+  storage: BitwardenSecretStorage;
   revisionDate: string;
   raw: Record<string, unknown>;
   attachments: readonly BitwardenAttachment[];
@@ -116,10 +116,19 @@ export class BitwardenClient {
     return result;
   }
 
-  async readRotationItem(
+  async readItem(
     collectionId: ReadableCollectionId,
     name: string,
-  ): Promise<BitwardenRotationItem> {
+  ): Promise<BitwardenSecretItem> {
+    const item = await this.findItem(collectionId, name);
+    if (!item) throw new Error(`Bitwarden item not found: ${name}`);
+    return item;
+  }
+
+  async findItem(
+    collectionId: ReadableCollectionId,
+    name: string,
+  ): Promise<BitwardenSecretItem | undefined> {
     const mapping = getCollectionMapping(collectionId);
     await this.ensureSession();
     await this.runOrThrow(["sync"], "Bitwarden sync failed");
@@ -138,99 +147,122 @@ export class BitwardenClient {
     const ids = values.flatMap((value) =>
       isRecord(value) && typeof value.id === "string" ? [value.id] : [],
     );
-    const matches: BitwardenRotationItem[] = [];
+    const matches: BitwardenSecretItem[] = [];
     for (const id of ids) {
-      const item = await this.readRotationItemById(id, collection, name);
+      const item = await this.readItemById(id, collection, name);
       if (item.name === name) matches.push(item);
     }
-    if (matches.length === 0)
-      throw new Error(`Bitwarden item not found: ${name}`);
+    if (matches.length === 0) return undefined;
     if (matches.length > 1)
       throw new Error(`Bitwarden item name is ambiguous: ${name}`);
     return matches[0]!;
   }
 
-  async updateRotationItem(
-    item: BitwardenRotationItem,
+  async createItem(
+    collectionId: ReadableCollectionId,
+    name: string,
     value: string,
-  ): Promise<BitwardenRotationItem> {
-    const current = await this.refreshRotationItem(item);
+    storage: BitwardenSecretStorage,
+  ): Promise<BitwardenSecretItem> {
+    const mapping = getCollectionMapping(collectionId);
+    await this.ensureSession();
+    await this.runOrThrow(["sync"], "Bitwarden sync failed");
+    const collection = await this.resolveCollection(
+      mapping.bitwardenCollection,
+    );
+    this.selectedCollection = collection;
+
+    const payload = this.itemPayload({
+      name,
+      collection,
+      notes: storage === "note" ? value : null,
+      attachments: [],
+    });
+    const encoded = await this.encodeItem(payload, name);
+    const created = await this.runOrThrow(
+      ["create", "item"],
+      `Bitwarden item creation failed for ${name}`,
+      encoded,
+    );
+    const createdValue = parseJson(
+      created,
+      `Bitwarden item creation for ${name}`,
+    );
+    const createdId =
+      isRecord(createdValue) && typeof createdValue.id === "string"
+        ? createdValue.id
+        : undefined;
+    if (!createdId) {
+      throw new Error(`Bitwarden item creation returned no id: ${name}`);
+    }
+
+    try {
+      if (storage === "attachment") {
+        await this.createAttachment(
+          createdId,
+          attachmentFileName(name),
+          value,
+          name,
+        );
+      }
+      const verified = await this.refreshItemById(createdId, collection, name);
+      if (verified.value !== value || verified.storage !== storage) {
+        throw new Error(`Bitwarden read-back verification failed: ${name}`);
+      }
+      return verified;
+    } catch (error) {
+      try {
+        await this.deleteItemById(createdId, name);
+      } catch {
+        throw new Error(
+          `Bitwarden item creation failed and cleanup failed: ${name}`,
+          { cause: error },
+        );
+      }
+      throw error;
+    }
+  }
+
+  async deleteItem(item: BitwardenSecretItem): Promise<void> {
+    await this.ensureSession();
+    await this.deleteItemById(item.id, item.name);
+    await this.runOrThrow(["sync"], "Bitwarden sync failed");
+    if (this.selectedCollection && (await this.findItemInSelected(item.name))) {
+      throw new Error(
+        `Bitwarden item deletion could not be verified: ${item.name}`,
+      );
+    }
+  }
+
+  async updateItem(
+    item: BitwardenSecretItem,
+    value: string,
+    storage: BitwardenSecretStorage = item.storage,
+  ): Promise<BitwardenSecretItem> {
+    const current = await this.refreshItem(item);
     if (current.revisionDate !== item.revisionDate) {
       throw new Error(`Bitwarden item changed before update: ${item.name}`);
     }
     item = current;
-    if (item.value === value) return item;
+    if (item.value === value && item.storage === storage) return item;
 
-    if (item.storage === "note") {
-      const payload = {
-        ...item.raw,
-        name: item.name,
-        notes: value,
-        type: 2,
-        collectionIds: item.raw.collectionIds,
-        organizationId: item.raw.organizationId,
-        secureNote: { type: 0 },
-        login: null,
-        card: null,
-        identity: null,
-      };
-      await this.editItem(item.id, payload, item.name);
-      return this.refreshRotationItem(item);
-    }
-
-    if (!item.attachment) {
-      throw new Error(`Bitwarden attachment metadata missing: ${item.name}`);
-    }
-    try {
-      await this.runOrThrow(
-        ["delete", "attachment", item.attachment.id],
-        `Bitwarden attachment update failed for ${item.name}`,
-      );
-      await this.createAttachment(
+    if (item.storage === storage && item.storage === "note") {
+      await this.editItem(
         item.id,
-        item.attachment.fileName,
-        value,
+        this.updatedItemPayload(item, value, "note"),
         item.name,
       );
-      const updated = await this.refreshRotationItem(item);
-      if (updated.value !== value) {
-        throw new Error(
-          `Bitwarden read-back verification failed: ${item.name}`,
-        );
-      }
-      return updated;
-    } catch (error) {
-      try {
-        const attachments = await this.readAttachmentMetadata(item);
-        for (const attachment of attachments) {
-          if (attachment.fileName === item.attachment.fileName) {
-            await this.runOrThrow(
-              ["delete", "attachment", attachment.id],
-              `Bitwarden attachment rollback failed for ${item.name}`,
-            );
-          }
-        }
-        await this.createAttachment(
-          item.id,
-          item.attachment.fileName,
-          item.value,
-          item.name,
-        );
-      } catch {
-        throw new Error(
-          `Bitwarden update failed and attachment rollback failed: ${item.name}`,
-        );
-      }
-      if (
-        error instanceof Error &&
-        /read-back verification failed/.test(error.message)
-      ) {
-        throw error;
-      }
-      throw new Error(`Bitwarden attachment update failed: ${item.name}`, {
-        cause: error,
-      });
+      return this.refreshItem(item);
     }
+
+    if (item.storage === storage && item.storage === "attachment") {
+      return this.updateAttachment(item, value);
+    }
+
+    if (storage === "attachment") {
+      return this.convertNoteToAttachment(item, value);
+    }
+    return this.convertAttachmentToNote(item, value);
   }
 
   private async resolveCollection(
@@ -414,11 +446,11 @@ export class BitwardenClient {
     }
   }
 
-  private async readRotationItemById(
+  private async readItemById(
     id: string,
     collection: BitwardenCollection,
     label: string,
-  ): Promise<BitwardenRotationItem> {
+  ): Promise<BitwardenSecretItem> {
     const result = await this.runOrThrow(
       ["get", "item", id],
       `Bitwarden item read failed for ${label}`,
@@ -486,24 +518,268 @@ export class BitwardenClient {
     };
   }
 
-  private async refreshRotationItem(
-    item: BitwardenRotationItem,
-  ): Promise<BitwardenRotationItem> {
+  private async refreshItem(
+    item: BitwardenSecretItem,
+  ): Promise<BitwardenSecretItem> {
     if (!this.selectedCollection) {
       throw new Error(
         "Bitwarden collection must be loaded before refreshing an item",
       );
     }
     await this.runOrThrow(["sync"], "Bitwarden sync failed");
-    return this.readRotationItemById(
-      item.id,
-      this.selectedCollection,
-      item.name,
+    return this.readItemById(item.id, this.selectedCollection, item.name);
+  }
+
+  private async refreshItemById(
+    id: string,
+    collection: BitwardenCollection,
+    name: string,
+  ): Promise<BitwardenSecretItem> {
+    await this.runOrThrow(["sync"], "Bitwarden sync failed");
+    return this.readItemById(id, collection, name);
+  }
+
+  private async findItemInSelected(
+    name: string,
+  ): Promise<BitwardenSecretItem | undefined> {
+    if (!this.selectedCollection) return undefined;
+    const listed = await this.runOrThrow(
+      [
+        "list",
+        "items",
+        "--collectionid",
+        this.selectedCollection.id,
+        "--search",
+        name,
+      ],
+      `Bitwarden item listing failed for ${name}`,
+    );
+    const values = parseJson(listed, `Bitwarden item list for ${name}`);
+    if (!Array.isArray(values)) return undefined;
+    for (const value of values) {
+      if (!isRecord(value) || typeof value.id !== "string") continue;
+      try {
+        const item = await this.readItemById(
+          value.id,
+          this.selectedCollection,
+          name,
+        );
+        if (item.name === name) return item;
+      } catch {
+        // Items moved to the Bitwarden trash are intentionally not returned.
+      }
+    }
+    return undefined;
+  }
+
+  private async deleteItemById(id: string, name: string): Promise<void> {
+    await this.runOrThrow(
+      ["delete", "item", id],
+      `Bitwarden item deletion failed for ${name}`,
     );
   }
 
+  private itemPayload(options: {
+    name: string;
+    collection: BitwardenCollection;
+    notes: string | null;
+    attachments: readonly unknown[];
+  }): Record<string, unknown> {
+    return {
+      type: 2,
+      name: options.name,
+      notes: options.notes,
+      attachments: options.attachments,
+      collectionIds: [options.collection.id],
+      organizationId: options.collection.organizationId,
+      secureNote: { type: 0 },
+      login: null,
+      card: null,
+      identity: null,
+    };
+  }
+
+  private updatedItemPayload(
+    item: BitwardenSecretItem,
+    value: string,
+    storage: BitwardenSecretStorage,
+  ): Record<string, unknown> {
+    return {
+      ...item.raw,
+      name: item.name,
+      notes: storage === "note" ? value : null,
+      attachments: [],
+      type: 2,
+      collectionIds: item.raw.collectionIds,
+      organizationId: item.raw.organizationId,
+      secureNote: { type: 0 },
+      login: null,
+      card: null,
+      identity: null,
+    };
+  }
+
+  private async encodeItem(
+    payload: Record<string, unknown>,
+    name: string,
+  ): Promise<string> {
+    const encoded = await this.runOrThrow(
+      ["encode"],
+      "Bitwarden JSON encoding failed",
+      JSON.stringify(payload),
+    );
+    if (encoded.stdout.trim().length === 0) {
+      throw new Error(`Bitwarden JSON encoding failed: ${name}`);
+    }
+    return encoded.stdout.trim();
+  }
+
+  private async updateAttachment(
+    item: BitwardenSecretItem,
+    value: string,
+  ): Promise<BitwardenSecretItem> {
+    if (!item.attachment) {
+      throw new Error(`Bitwarden attachment metadata missing: ${item.name}`);
+    }
+    try {
+      await this.runOrThrow(
+        ["delete", "attachment", item.attachment.id],
+        `Bitwarden attachment update failed for ${item.name}`,
+      );
+      await this.createAttachment(
+        item.id,
+        item.attachment.fileName,
+        value,
+        item.name,
+      );
+      const updated = await this.refreshItem(item);
+      if (updated.value !== value) {
+        throw new Error(
+          `Bitwarden read-back verification failed: ${item.name}`,
+        );
+      }
+      return updated;
+    } catch (error) {
+      await this.restoreAttachment(item);
+      if (
+        error instanceof Error &&
+        /read-back verification failed/.test(error.message)
+      ) {
+        throw error;
+      }
+      throw new Error(`Bitwarden attachment update failed: ${item.name}`, {
+        cause: error,
+      });
+    }
+  }
+
+  private async convertNoteToAttachment(
+    item: BitwardenSecretItem,
+    value: string,
+  ): Promise<BitwardenSecretItem> {
+    await this.editItem(
+      item.id,
+      this.updatedItemPayload(item, value, "attachment"),
+      item.name,
+    );
+    try {
+      await this.createAttachment(
+        item.id,
+        attachmentFileName(item.name),
+        value,
+        item.name,
+      );
+      const updated = await this.refreshItem(item);
+      if (updated.storage !== "attachment" || updated.value !== value) {
+        throw new Error(
+          `Bitwarden read-back verification failed: ${item.name}`,
+        );
+      }
+      return updated;
+    } catch (error) {
+      await this.restoreNote(item);
+      throw error;
+    }
+  }
+
+  private async convertAttachmentToNote(
+    item: BitwardenSecretItem,
+    value: string,
+  ): Promise<BitwardenSecretItem> {
+    if (!item.attachment) {
+      throw new Error(`Bitwarden attachment metadata missing: ${item.name}`);
+    }
+    try {
+      await this.runOrThrow(
+        ["delete", "attachment", item.attachment.id],
+        `Bitwarden attachment update failed for ${item.name}`,
+      );
+      await this.editItem(
+        item.id,
+        this.updatedItemPayload(item, value, "note"),
+        item.name,
+      );
+      const updated = await this.refreshItem(item);
+      if (updated.storage !== "note" || updated.value !== value) {
+        throw new Error(
+          `Bitwarden read-back verification failed: ${item.name}`,
+        );
+      }
+      return updated;
+    } catch (error) {
+      await this.restoreAttachment(item);
+      throw error;
+    }
+  }
+
+  private async restoreNote(item: BitwardenSecretItem): Promise<void> {
+    try {
+      await this.editItem(
+        item.id,
+        this.updatedItemPayload(item, item.value, "note"),
+        item.name,
+      );
+    } catch {
+      throw new Error(
+        `Bitwarden update failed and note rollback failed: ${item.name}`,
+      );
+    }
+  }
+
+  private async restoreAttachment(item: BitwardenSecretItem): Promise<void> {
+    if (!item.attachment) {
+      throw new Error(`Bitwarden attachment metadata missing: ${item.name}`);
+    }
+    try {
+      await this.editItem(
+        item.id,
+        this.updatedItemPayload(item, item.value, "attachment"),
+        item.name,
+      );
+      const attachments = await this.readAttachmentMetadata(item);
+      for (const attachment of attachments) {
+        if (attachment.fileName === item.attachment.fileName) {
+          await this.runOrThrow(
+            ["delete", "attachment", attachment.id],
+            `Bitwarden attachment rollback failed for ${item.name}`,
+          );
+        }
+      }
+      await this.createAttachment(
+        item.id,
+        item.attachment.fileName,
+        item.value,
+        item.name,
+      );
+    } catch {
+      throw new Error(
+        `Bitwarden update failed and attachment rollback failed: ${item.name}`,
+      );
+    }
+  }
+
   private async readAttachmentMetadata(
-    item: BitwardenRotationItem,
+    item: BitwardenSecretItem,
   ): Promise<readonly BitwardenAttachment[]> {
     const result = await this.runOrThrow(
       ["get", "item", item.id],
@@ -546,9 +822,7 @@ export class BitwardenClient {
     if (path.basename(fileName) !== fileName) {
       throw new Error(`Bitwarden attachment filename is unsafe: ${name}`);
     }
-    const directory = await mkdtemp(
-      path.join(os.tmpdir(), "rhdh-e2e-rotation-"),
-    );
+    const directory = await mkdtemp(path.join(os.tmpdir(), "rhdh-e2e-secret-"));
     const filePath = path.join(directory, fileName);
     try {
       await writeFile(filePath, value, { encoding: "utf8", mode: 0o600 });

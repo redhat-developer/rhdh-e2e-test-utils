@@ -75,7 +75,7 @@ export function getCollectionMapping(collection: string): CollectionMapping {
 }
 
 export function gsmPathFromBitwardenPath(path: string): string {
-  validateRotationPath(path);
+  validateSecretPath(path);
   if (path.includes("--dot--")) {
     throw new Error(
       `Bitwarden path is ambiguous because it contains the GSM dot encoding: ${path}`,
@@ -84,7 +84,7 @@ export function gsmPathFromBitwardenPath(path: string): string {
   return path.replaceAll(".", "--dot--");
 }
 
-export function validateRotationPath(path: string): void {
+export function validateSecretPath(path: string): void {
   if (path.length === 0 || path.startsWith("/")) {
     throw new Error(`Invalid secret path: ${path}`);
   }

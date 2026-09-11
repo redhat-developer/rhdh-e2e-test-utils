@@ -4,8 +4,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   parseCliArguments,
+  type CreateCliArguments,
+  type DeleteCliArguments,
+  type DescribeCliArguments,
   type ExecCliArguments,
-  type RotateCliArguments,
+  type ListCliArguments,
+  type UpdateCliArguments,
 } from "../cli.js";
 
 test("parses the exec profile, repeated workspaces, and command after --", () => {
@@ -31,19 +35,149 @@ test("parses the exec profile, repeated workspaces, and command after --", () =>
   } satisfies ExecCliArguments);
 });
 
-test("requires a profile and a command after --", () => {
+test("parses create with file input and applies by default", () => {
+  assert.deepEqual(
+    parseCliArguments([
+      "create",
+      "-c",
+      "rhdh-qe",
+      "rhdh/test",
+      "-f",
+      "replacement.txt",
+    ]),
+    {
+      command: "create",
+      collection: "rhdh-qe",
+      bitwardenPath: "rhdh/test",
+      fromFile: "replacement.txt",
+      fromStdin: false,
+      allowEmpty: false,
+      force: false,
+      dryRun: false,
+      gsmTimeoutMs: undefined,
+    } satisfies CreateCliArguments,
+  );
+});
+
+test("parses update with stdin input and dry-run", () => {
+  assert.deepEqual(
+    parseCliArguments([
+      "update",
+      "--collection=rhdh-qe",
+      "rhdh/test",
+      "--from-stdin",
+      "--allow-empty",
+      "--dry-run",
+      "--gsm-timeout-seconds",
+      "30",
+    ]),
+    {
+      command: "update",
+      collection: "rhdh-qe",
+      bitwardenPath: "rhdh/test",
+      fromFile: undefined,
+      fromStdin: true,
+      allowEmpty: true,
+      dryRun: true,
+      gsmTimeoutMs: 30_000,
+    } satisfies UpdateCliArguments,
+  );
+});
+
+test("parses forced delete and does not require input", () => {
+  assert.deepEqual(
+    parseCliArguments([
+      "delete",
+      "--collection",
+      "rhdh-qe",
+      "rhdh/test",
+      "--force",
+    ]),
+    {
+      command: "delete",
+      collection: "rhdh-qe",
+      bitwardenPath: "rhdh/test",
+      force: true,
+      dryRun: false,
+      gsmTimeoutMs: undefined,
+    } satisfies DeleteCliArguments,
+  );
+});
+
+test("parses GSM describe and list commands", () => {
+  assert.deepEqual(
+    parseCliArguments(["describe", "-c", "rhdh-qe", "rhdh/test", "-o", "json"]),
+    {
+      command: "describe",
+      collection: "rhdh-qe",
+      bitwardenPath: "rhdh/test",
+      output: "json",
+    } satisfies DescribeCliArguments,
+  );
+  assert.deepEqual(parseCliArguments(["list", "--collection", "rhdh-qe"]), {
+    command: "list",
+    collection: "rhdh-qe",
+    output: "text",
+  } satisfies ListCliArguments);
+});
+
+test("requires exactly one input for create and update", () => {
   assert.throws(
-    () => parseCliArguments(["exec", "--", "playwright"]),
-    /profile/i,
+    () => parseCliArguments(["create", "-c", "rhdh-qe", "rhdh/test"]),
+    /from-file.*from-stdin/i,
   );
   assert.throws(
-    () => parseCliArguments(["exec", "--profile", "profile.json"]),
-    /command.*--/i,
+    () =>
+      parseCliArguments([
+        "update",
+        "-c",
+        "rhdh-qe",
+        "rhdh/test",
+        "--from-file",
+        "one",
+        "--from-stdin",
+      ]),
+    /exactly one/i,
   );
   assert.throws(
-    () => parseCliArguments(["exec", "--profile", "profile.json", "--", ""]),
-    /command/i,
+    () =>
+      parseCliArguments([
+        "delete",
+        "-c",
+        "rhdh-qe",
+        "rhdh/test",
+        "--from-stdin",
+      ]),
+    /does not accept input/i,
   );
+});
+
+test("restricts force to create and delete", () => {
+  assert.throws(
+    () =>
+      parseCliArguments([
+        "update",
+        "-c",
+        "rhdh-qe",
+        "rhdh/test",
+        "--from-stdin",
+        "--force",
+      ]),
+    /force.*update/i,
+  );
+});
+
+test("rejects the removed rotation and resume commands", () => {
+  assert.throws(() => parseCliArguments(["rotate"]), /unsupported command/i);
+  assert.throws(
+    () => parseCliArguments(["create", "--resume", "operation-id"]),
+    /unknown option|collection/i,
+  );
+});
+
+test("parses GSM credential lifecycle commands", () => {
+  assert.deepEqual(parseCliArguments(["gsm-login"]), { command: "gsm-login" });
+  assert.deepEqual(parseCliArguments(["gsm-clean"]), { command: "gsm-clean" });
 });
 
 test("rejects unknown commands and malformed options", () => {
@@ -63,92 +197,5 @@ test("rejects unknown commands and malformed options", () => {
         "playwright",
       ]),
     /requires a value/i,
-  );
-});
-
-test("parses rotate input, apply, empty confirmation, and timeout options", () => {
-  const parsed = parseCliArguments([
-    "rotate",
-    "--collection",
-    "rhdh-qe",
-    "--path=rhdh/test",
-    "--from-file",
-    "replacement.txt",
-    "--allow-empty",
-    "--gsm-timeout-seconds",
-    "30",
-    "--apply",
-  ]);
-  assert.deepEqual(parsed, {
-    command: "rotate",
-    collection: "rhdh-qe",
-    bitwardenPath: "rhdh/test",
-    fromFile: "replacement.txt",
-    fromStdin: false,
-    allowEmpty: true,
-    apply: true,
-    resumeId: undefined,
-    gsmTimeoutMs: 30_000,
-  } satisfies RotateCliArguments);
-});
-
-test("parses resume and rejects ambiguous rotation input", () => {
-  assert.deepEqual(
-    parseCliArguments(["rotate", "--resume", "operation-id", "--apply"]),
-    {
-      command: "rotate",
-      collection: undefined,
-      bitwardenPath: undefined,
-      fromFile: undefined,
-      fromStdin: false,
-      allowEmpty: false,
-      apply: true,
-      resumeId: "operation-id",
-      gsmTimeoutMs: undefined,
-    },
-  );
-  assert.throws(
-    () =>
-      parseCliArguments([
-        "rotate",
-        "--collection",
-        "rhdh-qe",
-        "--path",
-        "rhdh/test",
-      ]),
-    /from-file.*from-stdin/i,
-  );
-  assert.throws(
-    () =>
-      parseCliArguments([
-        "rotate",
-        "--resume",
-        "operation-id",
-        "--from-stdin",
-        "--apply",
-      ]),
-    /resume.*input/i,
-  );
-});
-
-test("parses GSM credential lifecycle commands", () => {
-  assert.deepEqual(parseCliArguments(["gsm-login"]), { command: "gsm-login" });
-  assert.deepEqual(parseCliArguments(["gsm-clean"]), { command: "gsm-clean" });
-});
-
-test("rejects duplicate destructive rotation options", () => {
-  assert.throws(
-    () =>
-      parseCliArguments([
-        "rotate",
-        "--collection",
-        "rhdh-qe",
-        "--collection",
-        "rhdh-test-instance",
-        "--path",
-        "rhdh/test",
-        "--from-stdin",
-      ]),
-    /duplicate.*collection/i,
   );
 });

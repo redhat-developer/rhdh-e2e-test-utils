@@ -1,11 +1,12 @@
 import { readFile as defaultReadFile } from "node:fs/promises";
 
-export interface RotationInput {
+export interface SecretInput {
   value: string;
   byteLength: number;
+  storage: "note" | "attachment";
 }
 
-export interface RotationInputOptions {
+export interface SecretInputOptions {
   fromFile?: string;
   fromStdin?: boolean;
   allowEmpty?: boolean;
@@ -13,19 +14,19 @@ export interface RotationInputOptions {
   stdin?: Iterable<Buffer | string> | AsyncIterable<Buffer | string>;
 }
 
-export async function readRotationInput(
-  options: RotationInputOptions,
-): Promise<RotationInput> {
+export async function readSecretInput(
+  options: SecretInputOptions,
+): Promise<SecretInput> {
   const sourceCount =
     Number(options.fromFile !== undefined) + Number(options.fromStdin === true);
   if (sourceCount !== 1) {
     throw new Error("Exactly one of --from-file or --from-stdin is required");
   }
 
-  const bytes =
-    options.fromFile !== undefined
-      ? await (options.readFile ?? defaultReadFile)(options.fromFile)
-      : await readStdin(options.stdin ?? process.stdin);
+  const fromFile = options.fromFile !== undefined;
+  const bytes = fromFile
+    ? await (options.readFile ?? defaultReadFile)(options.fromFile!)
+    : await readStdin(options.stdin ?? process.stdin);
   let value: string;
   try {
     value = new TextDecoder("utf-8", {
@@ -33,12 +34,16 @@ export async function readRotationInput(
       ignoreBOM: true,
     }).decode(bytes);
   } catch {
-    throw new Error("Rotation input must be valid UTF-8");
+    throw new Error("Secret input must be valid UTF-8");
   }
   if (bytes.length === 0 && options.allowEmpty !== true) {
-    throw new Error("Empty rotation input requires --allow-empty");
+    throw new Error("Empty secret input requires --allow-empty");
   }
-  return { value, byteLength: bytes.length };
+  return {
+    value,
+    byteLength: bytes.length,
+    storage: fromFile ? "attachment" : "note",
+  };
 }
 
 async function readStdin(

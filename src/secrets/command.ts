@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { access, constants, open, type FileHandle } from "node:fs/promises";
 
 export interface CommandResult {
   status: number | null;
@@ -14,6 +15,7 @@ export interface CommandOptions {
   env?: NodeJS.ProcessEnv;
   input?: string;
   stdio?: "pipe" | "inherit";
+  tty?: boolean;
   timeoutMs?: number;
 }
 
@@ -23,12 +25,24 @@ export type CommandRunner = (
   options?: CommandOptions,
 ) => Promise<CommandResult>;
 
-export const runCommand: CommandRunner = (command, args, options = {}) =>
-  new Promise((resolve) => {
+export const runCommand: CommandRunner = async (
+  command,
+  args,
+  options = {},
+) => {
+  let tty: FileHandle | undefined;
+  if (options.tty) {
+    tty = await open("/dev/tty", "r+");
+  }
+  return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
-      stdio: options.stdio === "inherit" ? "inherit" : "pipe",
+      stdio: options.tty
+        ? [tty!.fd, "inherit", "inherit"]
+        : options.stdio === "inherit"
+          ? "inherit"
+          : "pipe",
       detached: process.platform !== "win32",
     });
     let stdout = "";
@@ -74,6 +88,7 @@ export const runCommand: CommandRunner = (command, args, options = {}) =>
       for (const [signal, forward] of forwarders) {
         process.removeListener(signal, forward);
       }
+      void tty?.close();
       resolve({ ...result, ...(timedOut ? { timedOut: true } : {}) });
     };
 
@@ -102,3 +117,8 @@ export const runCommand: CommandRunner = (command, args, options = {}) =>
       });
     });
   });
+};
+
+export async function assertInteractiveTerminal(): Promise<void> {
+  await access("/dev/tty", constants.R_OK | constants.W_OK);
+}

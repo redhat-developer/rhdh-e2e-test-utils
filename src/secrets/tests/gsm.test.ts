@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect -- node:test assertions */
+/* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect, playwright/no-conditional-in-test -- node:test assertions */
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -74,4 +74,68 @@ test("updates GSM using the private snapshot and reports timeout as indeterminat
       error.message.includes("indeterminate") &&
       (error as Error & { indeterminate?: boolean }).indeterminate === true,
   );
+});
+
+test("distinguishes a missing GSM secret from other describe failures", async () => {
+  const missing: GsmRunner = {
+    run: async () => result("", 1, false),
+  };
+  const missingClient = new GsmClient({
+    runner: {
+      run: async () => ({
+        ...result("Secret 'rhdh/test' does not exist", 1),
+        stderr: "",
+      }),
+    },
+  });
+  assert.equal(await missingClient.exists("rhdh-qe", "rhdh/test"), false);
+  await assert.rejects(
+    () => new GsmClient({ runner: missing }).exists("rhdh-qe", "rhdh/test"),
+    /does not exist or is inaccessible/i,
+  );
+});
+
+test("lists GSM paths and creates with an interactive terminal", async () => {
+  const calls: Array<{
+    args: string[];
+    timeout?: number;
+    options?: { stdio?: "pipe" | "inherit"; tty?: boolean };
+  }> = [];
+  const runner: GsmRunner = {
+    run: async (args, timeout, options) => {
+      calls.push({ args: [...args], timeout, options });
+      if (args[0] === "list") return result('["rhdh/test", "rhdh/other"]');
+      return result();
+    },
+    ensureInteractive: async () => undefined,
+  };
+  const client = new GsmClient({ runner });
+  assert.deepEqual(await client.list("rhdh-qe"), ["rhdh/test", "rhdh/other"]);
+  await client.ensureInteractive();
+  await client.create("rhdh-qe", "rhdh/new", "/private/snapshot", 123);
+  await client.delete("rhdh-qe", "rhdh/new", 456);
+  assert.deepEqual(calls, [
+    {
+      args: ["list", "-c", "rhdh-qe", "-o", "json"],
+      timeout: 60_000,
+      options: undefined,
+    },
+    {
+      args: [
+        "create",
+        "-c",
+        "rhdh-qe",
+        "rhdh/new",
+        "--from-file",
+        "/private/snapshot",
+      ],
+      timeout: 123,
+      options: { stdio: "inherit", tty: true },
+    },
+    {
+      args: ["delete", "-c", "rhdh-qe", "rhdh/new"],
+      timeout: 456,
+      options: undefined,
+    },
+  ]);
 });

@@ -3,7 +3,7 @@ export {
   getCollectionMapping,
   gsmPathFromBitwardenPath,
   parseProfile,
-  validateRotationPath,
+  validateSecretPath,
   type CollectionMapping,
   type EnvironmentDestination,
   type ExpandedSecretProfile,
@@ -16,8 +16,8 @@ export {
   BitwardenClient,
   type BitwardenClientOptions,
   type BitwardenAttachment,
-  type BitwardenRotationItem,
-  type BitwardenRotationStorage,
+  type BitwardenSecretItem,
+  type BitwardenSecretStorage,
   type BitwardenSecret,
 } from "./bitwarden.js";
 export {
@@ -34,9 +34,11 @@ export {
 } from "./environment.js";
 export {
   GsmClient,
+  GsmNotFoundError,
   type GsmClientOptions,
   type GsmMetadata,
   type GsmRunner,
+  type GsmRunOptions,
 } from "./gsm.js";
 export {
   GsmWrapper,
@@ -47,25 +49,18 @@ export {
   type GsmWrapperRunResult,
 } from "./gsm-wrapper.js";
 export {
-  JournalStore,
-  defaultStateDir,
-  validateRotationId,
-  type GsmStatus,
-  type NewRotationJournal,
-  type RotationJournal,
-  type RotationState,
-} from "./journal.js";
+  executeMutation,
+  createPlan,
+  type ExecuteMutationOptions,
+  type MutationAction,
+  type MutationBitwarden,
+  type MutationCommand,
+  type MutationGsm,
+  type MutationPlan,
+  type MutationResult,
+} from "./mutation.js";
 export {
-  executeRotation,
-  isResumableRotation,
-  type ExecuteRotationOptions,
-  type RotationBitwarden,
-  type RotationGsm,
-  type RotationResult,
-  type ResumableRotationError,
-} from "./rotation.js";
-export {
-  readRotationInput,
-  type RotationInput,
-  type RotationInputOptions,
-} from "./rotation-input.js";
+  readSecretInput,
+  type SecretInput,
+  type SecretInputOptions,
+} from "./secret-input.js";

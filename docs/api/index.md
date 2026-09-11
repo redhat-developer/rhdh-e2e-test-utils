@@ -14,7 +14,7 @@ Complete API documentation for all exports from `@red-hat-developer-hub/e2e-test
 | [`/helpers`](/api/helpers/ui-helper) | Helper classes |
 | [`/pages`](/api/pages/catalog-page) | Page object classes |
 | [`/eslint`](/api/eslint/create-eslint-config) | ESLint configuration |
-| [`/secrets`](/api/secrets) | Bitwarden local execution and Bitwarden/GSM rotation |
+| [`/secrets`](/api/secrets) | Bitwarden local execution and Bitwarden/GSM secret management |
 
 ## Categories
 
@@ -60,7 +60,7 @@ Complete API documentation for all exports from `@red-hat-developer-hub/e2e-test
 
 ### Secrets
 
-- [Secrets](/api/secrets) - Bitwarden execution and Bitwarden/GSM rotation APIs
+- [Secrets](/api/secrets) - Bitwarden execution and Bitwarden/GSM secret management APIs
 
 ### ESLint
 

@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 
 - **Bitwarden local secret execution**: Added the `./secrets` export and `rhdh-e2e-secrets exec` command for scoped, value-free profile loading into a child test process.
 - **Bitwarden attachment-backed items**: Supports one validated attachment as an in-memory secret payload while preserving note-backed items.
-- **Bitwarden/GSM rotation**: Added value-free preflight, Bitwarden read-back verification, write-only GSM updates through the OpenShift CI wrapper, and resumable partial-failure journals.
+- **Bitwarden/GSM secret management**: Added create, update, delete, describe, and list commands with unified dry-runs, forced reconciliation, Bitwarden read-back verification, and GSM operations through the OpenShift CI wrapper.
 
 ### Changed
 

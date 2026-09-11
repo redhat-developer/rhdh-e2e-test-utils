@@ -580,7 +580,7 @@ test("reads an exact rotation item with revision metadata", async () => {
   const item = await new BitwardenClient({
     env: { BW_SESSION: "synthetic-session" },
     runner,
-  }).readRotationItem("rhdh-qe", "rhdh/test");
+  }).readItem("rhdh-qe", "rhdh/test");
 
   assert.equal(item.value, "old-value");
   assert.equal(item.storage, "note");
@@ -639,8 +639,8 @@ test("updates and verifies a note-backed rotation item without changing its meta
     env: { BW_SESSION: "synthetic-session" },
     runner,
   });
-  const item = await client.readRotationItem("rhdh-qe", "rhdh/test");
-  const updated = await client.updateRotationItem(item, "new-value");
+  const item = await client.readItem("rhdh-qe", "rhdh/test");
+  const updated = await client.updateItem(item, "new-value");
 
   assert.equal(editInputs.length, 1);
   assert.equal(updated.value, "new-value");
@@ -706,8 +706,132 @@ test("updates and verifies an attachment-backed rotation item", async () => {
     env: { BW_SESSION: "synthetic-session" },
     runner,
   });
-  const item = await client.readRotationItem("rhdh-qe", "rhdh/certificate.pem");
-  const updated = await client.updateRotationItem(item, "new-certificate");
+  const item = await client.readItem("rhdh-qe", "rhdh/certificate.pem");
+  const updated = await client.updateItem(item, "new-certificate");
   assert.equal(updated.storage, "attachment");
   assert.equal(updated.value, "new-certificate");
+});
+
+test("creates a note-backed item and verifies it without putting the value in arguments", async () => {
+  const storedValue = "new-value";
+  const calls: Array<{ args: readonly string[]; input?: string }> = [];
+  const runner: BitwardenCommandRunner = async (_command, args, options) => {
+    calls.push({ args, input: options?.input });
+    if (args[0] === "--version") return result("2026.5.0");
+    if (args[0] === "status")
+      return result(JSON.stringify({ status: "unlocked" }));
+    if (args[0] === "sync") return result();
+    if (args[0] === "list" && args[1] === "collections") {
+      return result(
+        JSON.stringify([
+          {
+            id: "collection-id",
+            name: "Rhdh Qe Ci Secrets",
+            organizationId: "org-id",
+          },
+        ]),
+      );
+    }
+    if (args[0] === "encode") return result("encoded-item");
+    if (args[0] === "create" && args[1] === "item") {
+      assert.equal(options?.input, "encoded-item");
+      return result(JSON.stringify({ id: "created-item-id" }));
+    }
+    if (args[0] === "get" && args[1] === "item") {
+      return result(
+        JSON.stringify({
+          id: "created-item-id",
+          name: "rhdh/test",
+          notes: storedValue,
+          type: 2,
+          collectionIds: ["collection-id"],
+          organizationId: "org-id",
+          revisionDate: "revision-1",
+        }),
+      );
+    }
+    throw new Error(`Unexpected command: ${args.join(" ")}`);
+  };
+
+  const created = await new BitwardenClient({
+    env: { BW_SESSION: "synthetic-session" },
+    runner,
+  }).createItem("rhdh-qe", "rhdh/test", storedValue, "note");
+
+  assert.equal(created.value, storedValue);
+  assert.equal(created.storage, "note");
+  assert.equal(
+    calls.every(({ args }) => !args.includes(storedValue)),
+    true,
+  );
+  assert.equal(
+    calls.some(
+      ({ args, input }) => args[0] === "create" && input === "encoded-item",
+    ),
+    true,
+  );
+});
+
+test("converts a note-backed item to an attachment-backed item", async () => {
+  let storage: "note" | "attachment" = "note";
+  let value = "old-value";
+  const runner: BitwardenCommandRunner = async (_command, args, options) => {
+    if (args[0] === "--version") return result("2026.5.0");
+    if (args[0] === "status")
+      return result(JSON.stringify({ status: "unlocked" }));
+    if (args[0] === "sync") return result();
+    if (args[0] === "list" && args[1] === "collections") {
+      return result(
+        JSON.stringify([
+          {
+            id: "collection-id",
+            name: "Rhdh Qe Ci Secrets",
+            organizationId: "org-id",
+          },
+        ]),
+      );
+    }
+    if (args[0] === "list" && args[1] === "items") {
+      return result(JSON.stringify([{ id: "item-id" }]));
+    }
+    if (args[0] === "get" && args[1] === "item") {
+      return result(
+        JSON.stringify({
+          id: "item-id",
+          name: "rhdh/test",
+          notes: storage === "note" ? value : null,
+          type: 2,
+          collectionIds: ["collection-id"],
+          organizationId: "org-id",
+          revisionDate: storage === "note" ? "revision-1" : "revision-2",
+          ...(storage === "attachment"
+            ? { attachments: [{ id: "attachment-id", fileName: "test" }] }
+            : {}),
+        }),
+      );
+    }
+    if (args[0] === "encode") return result("encoded-item");
+    if (args[0] === "edit" && args[1] === "item") {
+      assert.equal(options?.input, "encoded-item");
+      return result();
+    }
+    if (args[0] === "create" && args[1] === "attachment") {
+      storage = "attachment";
+      value = "new-value";
+      return result();
+    }
+    if (args[0] === "get" && args[1] === "attachment") {
+      return result(value);
+    }
+    throw new Error(`Unexpected command: ${args.join(" ")}`);
+  };
+
+  const client = new BitwardenClient({
+    env: { BW_SESSION: "synthetic-session" },
+    runner,
+  });
+  const existing = await client.readItem("rhdh-qe", "rhdh/test");
+  const updated = await client.updateItem(existing, "new-value", "attachment");
+  assert.equal(updated.storage, "attachment");
+  assert.equal(updated.value, "new-value");
 });

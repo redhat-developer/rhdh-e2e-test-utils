@@ -78,3 +78,28 @@ test("rejects an untrusted downloaded wrapper", async () => {
     await rm(cacheDir, { recursive: true, force: true });
   }
 });
+
+test("passes interactive GSM commands through the terminal", async () => {
+  const cacheDir = await mkdtemp(path.join(os.tmpdir(), "gsm-wrapper-test-"));
+  let received: { stdio?: string; tty?: boolean } | undefined;
+  try {
+    const wrapper = new GsmWrapper({
+      cacheDir,
+      fetchScript: async () => script,
+      commandRunner: async (_command, _args, options) => {
+        received = options;
+        return { status: 0, stdout: "", stderr: "" };
+      },
+    });
+    await wrapper.run(["create"], undefined, {
+      stdio: "inherit",
+      tty: true,
+    });
+    assert.deepEqual(
+      { stdio: received?.stdio, tty: received?.tty },
+      { stdio: "inherit", tty: true },
+    );
+  } finally {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+});

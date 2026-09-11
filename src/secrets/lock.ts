@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
 
-export async function withRotationLock<T>(
+export async function withSecretLock<T>(
   key: string,
   stateDir: string,
   operation: () => Promise<T>,
@@ -24,4 +25,13 @@ export async function withRotationLock<T>(
   } finally {
     await release();
   }
+}
+
+export function defaultLockDir(env: NodeJS.ProcessEnv = process.env): string {
+  const configuredRoot = env.XDG_STATE_HOME;
+  const stateRoot =
+    configuredRoot && path.isAbsolute(configuredRoot)
+      ? configuredRoot
+      : path.join(os.homedir(), ".local", "state");
+  return path.join(stateRoot, "rhdh-e2e-secrets");
 }

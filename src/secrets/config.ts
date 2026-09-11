@@ -6,6 +6,7 @@ export type ReadableCollectionId =
 export interface CollectionMapping {
   id: ReadableCollectionId;
   bitwardenCollection: string;
+  gsmCollection: string;
 }
 
 export interface SecretProfile {
@@ -41,14 +42,17 @@ const COLLECTIONS: readonly CollectionMapping[] = [
   {
     id: "rhdh-qe",
     bitwardenCollection: "Rhdh Qe Ci Secrets",
+    gsmCollection: "rhdh-qe",
   },
   {
     id: "rhdh-test-instance",
     bitwardenCollection: "Rhdh Test Instance Ci Secrets",
+    gsmCollection: "rhdh-test-instance",
   },
   {
     id: "rhdh-plugin-export-overlays",
     bitwardenCollection: "Rhdh Plugin Export Overlays Ci Secrets",
+    gsmCollection: "rhdh-plugin-export-overlays",
   },
 ];
 
@@ -68,6 +72,40 @@ export function getCollectionMapping(collection: string): CollectionMapping {
   }
 
   return COLLECTIONS.find((mapping) => mapping.id === collection)!;
+}
+
+export function gsmPathFromBitwardenPath(path: string): string {
+  validateRotationPath(path);
+  if (path.includes("--dot--")) {
+    throw new Error(
+      `Bitwarden path is ambiguous because it contains the GSM dot encoding: ${path}`,
+    );
+  }
+  return path.replaceAll(".", "--dot--");
+}
+
+export function validateRotationPath(path: string): void {
+  if (path.length === 0 || path.startsWith("/")) {
+    throw new Error(`Invalid secret path: ${path}`);
+  }
+  const segments = path.split("/");
+  if (segments.length < 2 || segments.some((segment) => segment.length === 0)) {
+    throw new Error(`Secret path must use group/field form: ${path}`);
+  }
+  if (
+    segments.some(
+      (segment) =>
+        segment === "." ||
+        segment === ".." ||
+        segment.length > 255 ||
+        !/^[A-Za-z0-9_.-]+$/.test(segment),
+    )
+  ) {
+    if (segments.some((segment) => segment.length > 255)) {
+      throw new Error(`Secret path segment is too long: ${path}`);
+    }
+    throw new Error(`Invalid secret path segment: ${path}`);
+  }
 }
 
 export function parseProfile(value: unknown): SecretProfile {

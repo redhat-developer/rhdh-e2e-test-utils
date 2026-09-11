@@ -5,6 +5,8 @@ export interface CommandResult {
   stdout: string;
   stderr: string;
   error?: Error;
+  signal?: NodeJS.Signals;
+  timedOut?: boolean;
 }
 
 export interface CommandOptions {
@@ -12,6 +14,7 @@ export interface CommandOptions {
   env?: NodeJS.ProcessEnv;
   input?: string;
   stdio?: "pipe" | "inherit";
+  timeoutMs?: number;
 }
 
 export type CommandRunner = (
@@ -26,9 +29,53 @@ export const runCommand: CommandRunner = (command, args, options = {}) =>
       cwd: options.cwd,
       env: options.env,
       stdio: options.stdio === "inherit" ? "inherit" : "pipe",
+      detached: process.platform !== "win32",
     });
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    let settled = false;
+    let forceTimeout: NodeJS.Timeout | undefined;
+    const terminate = (signal: NodeJS.Signals): void => {
+      if (child.pid !== undefined && process.platform !== "win32") {
+        try {
+          process.kill(-child.pid, signal);
+          return;
+        } catch {
+          // Fall through to the direct child signal.
+        }
+      }
+      child.kill(signal);
+    };
+    const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+    const forwarders = new Map<(typeof signals)[number], () => void>();
+    for (const signal of signals) {
+      const forward = () => terminate(signal);
+      forwarders.set(signal, forward);
+      process.on(signal, forward);
+    }
+    const timeout =
+      options.timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            timedOut = true;
+            terminate("SIGTERM");
+            forceTimeout = setTimeout(() => {
+              forceTimeout = undefined;
+              terminate("SIGKILL");
+            }, 1_000);
+          }, options.timeoutMs);
+
+    const finish = (result: CommandResult) => {
+      if (settled) return;
+      settled = true;
+      if (timeout !== undefined) clearTimeout(timeout);
+      if (forceTimeout !== undefined && !timedOut) clearTimeout(forceTimeout);
+      for (const [signal, forward] of forwarders) {
+        process.removeListener(signal, forward);
+      }
+      resolve({ ...result, ...(timedOut ? { timedOut: true } : {}) });
+    };
 
     if (options.stdio !== "inherit") {
       child.stdout?.setEncoding("utf8");
@@ -44,9 +91,14 @@ export const runCommand: CommandRunner = (command, args, options = {}) =>
     }
 
     child.once("error", (error) => {
-      resolve({ status: null, stdout, stderr, error });
+      finish({ status: null, stdout, stderr, error });
     });
-    child.once("close", (status) => {
-      resolve({ status, stdout, stderr });
+    child.once("close", (status, signal) => {
+      finish({
+        status,
+        stdout,
+        stderr,
+        ...(signal === null ? {} : { signal }),
+      });
     });
   });

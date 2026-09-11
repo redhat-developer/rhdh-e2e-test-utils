@@ -34,8 +34,14 @@ These are set automatically during deployment:
 | `BW_SESSION` | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
 
 Export `BW_SESSION` in the invoking shell before running
-`rhdh-e2e-secrets exec`. The wrapper uses it to retrieve selected secrets and
-removes it from the child test process.
+`rhdh-e2e-secrets exec` or `rhdh-e2e-secrets rotate`. The wrapper uses it to
+retrieve or update selected Bitwarden items and removes it from child test
+processes.
+
+GSM rotation uses the cached OpenShift CI wrapper. Run
+`rhdh-e2e-secrets gsm-login` once before the first GSM operation; use
+`rhdh-e2e-secrets gsm-clean` to remove its cached credentials. The wrapper
+honors its existing `CONTAINER_ENGINE` and `SECRET_MANAGER_IMAGE` variables.
 
 ## Optional Variables
 

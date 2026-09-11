@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  bitwardenPathFromGsmPath,
   expandProfile,
   getCollectionMapping,
   gsmPathFromBitwardenPath,
@@ -51,11 +52,10 @@ test("maps dotted Bitwarden paths to the GSM punctuation encoding", () => {
   );
 });
 
-test("rejects ambiguous GSM paths that already contain the dot encoding", () => {
-  assert.throws(
-    () => gsmPathFromBitwardenPath("rhdh/already--dot--encoded"),
-    /ambiguous.*--dot--/i,
-  );
+test("normalizes a GSM-encoded path for Bitwarden and preserves GSM encoding", () => {
+  const gsmPath = "rhdh/already--dot--encoded";
+  assert.equal(bitwardenPathFromGsmPath(gsmPath), "rhdh/already.encoded");
+  assert.equal(gsmPathFromBitwardenPath(gsmPath), gsmPath);
 });
 
 test("rejects overlong rotation path segments", () => {

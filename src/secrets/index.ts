@@ -1,4 +1,5 @@
 export {
+  bitwardenPathFromGsmPath,
   expandProfile,
   getCollectionMapping,
   gsmPathFromBitwardenPath,

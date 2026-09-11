@@ -75,13 +75,14 @@ export function getCollectionMapping(collection: string): CollectionMapping {
 }
 
 export function gsmPathFromBitwardenPath(path: string): string {
+  return bitwardenPathFromGsmPath(path).replaceAll(".", "--dot--");
+}
+
+export function bitwardenPathFromGsmPath(path: string): string {
   validateSecretPath(path);
-  if (path.includes("--dot--")) {
-    throw new Error(
-      `Bitwarden path is ambiguous because it contains the GSM dot encoding: ${path}`,
-    );
-  }
-  return path.replaceAll(".", "--dot--");
+  const bitwardenPath = path.replaceAll("--dot--", ".");
+  validateSecretPath(bitwardenPath);
+  return bitwardenPath;
 }
 
 export function validateSecretPath(path: string): void {

@@ -48,7 +48,7 @@ export class GsmClient {
 
   async describe(collection: string, secretPath: string): Promise<GsmMetadata> {
     const result = await this.runner.run(
-      ["describe", "-c", collection, secretPath, "-o", "json"],
+      ["describe", "-c", collection, secretPath],
       this.metadataTimeoutMs,
     );
     this.wrapperSha256 = result.sha256;
@@ -56,21 +56,21 @@ export class GsmClient {
       throw new Error(`GSM metadata check timed out: ${secretPath}`);
     }
     if (result.status !== 0) {
+      if (isAuthenticationResult(result)) {
+        throw new Error(
+          "GSM authentication is unavailable; run `rhdh-e2e-secrets gsm-login` first",
+        );
+      }
       if (isNotFoundResult(result)) throw new GsmNotFoundError(secretPath);
       throw new Error(
         `GSM target does not exist or is inaccessible: ${secretPath}`,
       );
     }
-    let value: unknown;
-    try {
-      value = JSON.parse(result.stdout);
-    } catch {
+    const metadata = parseMetadata(result.stdout);
+    if (!metadata) {
       throw new Error(`GSM returned invalid metadata for ${secretPath}`);
     }
-    if (!isRecord(value)) {
-      throw new Error(`GSM returned invalid metadata for ${secretPath}`);
-    }
-    return value;
+    return metadata;
   }
 
   async exists(collection: string, secretPath: string): Promise<boolean> {
@@ -193,9 +193,38 @@ export function gsmMutationError(
 }
 
 function isNotFoundResult(result: GsmWrapperRunResult): boolean {
-  return /(?:does not exist|doesn't exist|not found)/i.test(
+  return /secret\s+['"][^'"]+['"]\s+does not exist(?:\s+in collection)?/i.test(
     `${result.stdout}\n${result.stderr}`,
   );
+}
+
+function isAuthenticationResult(result: GsmWrapperRunResult): boolean {
+  return /defaultcredentials?error|default credentials were not found|application-default credentials/i.test(
+    `${result.stdout}\n${result.stderr}`,
+  );
+}
+
+function parseMetadata(output: string): GsmMetadata | undefined {
+  try {
+    const value: unknown = JSON.parse(output);
+    if (isRecord(value)) return value;
+  } catch {
+    // The deployed wrapper defaults to the stable human-readable format.
+  }
+
+  const fields = [
+    ["create-time", /^Created:\s*(.*)$/m],
+    ["jira-project", /^JIRA project:\s*(.*)$/m],
+    ["rotation-instructions", /^Rotation instructions:\s*(.*)$/m],
+    ["request-information", /^Request information:\s*(.*)$/m],
+  ] as const;
+  const metadata: GsmMetadata = {};
+  for (const [key, pattern] of fields) {
+    const match = output.match(pattern);
+    if (!match) return undefined;
+    metadata[key] = match[1]!.trim();
+  }
+  return metadata;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

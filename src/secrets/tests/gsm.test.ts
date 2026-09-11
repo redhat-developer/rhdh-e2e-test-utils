@@ -13,7 +13,14 @@ test("describes GSM metadata without exposing provider output", async () => {
   const runner: GsmRunner = {
     run: async (args) => {
       calls.push([...args]);
-      return result('{"create-time":"synthetic"}');
+      return result(
+        [
+          "Created:               synthetic",
+          "JIRA project:          (not set)",
+          "Rotation instructions: (not set)",
+          "Request information:   (not set)",
+        ].join("\n"),
+      );
     },
   };
 
@@ -21,15 +28,13 @@ test("describes GSM metadata without exposing provider output", async () => {
     "rhdh-qe",
     "rhdh/test",
   );
-  assert.deepEqual(metadata, { "create-time": "synthetic" });
-  assert.deepEqual(calls[0], [
-    "describe",
-    "-c",
-    "rhdh-qe",
-    "rhdh/test",
-    "-o",
-    "json",
-  ]);
+  assert.deepEqual(metadata, {
+    "create-time": "synthetic",
+    "jira-project": "(not set)",
+    "rotation-instructions": "(not set)",
+    "request-information": "(not set)",
+  });
+  assert.deepEqual(calls[0], ["describe", "-c", "rhdh-qe", "rhdh/test"]);
 });
 
 test("updates GSM using the private snapshot and reports timeout as indeterminate", async () => {
@@ -92,6 +97,32 @@ test("distinguishes a missing GSM secret from other describe failures", async ()
   await assert.rejects(
     () => new GsmClient({ runner: missing }).exists("rhdh-qe", "rhdh/test"),
     /does not exist or is inaccessible/i,
+  );
+});
+
+test("does not classify missing application credentials as a missing secret", async () => {
+  const runner: GsmRunner = {
+    run: async () => result("", 1, false),
+  };
+  const authenticationRunner: GsmRunner = {
+    run: async () => ({
+      ...result("", 1),
+      stderr:
+        "google.auth.exceptions.DefaultCredentialsError: default credentials were not found",
+    }),
+  };
+
+  await assert.rejects(
+    () => new GsmClient({ runner }).exists("rhdh-qe", "rhdh/test"),
+    /does not exist or is inaccessible/i,
+  );
+  await assert.rejects(
+    () =>
+      new GsmClient({ runner: authenticationRunner }).exists(
+        "rhdh-qe",
+        "rhdh/test",
+      ),
+    /gsm-login/i,
   );
 });
 

@@ -111,6 +111,10 @@ rhdh-e2e-secrets gsm-login
 rhdh-e2e-secrets gsm-clean
 ```
 
+The CLI maintains its own wrapper and Google ADC cache. Authenticating a
+different `secret-manager.sh` copy does not authenticate `rhdh-e2e-secrets`;
+run `gsm-login` through this CLI.
+
 The wrapper is refreshed from the OpenShift `release` repository's `main`
 branch, with a validated local cache used when refresh is unavailable. GSM
 values are always passed with `--from-file`; the CLI never uses

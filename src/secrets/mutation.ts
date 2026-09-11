@@ -7,9 +7,9 @@ import {
   type BitwardenSecretStorage,
 } from "./bitwarden.js";
 import {
+  bitwardenPathFromGsmPath,
   getCollectionMapping,
   gsmPathFromBitwardenPath,
-  validateSecretPath,
   type ReadableCollectionId,
 } from "./config.js";
 import { GsmClient } from "./gsm.js";
@@ -95,9 +95,9 @@ const DEFAULT_GSM_TIMEOUT_MS = 600_000;
 export async function executeMutation(
   options: ExecuteMutationOptions,
 ): Promise<MutationResult> {
-  validateSecretPath(options.bitwardenPath);
+  const bitwardenPath = bitwardenPathFromGsmPath(options.bitwardenPath);
   const mapping = getCollectionMapping(options.collection);
-  const gsmPath = gsmPathFromBitwardenPath(options.bitwardenPath);
+  const gsmPath = gsmPathFromBitwardenPath(bitwardenPath);
   const timeoutMs = options.gsmTimeoutMs ?? DEFAULT_GSM_TIMEOUT_MS;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
     throw new Error("GSM timeout must be a positive integer in milliseconds");
@@ -126,13 +126,13 @@ export async function executeMutation(
     async () => {
       const existingBitwarden = await bitwarden.findItem(
         mapping.id,
-        options.bitwardenPath,
+        bitwardenPath,
       );
       const existingGsm = await gsm.exists(mapping.gsmCollection, gsmPath);
       const plan = createPlan({
         command: options.command,
         collection: mapping.id,
-        bitwardenPath: options.bitwardenPath,
+        bitwardenPath,
         gsmPath,
         input,
         existingBitwarden,

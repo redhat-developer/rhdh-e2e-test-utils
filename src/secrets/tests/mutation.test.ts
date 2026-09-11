@@ -87,6 +87,40 @@ test("dry-run creates one value-free plan and performs no writes", async () => {
   assert.deepEqual(calls, ["bitwarden-find"]);
 });
 
+test("decodes GSM dot encoding only for Bitwarden lookups", async () => {
+  const calls: string[] = [];
+  const result = await executeMutation({
+    command: "create",
+    collection: "rhdh-qe",
+    bitwardenPath: "rhdh/rds-db-certificates--dot--pem",
+    fromStdin: true,
+    stdin: ["new-value"],
+    dryRun: true,
+    bitwarden: {
+      findItem: async (_collection, name) => {
+        calls.push(`bitwarden:${name}`);
+        return undefined;
+      },
+      createItem: async () => item("new-value"),
+      updateItem: async () => item("new-value"),
+      deleteItem: async () => undefined,
+    },
+    gsm: gsm({
+      exists: async (_collection, name) => {
+        calls.push(`gsm:${name}`);
+        return false;
+      },
+    }),
+  });
+
+  assert.deepEqual(calls, [
+    "bitwarden:rhdh/rds-db-certificates.pem",
+    "gsm:rhdh/rds-db-certificates--dot--pem",
+  ]);
+  assert.equal(result.plan.bitwardenPath, "rhdh/rds-db-certificates.pem");
+  assert.equal(result.plan.gsmPath, "rhdh/rds-db-certificates--dot--pem");
+});
+
 test("forced create reconciles existing providers and converts Bitwarden storage", async () => {
   const calls: string[] = [];
   const bitwarden: MutationBitwarden = {

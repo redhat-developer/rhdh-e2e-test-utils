@@ -19,6 +19,8 @@ export interface CommandOptions {
   timeoutMs?: number;
 }
 
+export const MAX_TIMEOUT_MS = 2_147_483_647;
+
 export type CommandRunner = (
   command: string,
   args: readonly string[],
@@ -36,6 +38,16 @@ export const runCommand: CommandRunner = async (
   args,
   options = {},
 ) => {
+  if (
+    options.timeoutMs !== undefined &&
+    (!Number.isSafeInteger(options.timeoutMs) ||
+      options.timeoutMs <= 0 ||
+      options.timeoutMs > MAX_TIMEOUT_MS)
+  ) {
+    throw new Error(
+      `Command timeout must be a positive integer no greater than ${MAX_TIMEOUT_MS}ms`,
+    );
+  }
   const detached = shouldDetachCommand(options);
   let tty: FileHandle | undefined;
   if (options.tty) {
@@ -91,7 +103,7 @@ export const runCommand: CommandRunner = async (
       if (settled) return;
       settled = true;
       if (timeout !== undefined) clearTimeout(timeout);
-      if (forceTimeout !== undefined && !timedOut) clearTimeout(forceTimeout);
+      if (forceTimeout !== undefined) clearTimeout(forceTimeout);
       for (const [signal, forward] of forwarders) {
         process.removeListener(signal, forward);
       }

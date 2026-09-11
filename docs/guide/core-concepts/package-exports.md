@@ -128,8 +128,10 @@ import {
 The secrets export provides profile validation, scoped Bitwarden reads, safe
 child-environment materialization, programmatic command execution, and
 Bitwarden/GSM create, update, delete, describe, and list operations with
-preflight and provider read-back verification. The `rhdh-e2e-secrets` CLI is a
-separate executable and is not imported by Playwright global setup.
+preflight. Note mutations validate Bitwarden edit responses and independently
+verify attachment storage; GSM writes are reported from the wrapper exit
+status. The `rhdh-e2e-secrets` CLI is a separate executable and is not imported
+by Playwright global setup.
 
 ## Usage Patterns
 

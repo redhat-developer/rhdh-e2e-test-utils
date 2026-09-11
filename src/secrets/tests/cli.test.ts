@@ -252,6 +252,22 @@ test("parses GSM describe and list commands", () => {
   } satisfies ListCliArguments);
 });
 
+test("rejects GSM timeout values above the Node timer limit", () => {
+  assert.throws(
+    () =>
+      parseCliArguments([
+        "create",
+        "-c",
+        "rhdh-qe",
+        "rhdh/test",
+        "-i",
+        "--gsm-timeout-seconds",
+        "2147484",
+      ]),
+    /maximum|timeout/i,
+  );
+});
+
 test("requires exactly one input for create and update", () => {
   assert.throws(
     () => parseCliArguments(["create", "-c", "rhdh-qe", "rhdh/test"]),

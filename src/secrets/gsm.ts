@@ -1,4 +1,5 @@
 import { GsmWrapper, type GsmWrapperRunResult } from "./gsm-wrapper.js";
+import { MAX_TIMEOUT_MS } from "./command.js";
 
 export type GsmMetadata = Record<string, unknown>;
 
@@ -38,10 +39,11 @@ export class GsmClient {
     this.metadataTimeoutMs = options.metadataTimeoutMs ?? 60_000;
     if (
       !Number.isSafeInteger(this.metadataTimeoutMs) ||
-      this.metadataTimeoutMs <= 0
+      this.metadataTimeoutMs <= 0 ||
+      this.metadataTimeoutMs > MAX_TIMEOUT_MS
     ) {
       throw new Error(
-        "GSM metadata timeout must be a positive integer in milliseconds",
+        `GSM metadata timeout must be a positive integer no greater than ${MAX_TIMEOUT_MS}ms`,
       );
     }
   }
@@ -90,7 +92,14 @@ export class GsmClient {
     );
     this.wrapperSha256 = result.sha256;
     if (result.timedOut) throw new Error("GSM list timed out");
-    if (result.status !== 0) throw new Error("GSM list failed");
+    if (result.status !== 0) {
+      if (isAuthenticationResult(result)) {
+        throw new Error(
+          "GSM authentication is unavailable; run `rhdh-e2e-secrets gsm-login` first",
+        );
+      }
+      throw new Error("GSM list failed");
+    }
     let value: unknown;
     try {
       value = JSON.parse(result.stdout);
@@ -116,6 +125,7 @@ export class GsmClient {
     snapshotPath: string,
     timeoutMs: number,
   ): Promise<void> {
+    validateTimeout(timeoutMs);
     const result = await this.runner.run(
       ["create", "-c", collection, secretPath, "--from-file", snapshotPath],
       timeoutMs,
@@ -139,19 +149,20 @@ export class GsmClient {
     snapshotPath: string,
     timeoutMs: number,
   ): Promise<void> {
+    validateTimeout(timeoutMs);
     const result = await this.runner.run(
       ["update", "-c", collection, secretPath, "--from-file", snapshotPath],
       timeoutMs,
     );
     this.wrapperSha256 = result.sha256;
     if (result.timedOut) {
-      throw gsmUpdateError(
+      throw gsmMutationError(
         `GSM update is indeterminate after ${timeoutMs}ms: ${secretPath}`,
         true,
       );
     }
     if (result.status !== 0) {
-      throw gsmUpdateError(`GSM update failed: ${secretPath}`, false);
+      throw gsmMutationError(`GSM update failed: ${secretPath}`, false);
     }
   }
 
@@ -160,6 +171,7 @@ export class GsmClient {
     secretPath: string,
     timeoutMs: number,
   ): Promise<void> {
+    validateTimeout(timeoutMs);
     const result = await this.runner.run(
       ["delete", "-c", collection, secretPath],
       timeoutMs,
@@ -175,12 +187,6 @@ export class GsmClient {
       throw gsmMutationError(`GSM delete failed: ${secretPath}`, false);
     }
   }
-}
-
-export function gsmUpdateError(message: string, indeterminate: boolean): Error {
-  const error = new Error(message) as Error & { indeterminate: boolean };
-  error.indeterminate = indeterminate;
-  return error;
 }
 
 export function gsmMutationError(
@@ -207,7 +213,13 @@ function isAuthenticationResult(result: GsmWrapperRunResult): boolean {
 function parseMetadata(output: string): GsmMetadata | undefined {
   try {
     const value: unknown = JSON.parse(output);
-    if (isRecord(value)) return value;
+    if (isRecord(value)) {
+      const metadata: GsmMetadata = {};
+      for (const key of METADATA_KEYS) {
+        if (typeof value[key] === "string") metadata[key] = value[key];
+      }
+      return Object.keys(metadata).length > 0 ? metadata : undefined;
+    }
   } catch {
     // The deployed wrapper defaults to the stable human-readable format.
   }
@@ -225,6 +237,25 @@ function parseMetadata(output: string): GsmMetadata | undefined {
     metadata[key] = match[1]!.trim();
   }
   return metadata;
+}
+
+const METADATA_KEYS = [
+  "create-time",
+  "jira-project",
+  "rotation-instructions",
+  "request-information",
+] as const;
+
+function validateTimeout(timeoutMs: number): void {
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > MAX_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `GSM operation timeout must be a positive integer no greater than ${MAX_TIMEOUT_MS}ms`,
+    );
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

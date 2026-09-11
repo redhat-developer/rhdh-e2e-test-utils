@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
 
 - **Playwright global setup**: Secret-provider access and credential cleanup are external to global setup. Local `.env` values override inherited values, while CI environment values remain authoritative.
 - **Overlay local workflows**: Secret-backed tests use the `test:secrets` command and preserve the existing `VAULT_*` payload variable names.
+- **Secrets CLI reliability**: Added safer retry guidance, canonical mutation locks, bounded GSM timeouts, metadata-only GSM JSON output, and lower-overhead Bitwarden reads.
 
 ## [2.1.13]
 

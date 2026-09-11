@@ -13,11 +13,13 @@ import {
   type ReadableCollectionId,
 } from "./config.js";
 import { GsmClient } from "./gsm.js";
+import { MAX_TIMEOUT_MS } from "./command.js";
 import { defaultLockDir, withSecretLock } from "./lock.js";
 import { readSecretInput, type SecretInput } from "./secret-input.js";
 
 export type MutationCommand = "create" | "update" | "delete";
 export type MutationAction = "create" | "update" | "delete" | "skip";
+type BitwardenMutationState = "not-started" | "attempted" | "confirmed";
 
 export interface MutationBitwarden {
   findItem(
@@ -101,11 +103,25 @@ export async function executeMutation(
   const mapping = getCollectionMapping(options.collection);
   const gsmPath = gsmPathFromBitwardenPath(bitwardenPath);
   const timeoutMs = options.gsmTimeoutMs ?? DEFAULT_GSM_TIMEOUT_MS;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new Error("GSM timeout must be a positive integer in milliseconds");
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > MAX_TIMEOUT_MS
+  ) {
+    throw new Error(
+      `GSM timeout must be a positive integer no greater than ${MAX_TIMEOUT_MS}ms`,
+    );
   }
   if (options.command === "update" && options.force) {
     throw new Error("--force is not supported for update");
+  }
+  if (
+    options.command === "delete" &&
+    (options.fromFile !== undefined ||
+      options.fromStdin === true ||
+      options.allowEmpty === true)
+  ) {
+    throw new Error("delete does not accept input options");
   }
 
   const bitwarden =
@@ -123,14 +139,13 @@ export async function executeMutation(
         });
 
   return withSecretLock(
-    `${options.collection}:${options.bitwardenPath}`,
+    `${mapping.id}:${gsmPath}`,
     options.lockDirectory ?? defaultLockDir(),
     async () => {
-      const existingBitwarden = await bitwarden.findItem(
-        mapping.id,
-        bitwardenPath,
-      );
-      const existingGsm = await gsm.exists(mapping.gsmCollection, gsmPath);
+      const [existingBitwarden, existingGsm] = await Promise.all([
+        bitwarden.findItem(mapping.id, bitwardenPath),
+        gsm.exists(mapping.gsmCollection, gsmPath),
+      ]);
       const plan = createPlan({
         command: options.command,
         collection: mapping.id,
@@ -154,17 +169,57 @@ export async function executeMutation(
         (plan.gsmAction === "create" || plan.gsmAction === "update")
           ? await createSnapshot(input.value)
           : undefined;
-      let bitwardenCompleted = false;
+      let bitwardenState: BitwardenMutationState = "not-started";
+      let operationError: unknown;
       try {
-        await executeBitwardenAction(plan, existingBitwarden, input, bitwarden);
-        bitwardenCompleted = plan.bitwardenAction !== "skip";
+        if (plan.bitwardenAction !== "skip") {
+          bitwardenState = "attempted";
+          await executeBitwardenAction(
+            plan,
+            existingBitwarden,
+            input,
+            bitwarden,
+          );
+          bitwardenState = "confirmed";
+        }
         await executeGsmAction(plan, snapshot, timeoutMs, gsm);
-        return { state: "applied", plan };
       } catch (error) {
-        throw mutationFailure(error, options.command, bitwardenCompleted);
-      } finally {
-        if (snapshot !== undefined) await removeSnapshot(snapshot);
+        operationError = error;
       }
+
+      let cleanupError: unknown;
+      if (snapshot !== undefined) {
+        try {
+          await removeSnapshot(snapshot);
+        } catch (error) {
+          cleanupError = error;
+        }
+      }
+
+      if (operationError !== undefined) {
+        const failure = mutationFailure(
+          operationError,
+          options.command,
+          bitwardenState,
+          options.force === true,
+        );
+        if (cleanupError !== undefined) {
+          throw new Error(
+            `${failure.message}; temporary secret cleanup failed`,
+            {
+              cause: new AggregateError([failure, cleanupError]),
+            },
+          );
+        }
+        throw failure;
+      }
+      if (cleanupError !== undefined) {
+        throw new Error(
+          "Secret operation may have succeeded but temporary secret cleanup failed; inspect providers before retrying",
+          { cause: cleanupError },
+        );
+      }
+      return { state: "applied", plan };
     },
   );
 }
@@ -274,35 +329,53 @@ async function executeGsmAction(
 ): Promise<void> {
   if (plan.gsmAction === "skip") return;
   if (plan.gsmAction === "delete") {
-    await gsm.delete(plan.collection, plan.gsmPath, timeoutMs);
+    await gsm.delete(plan.gsmCollection, plan.gsmPath, timeoutMs);
     return;
   }
   if (!snapshot) throw new Error("Secret snapshot is required for GSM update");
   if (plan.gsmAction === "create") {
-    await gsm.create(plan.collection, plan.gsmPath, snapshot.path, timeoutMs);
+    await gsm.create(
+      plan.gsmCollection,
+      plan.gsmPath,
+      snapshot.path,
+      timeoutMs,
+    );
   } else {
-    await gsm.update(plan.collection, plan.gsmPath, snapshot.path, timeoutMs);
+    await gsm.update(
+      plan.gsmCollection,
+      plan.gsmPath,
+      snapshot.path,
+      timeoutMs,
+    );
   }
 }
 
 function mutationFailure(
   error: unknown,
   command: MutationCommand,
-  bitwardenCompleted: boolean,
+  bitwardenState: BitwardenMutationState,
+  forceRequested: boolean,
 ): Error {
   const message =
     error instanceof Error ? error.message : "Secret operation failed";
-  if (!bitwardenCompleted) {
-    return new Error(`${message}; retry the ${command} command`, {
-      cause: error,
-    });
-  }
-  const force =
-    command === "create" || command === "delete" ? " with --force" : "";
-  return new Error(
-    `${message}; Bitwarden was updated first, so retry the ${command} command${force}`,
-    { cause: error },
-  );
+  const requiresForce =
+    command === "create" || command === "delete"
+      ? forceRequested || bitwardenState !== "not-started"
+      : false;
+  const force = requiresForce ? " with --force" : "";
+  const retry = `retry the ${command} command${force}`;
+  const bitwardenMessage =
+    bitwardenState === "confirmed"
+      ? `Bitwarden was updated first, so ${retry}`
+      : bitwardenState === "attempted"
+        ? `Bitwarden may have been updated, so ${retry}`
+        : retry;
+  const indeterminate =
+    isIndeterminateError(error) &&
+    "; GSM operation may be indeterminate; inspect GSM before retrying";
+  return new Error(`${message}; ${bitwardenMessage}${indeterminate}`, {
+    cause: error,
+  });
 }
 
 async function createSnapshot(value: string): Promise<{ path: string }> {
@@ -312,16 +385,27 @@ async function createSnapshot(value: string): Promise<{ path: string }> {
     await writeFile(snapshotPath, value, { encoding: "utf8", mode: 0o600 });
     await chmod(snapshotPath, 0o600);
   } catch (error) {
-    await rm(directory, { recursive: true, force: true }).catch(
-      () => undefined,
-    );
+    try {
+      await rm(directory, { recursive: true, force: true });
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error],
+        "Secret snapshot creation and cleanup failed",
+        { cause: cleanupError },
+      );
+    }
     throw error;
   }
   return { path: snapshotPath };
 }
 
 async function removeSnapshot(snapshot: { path: string }): Promise<void> {
-  await rm(path.dirname(snapshot.path), { recursive: true, force: true }).catch(
-    () => undefined,
+  await rm(path.dirname(snapshot.path), { recursive: true, force: true });
+}
+
+function isIndeterminateError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error as Error & { indeterminate?: unknown }).indeterminate === true
   );
 }

@@ -9,7 +9,7 @@ import {
   getCollectionMapping,
   gsmPathFromBitwardenPath,
   parseProfile,
-  type ReadableCollectionId,
+  READABLE_COLLECTIONS,
 } from "./config.js";
 import { GsmClient } from "./gsm.js";
 import { GsmWrapper } from "./gsm-wrapper.js";
@@ -19,6 +19,7 @@ import {
   type MutationPlan,
 } from "./mutation.js";
 import { BitwardenClient } from "./bitwarden.js";
+import { MAX_TIMEOUT_MS } from "./command.js";
 
 export interface ExecCliArguments {
   command: "exec";
@@ -184,12 +185,6 @@ Remove cached GSM authentication.
 };
 
 const MUTATION_COMMANDS = ["create", "update", "delete"] as const;
-const READABLE_COLLECTIONS: readonly ReadableCollectionId[] = [
-  "rhdh-qe",
-  "rhdh-test-instance",
-  "rhdh-plugin-export-overlays",
-];
-
 export function parseCliArguments(argv: readonly string[]): CliArguments {
   if (argv.length === 0) return { command: "help", topic: "root" };
   if (argv[0] === "--help" || argv[0] === "-h")
@@ -323,8 +318,14 @@ function parseMutationArguments(
       else if (valueOption.name === "--from-file") fromFile = valueOption.value;
       else if (valueOption.name === "--gsm-timeout-seconds") {
         const seconds = Number(valueOption.value);
-        if (!Number.isSafeInteger(seconds) || seconds <= 0) {
-          throw new Error("--gsm-timeout-seconds must be a positive integer");
+        if (
+          !Number.isSafeInteger(seconds) ||
+          seconds <= 0 ||
+          seconds * 1000 > MAX_TIMEOUT_MS
+        ) {
+          throw new Error(
+            `--gsm-timeout-seconds must be a positive integer no greater than ${Math.floor(MAX_TIMEOUT_MS / 1000)}`,
+          );
         }
         gsmTimeoutMs = seconds * 1000;
       }

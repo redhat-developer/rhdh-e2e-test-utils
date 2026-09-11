@@ -37,6 +37,25 @@ test("describes GSM metadata without exposing provider output", async () => {
   assert.deepEqual(calls[0], ["describe", "-c", "rhdh-qe", "rhdh/test"]);
 });
 
+test("whitelists JSON metadata fields before returning them", async () => {
+  const runner: GsmRunner = {
+    run: async () =>
+      result(
+        JSON.stringify({
+          "create-time": "synthetic",
+          value: "must-not-leak",
+          payload: "must-not-leak",
+          unexpected: "ignored",
+        }),
+      ),
+  };
+
+  assert.deepEqual(
+    await new GsmClient({ runner }).describe("rhdh-qe", "rhdh/test"),
+    { "create-time": "synthetic" },
+  );
+});
+
 test("updates GSM using the private snapshot and reports timeout as indeterminate", async () => {
   const calls: Array<{ args: string[]; timeout?: number }> = [];
   const runner: GsmRunner = {
@@ -123,6 +142,27 @@ test("does not classify missing application credentials as a missing secret", as
         "rhdh/test",
       ),
     /gsm-login/i,
+  );
+});
+
+test("gives login guidance when GSM list authentication fails", async () => {
+  const runner: GsmRunner = {
+    run: async () => ({
+      ...result("", 1),
+      stderr: "DefaultCredentialsError: default credentials were not found",
+    }),
+  };
+
+  await assert.rejects(
+    () => new GsmClient({ runner }).list("rhdh-qe"),
+    /gsm-login/i,
+  );
+});
+
+test("rejects metadata timeouts that Node timers cannot represent", () => {
+  assert.throws(
+    () => new GsmClient({ metadataTimeoutMs: 2_147_483_648 }),
+    /maximum|positive integer/i,
   );
 });
 

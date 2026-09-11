@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   chmod,
   lstat,
   mkdir,
   readFile,
+  rm,
   rename,
   stat,
   writeFile,
@@ -53,10 +54,12 @@ export class GsmWrapper {
   private readonly warning: (message: string) => void;
   private readonly fetchTimeoutMs: number;
   private activeMetadata?: GsmWrapperMetadata;
+  private initialization?: Promise<GsmWrapperMetadata>;
 
   constructor(options: GsmWrapperOptions = {}) {
-    this.cacheDir =
-      options.cacheDir ?? defaultCacheDir(options.env ?? process.env);
+    this.cacheDir = path.resolve(
+      options.cacheDir ?? defaultCacheDir(options.env ?? process.env),
+    );
     this.fetchScript = options.fetchScript ?? fetchCurrentWrapper;
     this.fetchTimeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
     this.commandRunner = options.commandRunner ?? runCommand;
@@ -101,6 +104,15 @@ export class GsmWrapper {
 
   private async ensureWrapper(): Promise<GsmWrapperMetadata> {
     if (this.activeMetadata) return this.activeMetadata;
+    if (this.initialization) return this.initialization;
+    this.initialization = this.initializeWrapper().catch((error) => {
+      this.initialization = undefined;
+      throw error;
+    });
+    return this.initialization;
+  }
+
+  private async initializeWrapper(): Promise<GsmWrapperMetadata> {
     await mkdir(path.join(this.cacheDir, "gcp-secret-manager"), {
       recursive: true,
       mode: 0o700,
@@ -128,22 +140,31 @@ export class GsmWrapper {
     script: string,
     usedCache: boolean,
   ): Promise<GsmWrapperMetadata> {
-    const scriptPath = path.join(this.cacheDir, WRAPPER_FILE);
     const sha256 = hash(script);
+    const scriptPath = path.join(this.cacheDir, `${WRAPPER_FILE}.${sha256}`);
     const fetchedAt = new Date().toISOString();
-    const temporaryPath = `${scriptPath}.${process.pid}.tmp`;
-    await writeFile(temporaryPath, script, { encoding: "utf8", mode: 0o700 });
-    await chmod(temporaryPath, 0o700);
-    await rename(temporaryPath, scriptPath);
-    const metadata = { scriptPath, sha256, fetchedAt };
+    const suffix = `${process.pid}.${randomUUID()}`;
+    const temporaryPath = `${scriptPath}.${suffix}.tmp`;
     const metadataPath = path.join(this.cacheDir, CACHE_METADATA_FILE);
-    const temporaryMetadataPath = `${metadataPath}.${process.pid}.tmp`;
-    await writeFile(temporaryMetadataPath, `${JSON.stringify(metadata)}\n`, {
-      encoding: "utf8",
-      mode: 0o600,
-    });
-    await chmod(temporaryMetadataPath, 0o600);
-    await rename(temporaryMetadataPath, metadataPath);
+    const temporaryMetadataPath = `${metadataPath}.${suffix}.tmp`;
+    try {
+      await writeFile(temporaryPath, script, { encoding: "utf8", mode: 0o700 });
+      await chmod(temporaryPath, 0o700);
+      await rename(temporaryPath, scriptPath);
+    } finally {
+      await rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
+    const metadata = { scriptPath, sha256, fetchedAt };
+    try {
+      await writeFile(temporaryMetadataPath, `${JSON.stringify(metadata)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
+      await chmod(temporaryMetadataPath, 0o600);
+      await rename(temporaryMetadataPath, metadataPath);
+    } finally {
+      await rm(temporaryMetadataPath, { force: true }).catch(() => undefined);
+    }
     return { ...metadata, usedCache };
   }
 
@@ -162,17 +183,18 @@ export class GsmWrapper {
       ) {
         return undefined;
       }
-      if (metadata.scriptPath !== path.join(this.cacheDir, WRAPPER_FILE)) {
+      const scriptPath = path.resolve(metadata.scriptPath);
+      if (!isCacheScriptPath(this.cacheDir, scriptPath)) {
         return undefined;
       }
-      if ((await lstat(metadata.scriptPath)).isSymbolicLink()) return undefined;
-      const script = await readFile(metadata.scriptPath, "utf8");
+      if ((await lstat(scriptPath)).isSymbolicLink()) return undefined;
+      const script = await readFile(scriptPath, "utf8");
       validateWrapper(script);
       if (hash(script) !== metadata.sha256) return undefined;
-      const details = await stat(metadata.scriptPath);
+      const details = await stat(scriptPath);
       if ((details.mode & 0o111) === 0) return undefined;
       return {
-        scriptPath: metadata.scriptPath,
+        scriptPath,
         sha256: metadata.sha256,
         fetchedAt: metadata.fetchedAt,
       };
@@ -180,6 +202,21 @@ export class GsmWrapper {
       return undefined;
     }
   }
+}
+
+function isCacheScriptPath(cacheDir: string, scriptPath: string): boolean {
+  const relative = path.relative(
+    path.resolve(cacheDir),
+    path.resolve(scriptPath),
+  );
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return false;
+  const baseName = path.basename(scriptPath);
+  return (
+    baseName === WRAPPER_FILE ||
+    new RegExp(`^${WRAPPER_FILE.replace(".", "\\.")}\\.[a-f0-9]{64}$`).test(
+      baseName,
+    )
+  );
 }
 
 export function defaultCacheDir(env: NodeJS.ProcessEnv = process.env): string {

@@ -1,7 +1,11 @@
-/* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect -- node:test fixtures model process environment keys */
+/* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect, playwright/no-conditional-in-test -- node:test fixtures model process environment keys */
 
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { executeCommand, runChild, type ChildRunner } from "../exec.js";
 import type { BitwardenSecret } from "../bitwarden.js";
 import type { SecretProfile } from "../config.js";
@@ -110,4 +114,56 @@ test("returns the shell-compatible status for a signal-terminated child", async 
     { ...process.env },
   );
   assert.equal(exitCode, 143);
+});
+
+test("forwards termination to descendants in the child process group", async () => {
+  if (process.platform === "win32") return;
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "rhdh-e2e-exec-test-"),
+  );
+  const marker = path.join(directory, "terminated");
+  const ready = path.join(directory, "ready");
+  const pidFile = path.join(directory, "pid");
+  let descendantPid: number | undefined;
+  try {
+    const descendantScript = [
+      "const fs = require('node:fs');",
+      `process.on('SIGTERM', () => { fs.writeFileSync(${JSON.stringify(marker)}, 'terminated'); process.exit(0); });`,
+      `fs.writeFileSync(${JSON.stringify(ready)}, 'ready');`,
+      "setTimeout(() => {}, 10000);",
+    ].join(" ");
+    const parentScript = [
+      "const fs = require('node:fs');",
+      "const { spawn } = require('node:child_process');",
+      `const child = spawn(process.execPath, ['-e', ${JSON.stringify(descendantScript)}], { stdio: 'ignore' });`,
+      `fs.writeFileSync(${JSON.stringify(pidFile)}, String(child.pid));`,
+      "setTimeout(() => {}, 10000);",
+    ].join(" ");
+    const result = runChild(process.execPath, ["-e", parentScript], {
+      ...process.env,
+    });
+
+    for (let attempt = 0; attempt < 50; attempt++) {
+      try {
+        await readFile(ready, "utf8");
+        descendantPid = Number(await readFile(pidFile, "utf8"));
+        break;
+      } catch {
+        await delay(10);
+      }
+    }
+    assert.equal(typeof descendantPid, "number");
+    process.kill(process.pid, "SIGTERM");
+    assert.equal(await result, 143);
+    assert.equal(await readFile(marker, "utf8"), "terminated");
+  } finally {
+    if (descendantPid !== undefined) {
+      try {
+        process.kill(descendantPid, "SIGTERM");
+      } catch {
+        // The descendant may already have exited with the process group.
+      }
+    }
+    await rm(directory, { recursive: true, force: true });
+  }
 });

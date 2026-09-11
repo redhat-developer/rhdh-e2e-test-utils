@@ -38,7 +38,7 @@ export interface ExpandedSecretProfile {
   selectors: readonly ExpandedSecretSelector[];
 }
 
-const COLLECTIONS: readonly CollectionMapping[] = [
+export const COLLECTIONS: readonly CollectionMapping[] = [
   {
     id: "rhdh-qe",
     bitwardenCollection: "Rhdh Qe Ci Secrets",
@@ -55,6 +55,10 @@ const COLLECTIONS: readonly CollectionMapping[] = [
     gsmCollection: "rhdh-plugin-export-overlays",
   },
 ];
+
+export const READABLE_COLLECTIONS = COLLECTIONS.map(
+  ({ id }) => id,
+) as readonly ReadableCollectionId[];
 
 const DENIED_COLLECTION = "rhdh-aws-credentials";
 const WORKSPACE_TOKEN = "${workspace}";

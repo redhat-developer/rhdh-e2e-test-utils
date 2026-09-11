@@ -31,7 +31,10 @@ test("downloads and atomically caches the GSM wrapper", async () => {
 
     const metadata = await wrapper.run(["describe", "-o", "json"]);
     assert.equal(metadata.usedCache, false);
-    assert.equal(calls[0]?.[0], path.join(cacheDir, "secret-manager.sh"));
+    assert.match(
+      path.basename(calls[0]![0]!),
+      /^secret-manager\.sh\.[a-f0-9]{64}$/,
+    );
     assert.equal(await readFile(calls[0]![0]!, "utf8"), script);
   } finally {
     await rm(cacheDir, { recursive: true, force: true });
@@ -99,6 +102,27 @@ test("passes interactive GSM commands through the terminal", async () => {
       { stdio: received?.stdio, tty: received?.tty },
       { stdio: "inherit", tty: true },
     );
+  } finally {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+});
+
+test("shares one wrapper initialization across concurrent runs", async () => {
+  const cacheDir = await mkdtemp(path.join(os.tmpdir(), "gsm-wrapper-test-"));
+  let fetches = 0;
+  try {
+    const wrapper = new GsmWrapper({
+      cacheDir,
+      fetchScript: async () => {
+        fetches++;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return script;
+      },
+      commandRunner: async () => ({ status: 0, stdout: "", stderr: "" }),
+    });
+
+    await Promise.all([wrapper.run(["list"]), wrapper.run(["list"])]);
+    assert.equal(fetches, 1);
   } finally {
     await rm(cacheDir, { recursive: true, force: true });
   }

@@ -32,6 +32,12 @@ yarn test:secrets
 
 See [Running Locally - Secrets from Bitwarden](/overlay/tutorials/running-locally#secrets-from-bitwarden) for full details.
 
+GSM wrapper downloads use Node's network client. Set `NODE_USE_ENV_PROXY=1`
+when `HTTP_PROXY` or `HTTPS_PROXY` is required, and set `NODE_EXTRA_CA_CERTS`
+for a corporate or internal CA. The GSM wrapper cache and mutation lock state
+use `XDG_CACHE_HOME` and `XDG_STATE_HOME` when those variables are absolute
+paths.
+
 ## Core Variables
 
 ### RHDH Configuration

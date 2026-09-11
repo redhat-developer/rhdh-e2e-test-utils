@@ -54,18 +54,30 @@ export interface BitwardenClientOptions {
   command?: string;
   env?: NodeJS.ProcessEnv;
   runner?: BitwardenCommandRunner;
+  removeTemporaryDirectory?: (directory: string) => Promise<void>;
 }
 
 export class BitwardenClient {
   private readonly command: string;
   private readonly env: NodeJS.ProcessEnv;
   private readonly runner: BitwardenCommandRunner;
-  private selectedCollection?: BitwardenCollection;
+  private readonly removeTemporaryDirectory: (
+    directory: string,
+  ) => Promise<void>;
+  private sessionCheck?: Promise<void>;
+  private readonly collections = new Map<
+    string,
+    Promise<BitwardenCollection>
+  >();
+  private readonly itemCollections = new Map<string, BitwardenCollection>();
 
   constructor(options: BitwardenClientOptions = {}) {
     this.command = options.command ?? "bw";
     this.env = { ...process.env, ...options.env };
     this.runner = options.runner ?? runCommand;
+    this.removeTemporaryDirectory =
+      options.removeTemporaryDirectory ??
+      ((directory) => rm(directory, { recursive: true, force: true }));
   }
 
   async read(
@@ -73,27 +85,11 @@ export class BitwardenClient {
     selectors: readonly ExpandedSecretSelector[],
   ): Promise<BitwardenSecret[]> {
     const mapping = getCollectionMapping(collectionId);
-    if (!this.env.BW_SESSION?.trim()) {
-      throw new Error(
-        "BW_SESSION is required and must contain an unlocked Bitwarden session",
-      );
-    }
-
-    await this.runOrThrow(["--version"], "Bitwarden CLI is unavailable");
-    const status = await this.runOrThrow(
-      ["status"],
-      "Bitwarden session status could not be checked",
-    );
-    const statusJson = parseJson(status, "Bitwarden status");
-    if (!isRecord(statusJson) || statusJson.status !== "unlocked") {
-      throw new Error("BW_SESSION is missing or Bitwarden is not unlocked");
-    }
-
+    await this.ensureSession();
     await this.runOrThrow(["sync"], "Bitwarden sync failed");
     const collection = await this.resolveCollection(
       mapping.bitwardenCollection,
     );
-    this.selectedCollection = collection;
     const result: BitwardenSecret[] = [];
     const names = new Set<string>();
 
@@ -135,7 +131,6 @@ export class BitwardenClient {
     const collection = await this.resolveCollection(
       mapping.bitwardenCollection,
     );
-    this.selectedCollection = collection;
     const listed = await this.runOrThrow(
       ["list", "items", "--collectionid", collection.id, "--search", name],
       `Bitwarden item listing failed for ${name}`,
@@ -144,12 +139,20 @@ export class BitwardenClient {
     if (!Array.isArray(values)) {
       throw new Error(`Bitwarden returned an invalid item list for ${name}`);
     }
-    const ids = values.flatMap((value) =>
-      isRecord(value) && typeof value.id === "string" ? [value.id] : [],
-    );
     const matches: BitwardenSecretItem[] = [];
-    for (const id of ids) {
-      const item = await this.readItemById(id, collection, name);
+    for (const value of values) {
+      if (
+        isRecord(value) &&
+        typeof value.name === "string" &&
+        value.name !== name
+      )
+        continue;
+      if (!isRecord(value) || typeof value.id !== "string" || !value.id) {
+        throw new Error(`Bitwarden returned an item without an id for ${name}`);
+      }
+      const item = isCompleteItem(value, true)
+        ? await this.parseItem(value, value.id, collection, name, true)
+        : await this.readItemById(value.id, collection, name);
       if (item.name === name) matches.push(item);
     }
     if (matches.length === 0) return undefined;
@@ -170,7 +173,6 @@ export class BitwardenClient {
     const collection = await this.resolveCollection(
       mapping.bitwardenCollection,
     );
-    this.selectedCollection = collection;
 
     const payload = this.itemPayload({
       name,
@@ -178,7 +180,7 @@ export class BitwardenClient {
       notes: storage === "note" ? value : null,
       attachments: [],
     });
-    const encoded = await this.encodeItem(payload, name);
+    const encoded = this.encodeItem(payload);
     const created = await this.runOrThrow(
       ["create", "item"],
       `Bitwarden item creation failed for ${name}`,
@@ -205,7 +207,18 @@ export class BitwardenClient {
           name,
         );
       }
-      const verified = await this.refreshItemById(createdId, collection, name);
+      const verified =
+        storage === "note" &&
+        isRecord(createdValue) &&
+        isCompleteItem(createdValue, true)
+          ? await this.parseItem(
+              createdValue,
+              createdId,
+              collection,
+              name,
+              true,
+            )
+          : await this.refreshItemById(createdId, collection, name);
       if (verified.value !== value || verified.storage !== storage) {
         throw new Error(`Bitwarden read-back verification failed: ${name}`);
       }
@@ -225,9 +238,10 @@ export class BitwardenClient {
 
   async deleteItem(item: BitwardenSecretItem): Promise<void> {
     await this.ensureSession();
+    const collection = this.collectionForItem(item);
     await this.deleteItemById(item.id, item.name);
     await this.runOrThrow(["sync"], "Bitwarden sync failed");
-    if (this.selectedCollection && (await this.findItemInSelected(item.name))) {
+    if (await this.findItemInCollection(collection, item.name)) {
       throw new Error(
         `Bitwarden item deletion could not be verified: ${item.name}`,
       );
@@ -247,12 +261,28 @@ export class BitwardenClient {
     if (item.value === value && item.storage === storage) return item;
 
     if (item.storage === storage && item.storage === "note") {
-      await this.editItem(
+      const edited = await this.editItem(
         item.id,
         this.updatedItemPayload(item, value, "note"),
         item.name,
       );
-      return this.refreshItem(item);
+      const updatedValue = parseJson(
+        edited,
+        `Bitwarden update for ${item.name}`,
+      );
+      const updated = await this.parseItem(
+        updatedValue,
+        item.id,
+        this.collectionForItem(item),
+        item.name,
+        true,
+      );
+      if (updated.value !== value || updated.storage !== "note") {
+        throw new Error(
+          `Bitwarden read-back verification failed: ${item.name}`,
+        );
+      }
+      return updated;
     }
 
     if (item.storage === storage && item.storage === "attachment") {
@@ -266,6 +296,19 @@ export class BitwardenClient {
   }
 
   private async resolveCollection(
+    collectionName: string,
+  ): Promise<BitwardenCollection> {
+    const cached = this.collections.get(collectionName);
+    if (cached) return cached;
+    const pending = this.loadCollection(collectionName).catch((error) => {
+      this.collections.delete(collectionName);
+      throw error;
+    });
+    this.collections.set(collectionName, pending);
+    return pending;
+  }
+
+  private async loadCollection(
     collectionName: string,
   ): Promise<BitwardenCollection> {
     const result = await this.runOrThrow(
@@ -332,7 +375,7 @@ export class BitwardenClient {
       );
     }
 
-    const ids = values.flatMap((value) => {
+    const listedItems = values.flatMap((value) => {
       if (
         !isRecord(value) ||
         typeof value.id !== "string" ||
@@ -348,81 +391,33 @@ export class BitwardenClient {
       ) {
         return [];
       }
-      return [value.id];
+      return [{ id: value.id, value }];
     });
-    if (new Set(ids).size !== ids.length) {
+    if (new Set(listedItems.map(({ id }) => id)).size !== listedItems.length) {
       throw new Error(`Duplicate Bitwarden item id for ${selector.prefix}`);
     }
 
     const items: BitwardenSecret[] = [];
-    for (const id of ids) {
-      const itemResult = await this.runOrThrow(
-        ["get", "item", id],
-        `Bitwarden item read failed for ${selector.prefix}`,
-      );
-      const value = parseJson(itemResult, `Bitwarden item ${id}`);
-      if (!isRecord(value)) {
-        throw new Error(
-          `Bitwarden returned an invalid item for ${selector.prefix}`,
-        );
-      }
-      if (
-        typeof value.name !== "string" ||
-        !value.name.startsWith(selector.prefix)
-      ) {
-        continue;
-      }
-      if (
-        value.id !== id ||
-        value.type !== 2 ||
-        !Array.isArray(value.collectionIds) ||
-        value.collectionIds.length !== 1 ||
-        value.collectionIds[0] !== collection.id ||
-        value.organizationId !== collection.organizationId
-      ) {
-        throw new Error(
-          `Bitwarden item ${typeof value.name === "string" ? value.name : id} is not a secure note in the selected collection`,
-        );
-      }
-
-      const attachment = parseAttachment(value.attachments, selector.prefix);
-      if (attachment === undefined) {
-        if (typeof value.notes !== "string") {
-          throw new Error(
-            `Bitwarden item ${value.name} is not a secure note in the selected collection`,
+    for (const listed of listedItems) {
+      const item = isCompleteItem(listed.value, false)
+        ? await this.parseItem(
+            listed.value,
+            listed.id,
+            collection,
+            selector.prefix,
+            false,
+          )
+        : await this.readItemById(
+            listed.id,
+            collection,
+            selector.prefix,
+            false,
           );
-        }
-        items.push({
-          id,
-          name: value.name,
-          value: value.notes,
-          selector,
-        });
-        continue;
-      }
-
-      if (
-        value.notes !== null &&
-        (typeof value.notes !== "string" || value.notes.length > 0)
-      ) {
-        throw new Error(
-          `Bitwarden item notes must be null or empty when an attachment is present for ${selector.prefix}`,
-        );
-      }
-      if (attachment.fileName !== attachmentFileName(value.name)) {
-        throw new Error(
-          `Bitwarden attachment filename does not match the item basename for ${selector.prefix}`,
-        );
-      }
-
-      const attachmentResult = await this.runOrThrow(
-        ["get", "attachment", attachment.fileName, "--itemid", id, "--raw"],
-        `Bitwarden attachment read failed for ${selector.prefix}`,
-      );
+      if (!item.name.startsWith(selector.prefix)) continue;
       items.push({
-        id,
-        name: value.name,
-        value: attachmentResult.stdout,
+        id: item.id,
+        name: item.name,
+        value: item.value,
         selector,
       });
     }
@@ -435,6 +430,16 @@ export class BitwardenClient {
         "BW_SESSION is required and must contain an unlocked Bitwarden session",
       );
     }
+    if (!this.sessionCheck) {
+      this.sessionCheck = this.checkSession().catch((error) => {
+        this.sessionCheck = undefined;
+        throw error;
+      });
+    }
+    await this.sessionCheck;
+  }
+
+  private async checkSession(): Promise<void> {
     await this.runOrThrow(["--version"], "Bitwarden CLI is unavailable");
     const status = await this.runOrThrow(
       ["status"],
@@ -450,12 +455,29 @@ export class BitwardenClient {
     id: string,
     collection: BitwardenCollection,
     label: string,
+    requireRevision = true,
   ): Promise<BitwardenSecretItem> {
     const result = await this.runOrThrow(
       ["get", "item", id],
       `Bitwarden item read failed for ${label}`,
     );
-    const value = parseJson(result, `Bitwarden item ${id}`);
+    return this.parseItem(
+      parseJson(result, `Bitwarden item ${id}`),
+      id,
+      collection,
+      label,
+      requireRevision,
+    );
+  }
+
+  private async parseItem(
+    input: unknown,
+    id: string,
+    collection: BitwardenCollection,
+    label: string,
+    requireRevision: boolean,
+  ): Promise<BitwardenSecretItem> {
+    const value = input;
     if (!isRecord(value)) {
       throw new Error(`Bitwarden returned an invalid item for ${label}`);
     }
@@ -467,8 +489,9 @@ export class BitwardenClient {
       value.collectionIds.length !== 1 ||
       value.collectionIds[0] !== collection.id ||
       value.organizationId !== collection.organizationId ||
-      typeof value.revisionDate !== "string" ||
-      value.revisionDate.length === 0
+      (requireRevision &&
+        (typeof value.revisionDate !== "string" ||
+          value.revisionDate.length === 0))
     ) {
       throw new Error(
         `Bitwarden item ${typeof value.name === "string" ? value.name : id} is not a valid secure note in the selected collection`,
@@ -479,22 +502,27 @@ export class BitwardenClient {
       if (typeof value.notes !== "string") {
         throw new Error(`Bitwarden secure note has no value: ${value.name}`);
       }
-      return {
+      const item: BitwardenSecretItem = {
         id,
         name: value.name,
         value: value.notes,
         storage: "note",
-        revisionDate: value.revisionDate,
+        revisionDate:
+          typeof value.revisionDate === "string" ? value.revisionDate : "",
         raw: value,
         attachments: [],
       };
+      this.itemCollections.set(id, collection);
+      return item;
     }
     if (
       value.notes !== null &&
       (typeof value.notes !== "string" || value.notes.length > 0)
     ) {
       throw new Error(
-        `Bitwarden item notes must be empty with an attachment: ${value.name}`,
+        requireRevision
+          ? `Bitwarden item notes must be empty with an attachment: ${value.name}`
+          : `Bitwarden item notes must be null or empty when an attachment is present for ${label}`,
       );
     }
     if (attachment.fileName !== attachmentFileName(value.name)) {
@@ -506,28 +534,26 @@ export class BitwardenClient {
       ["get", "attachment", attachment.fileName, "--itemid", id, "--raw"],
       `Bitwarden attachment read failed for ${label}`,
     );
-    return {
+    const item: BitwardenSecretItem = {
       id,
       name: value.name,
       value: attachmentResult.stdout,
       storage: "attachment",
-      revisionDate: value.revisionDate,
+      revisionDate:
+        typeof value.revisionDate === "string" ? value.revisionDate : "",
       raw: value,
       attachments: [attachment],
       attachment,
     };
+    this.itemCollections.set(id, collection);
+    return item;
   }
 
   private async refreshItem(
     item: BitwardenSecretItem,
   ): Promise<BitwardenSecretItem> {
-    if (!this.selectedCollection) {
-      throw new Error(
-        "Bitwarden collection must be loaded before refreshing an item",
-      );
-    }
     await this.runOrThrow(["sync"], "Bitwarden sync failed");
-    return this.readItemById(item.id, this.selectedCollection, item.name);
+    return this.readItemById(item.id, this.collectionForItem(item), item.name);
   }
 
   private async refreshItemById(
@@ -539,37 +565,44 @@ export class BitwardenClient {
     return this.readItemById(id, collection, name);
   }
 
-  private async findItemInSelected(
+  private async findItemInCollection(
+    collection: BitwardenCollection,
     name: string,
   ): Promise<BitwardenSecretItem | undefined> {
-    if (!this.selectedCollection) return undefined;
     const listed = await this.runOrThrow(
-      [
-        "list",
-        "items",
-        "--collectionid",
-        this.selectedCollection.id,
-        "--search",
-        name,
-      ],
+      ["list", "items", "--collectionid", collection.id, "--search", name],
       `Bitwarden item listing failed for ${name}`,
     );
     const values = parseJson(listed, `Bitwarden item list for ${name}`);
-    if (!Array.isArray(values)) return undefined;
+    if (!Array.isArray(values)) {
+      throw new Error(`Bitwarden returned an invalid item list for ${name}`);
+    }
     for (const value of values) {
-      if (!isRecord(value) || typeof value.id !== "string") continue;
-      try {
-        const item = await this.readItemById(
-          value.id,
-          this.selectedCollection,
-          name,
-        );
-        if (item.name === name) return item;
-      } catch {
-        // Items moved to the Bitwarden trash are intentionally not returned.
+      if (
+        isRecord(value) &&
+        typeof value.name === "string" &&
+        value.name !== name
+      )
+        continue;
+      if (!isRecord(value) || typeof value.id !== "string" || !value.id) {
+        throw new Error(`Bitwarden returned an item without an id for ${name}`);
       }
+      const item = isCompleteItem(value, true)
+        ? await this.parseItem(value, value.id, collection, name, true)
+        : await this.readItemById(value.id, collection, name);
+      if (item.name === name) return item;
     }
     return undefined;
+  }
+
+  private collectionForItem(item: BitwardenSecretItem): BitwardenCollection {
+    const collection = this.itemCollections.get(item.id);
+    if (!collection) {
+      throw new Error(
+        "Bitwarden collection must be loaded before changing an item",
+      );
+    }
+    return collection;
   }
 
   private async deleteItemById(id: string, name: string): Promise<void> {
@@ -619,19 +652,8 @@ export class BitwardenClient {
     };
   }
 
-  private async encodeItem(
-    payload: Record<string, unknown>,
-    name: string,
-  ): Promise<string> {
-    const encoded = await this.runOrThrow(
-      ["encode"],
-      "Bitwarden JSON encoding failed",
-      JSON.stringify(payload),
-    );
-    if (encoded.stdout.trim().length === 0) {
-      throw new Error(`Bitwarden JSON encoding failed: ${name}`);
-    }
-    return encoded.stdout.trim();
+  private encodeItem(payload: Record<string, unknown>): string {
+    return Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
   }
 
   private async updateAttachment(
@@ -677,12 +699,12 @@ export class BitwardenClient {
     item: BitwardenSecretItem,
     value: string,
   ): Promise<BitwardenSecretItem> {
-    await this.editItem(
-      item.id,
-      this.updatedItemPayload(item, value, "attachment"),
-      item.name,
-    );
     try {
+      await this.editItem(
+        item.id,
+        this.updatedItemPayload(item, value, "attachment"),
+        item.name,
+      );
       await this.createAttachment(
         item.id,
         attachmentFileName(item.name),
@@ -797,19 +819,12 @@ export class BitwardenClient {
     id: string,
     payload: Record<string, unknown>,
     name: string,
-  ): Promise<void> {
-    const encoded = await this.runOrThrow(
-      ["encode"],
-      "Bitwarden JSON encoding failed",
-      JSON.stringify(payload),
-    );
-    if (encoded.stdout.trim().length === 0) {
-      throw new Error(`Bitwarden JSON encoding failed: ${name}`);
-    }
-    await this.runOrThrow(
+  ): Promise<CommandResult> {
+    const encoded = this.encodeItem(payload);
+    return this.runOrThrow(
       ["edit", "item", id],
       `Bitwarden update failed for ${name}`,
-      encoded.stdout.trim(),
+      encoded,
     );
   }
 
@@ -824,6 +839,7 @@ export class BitwardenClient {
     }
     const directory = await mkdtemp(path.join(os.tmpdir(), "rhdh-e2e-secret-"));
     const filePath = path.join(directory, fileName);
+    let operationError: unknown;
     try {
       await writeFile(filePath, value, { encoding: "utf8", mode: 0o600 });
       await chmod(filePath, 0o600);
@@ -831,8 +847,29 @@ export class BitwardenClient {
         ["create", "attachment", "--file", filePath, "--itemid", itemId],
         `Bitwarden attachment update failed for ${name}`,
       );
-    } finally {
-      await rm(directory, { recursive: true, force: true });
+    } catch (error) {
+      operationError = error;
+    }
+    let cleanupError: unknown;
+    try {
+      await this.removeTemporaryDirectory(directory);
+    } catch (error) {
+      cleanupError = error;
+    }
+    if (operationError !== undefined) {
+      if (cleanupError !== undefined) {
+        throw new Error(
+          `Bitwarden attachment operation failed and temporary cleanup failed: ${name}`,
+          { cause: new AggregateError([operationError, cleanupError]) },
+        );
+      }
+      throw operationError;
+    }
+    if (cleanupError !== undefined) {
+      throw new Error(
+        `Bitwarden attachment operation may have succeeded but temporary cleanup failed: ${name}`,
+        { cause: cleanupError },
+      );
     }
   }
 
@@ -865,6 +902,21 @@ function parseJson(result: CommandResult, label: string): unknown {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCompleteItem(
+  value: Record<string, unknown>,
+  requireRevision: boolean,
+): boolean {
+  return (
+    typeof value.id === "string" &&
+    "name" in value &&
+    "type" in value &&
+    "collectionIds" in value &&
+    "organizationId" in value &&
+    "notes" in value &&
+    (!requireRevision || "revisionDate" in value)
+  );
 }
 
 function parseAttachment(

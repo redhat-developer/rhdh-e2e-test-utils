@@ -1,6 +1,9 @@
 /* eslint-disable playwright/expect-expect -- node:test assertions */
 
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import {
   executeMutation,
@@ -273,6 +276,128 @@ test("update writes Bitwarden before GSM and reports a retry without a resume id
     },
   );
   assert.deepEqual(calls, ["bitwarden-update", "gsm-update"]);
+});
+
+test("preserves force guidance after a forced partial delete fails", async () => {
+  await assert.rejects(
+    () =>
+      executeMutation({
+        command: "delete",
+        collection: "rhdh-qe",
+        bitwardenPath: "rhdh/test",
+        force: true,
+        bitwarden: {
+          findItem: async () => undefined,
+          createItem: async () => item("unused"),
+          updateItem: async () => item("unused"),
+          deleteItem: async () => undefined,
+        },
+        gsm: gsm({
+          exists: async () => true,
+          delete: async () => {
+            throw new Error("GSM unavailable");
+          },
+        }),
+      }),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.match(error.message, /retry the delete command with --force/i);
+      return true;
+    },
+  );
+});
+
+test("reports reconciliation guidance when Bitwarden may have changed", async () => {
+  await assert.rejects(
+    () =>
+      executeMutation({
+        command: "create",
+        collection: "rhdh-qe",
+        bitwardenPath: "rhdh/test",
+        fromStdin: true,
+        stdin: ["new-value"],
+        force: true,
+        bitwarden: {
+          findItem: async () => undefined,
+          createItem: async () => {
+            throw new Error("Bitwarden response lost after create");
+          },
+          updateItem: async () => item("unused"),
+          deleteItem: async () => undefined,
+        },
+        gsm: gsm(),
+      }),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.match(error.message, /may have been updated|Bitwarden/i);
+      assert.match(error.message, /--force/);
+      return true;
+    },
+  );
+});
+
+test("rejects delete input options at the library boundary", async () => {
+  await assert.rejects(
+    () =>
+      executeMutation({
+        command: "delete",
+        collection: "rhdh-qe",
+        bitwardenPath: "rhdh/test",
+        fromFile: "secret.txt",
+        bitwarden: {
+          findItem: async () => undefined,
+          createItem: async () => item("unused"),
+          updateItem: async () => item("unused"),
+          deleteItem: async () => undefined,
+        },
+        gsm: gsm(),
+      }),
+    /delete does not accept input options/i,
+  );
+});
+
+test("uses one lock for equivalent GSM path spellings", async () => {
+  const lockDirectory = await mkdtemp(
+    path.join(os.tmpdir(), "rhdh-e2e-mutation-lock-test-"),
+  );
+  let active = 0;
+  let maximumActive = 0;
+  const bitwarden: MutationBitwarden = {
+    findItem: async () => undefined,
+    createItem: async () => {
+      active++;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      active--;
+      return item("new-value");
+    },
+    updateItem: async () => item("new-value"),
+    deleteItem: async () => undefined,
+  };
+  const options = {
+    command: "create" as const,
+    collection: "rhdh-qe",
+    fromStdin: true,
+    stdin: ["new-value"],
+    force: true,
+    lockDirectory,
+    bitwarden,
+    gsm: gsm(),
+  };
+
+  try {
+    const results = await Promise.allSettled([
+      executeMutation({ ...options, bitwardenPath: "rhdh/test.pem" }),
+      executeMutation({ ...options, bitwardenPath: "rhdh/test--dot--pem" }),
+    ]);
+    assert.equal(maximumActive, 1);
+    assert.equal(
+      results.filter((result) => result.status === "rejected").length,
+      1,
+    );
+  } finally {
+    await rm(lockDirectory, { recursive: true, force: true });
+  }
 });
 
 test("forced delete removes existing targets and accepts an absent provider", async () => {

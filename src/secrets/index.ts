@@ -4,6 +4,8 @@ export {
   getCollectionMapping,
   gsmPathFromBitwardenPath,
   parseProfile,
+  COLLECTIONS,
+  READABLE_COLLECTIONS,
   validateSecretPath,
   type CollectionMapping,
   type EnvironmentDestination,

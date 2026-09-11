@@ -51,7 +51,12 @@ export async function executeCommand(
 
 export const runChild: ChildRunner = (command, args, env) =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, args, { env, stdio: "inherit" });
+    const detached = process.platform !== "win32";
+    const child = spawn(command, args, {
+      detached,
+      env,
+      stdio: "inherit",
+    });
     let settled = false;
     const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
     const signalExitCodes = new Map<(typeof signals)[number], number>([
@@ -60,8 +65,19 @@ export const runChild: ChildRunner = (command, args, env) =>
       ["SIGHUP", 129],
     ]);
     const forwarders = new Map<(typeof signals)[number], () => void>();
+    const terminate = (signal: (typeof signals)[number]): void => {
+      if (detached && child.pid !== undefined) {
+        try {
+          process.kill(-child.pid, signal);
+          return;
+        } catch {
+          // Fall through to the direct child signal.
+        }
+      }
+      child.kill(signal);
+    };
     for (const signal of signals) {
-      const forwardSignal = () => child.kill(signal);
+      const forwardSignal = () => terminate(signal);
       forwarders.set(signal, forwardSignal);
       process.on(signal, forwardSignal);
     }

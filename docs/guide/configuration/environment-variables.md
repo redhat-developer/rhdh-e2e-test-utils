@@ -29,15 +29,21 @@ These are set automatically during deployment:
 
 ## Local Secret Execution
 
-| Variable     | Description                                                    | Required |
-| ------------ | -------------------------------------------------------------- | -------- |
-| `BW_SESSION` | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
+| Variable                | Description                                                    | Required |
+| ----------------------- | -------------------------------------------------------------- | -------- |
+| `BW_SESSION`            | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
+| `RHDH_E2E_SECRET_NAMES` | Sorted JSON array of selected secret names in the child process | No       |
 
 Export `BW_SESSION` in the invoking shell before running
 `rhdh-e2e-secrets exec`, `create`, `update`, or `delete`. The wrapper uses it to
 retrieve or update selected Bitwarden items and removes it from child test
 processes. The `describe` and `list` commands query GSM only and do not need
 `BW_SESSION`.
+
+`rhdh-e2e-secrets exec --expose-secret-names -- <command>` adds
+`RHDH_E2E_SECRET_NAMES` only to the child process. It contains validated
+environment-variable names, never secret values or Bitwarden credentials, and
+is not added without the flag.
 
 GSM secret operations use the cached OpenShift CI wrapper. Run
 `rhdh-e2e-secrets gsm-login` once before the first GSM operation; use

@@ -66,6 +66,84 @@ test("executes a command with only selected secrets in its child environment", a
   assert.equal(received?.env.VAULT_TOKEN, "synthetic-value");
   assert.equal(received?.env.EXISTING_VALUE, "preserved");
   assert.equal(received?.env.BW_SESSION, undefined);
+  assert.equal(received?.env.RHDH_E2E_SECRET_NAMES, undefined);
+});
+
+test("exposes only sorted validated secret names from one provider read", async () => {
+  const expandedSelector = secret.selector;
+  const secrets: BitwardenSecret[] = [
+    {
+      id: "zeta-id",
+      name: "global/VAULT_ZETA",
+      value: "zeta-secret-value",
+      selector: expandedSelector,
+    },
+    {
+      id: "filtered-id",
+      name: "global/OTHER_VALUE",
+      value: "filtered-secret-value",
+      selector: expandedSelector,
+    },
+    {
+      id: "alpha-id",
+      name: "global/VAULT_A-B",
+      value: "alpha-secret-value",
+      selector: expandedSelector,
+    },
+  ];
+  let readCount = 0;
+  let childEnvironment: NodeJS.ProcessEnv | undefined;
+
+  const exitCode = await executeCommand({
+    profile,
+    workspaces: [],
+    command: "playwright",
+    args: [],
+    exposeSecretNames: true,
+    env: {
+      BW_SESSION: "synthetic-session",
+      BW_CLIENTID: "synthetic-client-id",
+      RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+    },
+    client: {
+      read: async () => {
+        readCount++;
+        return secrets;
+      },
+    },
+    childRunner: async (_command, _args, env) => {
+      childEnvironment = env;
+      return 0;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(readCount, 1);
+  assert.equal(
+    childEnvironment?.RHDH_E2E_SECRET_NAMES,
+    '["VAULT_A_B","VAULT_ZETA"]',
+  );
+  assert.equal(childEnvironment?.BW_SESSION, undefined);
+  assert.equal(childEnvironment?.BW_CLIENTID, undefined);
+  assert.doesNotMatch(
+    childEnvironment?.RHDH_E2E_SECRET_NAMES ?? "",
+    /synthetic|OTHER_VALUE|BW_/,
+  );
+});
+
+test("preserves the child exit code when secret names are exposed", async () => {
+  const exitCode = await executeCommand({
+    profile,
+    workspaces: [],
+    command: "playwright",
+    args: [],
+    exposeSecretNames: true,
+    env: { BW_SESSION: "synthetic-session" },
+    client: { read: async () => [secret] },
+    childRunner: async () => 17,
+  });
+
+  assert.equal(exitCode, 17);
 });
 
 test("validates all selected mappings before starting the child", async () => {

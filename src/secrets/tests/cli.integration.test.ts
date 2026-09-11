@@ -88,7 +88,7 @@ else process.exitCode = 1;
         "--",
         process.execPath,
         "-e",
-        "if (process.env.VAULT_TOKEN === 'synthetic-note-value' && process.env.VAULT_CERT_PEM === 'synthetic-attachment-value' && process.env.BW_SESSION === undefined) process.stdout.write('child-ran'); else process.exit(1)",
+        "if (process.env.VAULT_TOKEN === 'synthetic-note-value' && process.env.VAULT_CERT_PEM === 'synthetic-attachment-value' && process.env.BW_SESSION === undefined && process.env.RHDH_E2E_SECRET_NAMES === undefined) process.stdout.write('child-ran'); else process.exit(1)",
       ],
       {
         cwd: path.resolve("."),
@@ -106,6 +106,35 @@ else process.exitCode = 1;
     assert.doesNotMatch(result.stderr, /synthetic-(note|attachment)-value/);
     assert.doesNotMatch(result.stdout, /synthetic-session/);
     assert.doesNotMatch(result.stderr, /synthetic-session/);
+
+    const exposed = spawnSync(
+      entrypoint,
+      [
+        "exec",
+        "--profile",
+        profile,
+        "--expose-secret-names",
+        "--",
+        process.execPath,
+        "-e",
+        `if (process.env.RHDH_E2E_SECRET_NAMES === '["VAULT_CERT_PEM","VAULT_TOKEN"]' && process.env.BW_SESSION === undefined) process.stdout.write('child-ran-with-names'); else process.exit(1)`,
+      ],
+      {
+        cwd: path.resolve("."),
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${directory}${path.delimiter}${process.env.PATH ?? ""}`,
+          BW_SESSION: "synthetic-session",
+        },
+      },
+    );
+    assert.equal(exposed.status, 0, exposed.stderr);
+    assert.match(exposed.stdout, /child-ran-with-names/);
+    assert.doesNotMatch(exposed.stdout, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(exposed.stderr, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(exposed.stdout, /synthetic-session/);
+    assert.doesNotMatch(exposed.stderr, /synthetic-session/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

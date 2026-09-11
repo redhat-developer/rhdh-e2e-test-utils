@@ -103,6 +103,116 @@ test("rejects transformed environment-name collisions", () => {
   );
 });
 
+test("rejects the reserved secret-name metadata variable", () => {
+  const identitySelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+      keyTransform: "identity",
+    },
+  };
+
+  assert.throws(
+    () =>
+      materializeEnvironment(
+        [
+          {
+            id: "reserved-id",
+            name: "global/RHDH_E2E_SECRET_NAMES",
+            value: "synthetic",
+            selector: identitySelector,
+          },
+        ],
+        [identitySelector],
+        {},
+      ),
+    /reserved environment variable name.*RHDH_E2E_SECRET_NAMES/i,
+  );
+});
+
+test("rejects names transformed to the reserved metadata variable", () => {
+  const unrestrictedSelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+    },
+  };
+
+  assert.throws(
+    () =>
+      materializeEnvironment(
+        [
+          {
+            id: "reserved-id",
+            name: "global/RHDH-E2E-SECRET-NAMES",
+            value: "synthetic",
+            selector: unrestrictedSelector,
+          },
+        ],
+        [unrestrictedSelector],
+        {},
+      ),
+    /reserved environment variable name.*RHDH_E2E_SECRET_NAMES/i,
+  );
+});
+
+test("rejects selected Bitwarden provider variables", () => {
+  const identitySelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+      keyTransform: "identity",
+    },
+  };
+
+  assert.throws(
+    () =>
+      materializeEnvironment(
+        [
+          {
+            id: "provider-id",
+            name: "global/BW_SESSION",
+            value: "synthetic",
+            selector: identitySelector,
+          },
+        ],
+        [identitySelector],
+        {},
+      ),
+    /Bitwarden provider environment variable.*BW_SESSION/i,
+  );
+});
+
+test("materializes prototype-named environment variables as own properties", () => {
+  const identitySelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+      keyTransform: "identity",
+    },
+  };
+
+  const child = materializeEnvironment(
+    [
+      {
+        id: "prototype-id",
+        name: "global/__proto__",
+        value: "synthetic",
+        selector: identitySelector,
+      },
+    ],
+    [identitySelector],
+    {},
+  );
+
+  assert.equal(Object.hasOwn(child, "__proto__"), true);
+  assert.equal(child.__proto__, "synthetic");
+});
+
 test("rejects invalid identity environment names", () => {
   const identitySelector: ExpandedSecretSelector = {
     ...selector,

@@ -7,7 +7,13 @@ export interface EnvironmentSecret {
   selector: ExpandedSecretSelector;
 }
 
+export interface MaterializedEnvironment {
+  environment: NodeJS.ProcessEnv;
+  secretNames: readonly string[];
+}
+
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
 const PROVIDER_ENVIRONMENT_KEYS = new Set([
   "VAULT",
   "VAULT_TOKEN",
@@ -30,6 +36,15 @@ export function materializeEnvironment(
   selectors: readonly ExpandedSecretSelector[],
   parent: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
+  return materializeEnvironmentWithSecretNames(secrets, selectors, parent)
+    .environment;
+}
+
+export function materializeEnvironmentWithSecretNames(
+  secrets: readonly EnvironmentSecret[],
+  selectors: readonly ExpandedSecretSelector[],
+  parent: NodeJS.ProcessEnv = process.env,
+): MaterializedEnvironment {
   const child = { ...parent };
   removeProviderEnvironmentVariables(child);
 
@@ -61,14 +76,32 @@ export function materializeEnvironment(
     if (!ENVIRONMENT_NAME.test(key)) {
       throw new Error(`Invalid environment variable name: ${key}`);
     }
+    if (key === SECRET_NAMES_ENVIRONMENT_VARIABLE) {
+      throw new Error(`Reserved environment variable name: ${key}`);
+    }
+    if (key.startsWith("BW_")) {
+      throw new Error(
+        `Bitwarden provider environment variable is not allowed: ${key}`,
+      );
+    }
     if (mapped.has(key)) {
       throw new Error(`Environment variable collision: ${key}`);
     }
     mapped.set(key, secret.value);
   }
 
-  for (const [key, value] of mapped) child[key] = value;
-  return child;
+  for (const [key, value] of mapped) {
+    Object.defineProperty(child, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    });
+  }
+  return {
+    environment: child,
+    secretNames: [...mapped.keys()].sort(),
+  };
 }
 
 function transformEnvironmentName(

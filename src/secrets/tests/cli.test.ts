@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatMutationResult,
+  getHelpText,
   parseCliArguments,
   type CreateCliArguments,
   type DeleteCliArguments,
@@ -36,6 +37,52 @@ test("parses the exec profile, repeated workspaces, and command after --", () =>
     executable: "playwright",
     args: ["test", "--headed"],
   } satisfies ExecCliArguments);
+});
+
+test("parses secret-name exposure before the child command", () => {
+  assert.deepEqual(
+    parseCliArguments([
+      "exec",
+      "--profile",
+      "profile.json",
+      "--expose-secret-names",
+      "--",
+      "node",
+    ]),
+    {
+      command: "exec",
+      profilePath: "profile.json",
+      workspaces: [],
+      executable: "node",
+      args: [],
+      exposeSecretNames: true,
+    } satisfies ExecCliArguments,
+  );
+});
+
+test("keeps secret-name exposure after -- as a child argument", () => {
+  assert.deepEqual(
+    parseCliArguments([
+      "exec",
+      "--profile",
+      "profile.json",
+      "--",
+      "node",
+      "--expose-secret-names",
+    ]),
+    {
+      command: "exec",
+      profilePath: "profile.json",
+      workspaces: [],
+      executable: "node",
+      args: ["--expose-secret-names"],
+    } satisfies ExecCliArguments,
+  );
+});
+
+test("advertises secret-name exposure in root and exec help", () => {
+  assert.match(getHelpText("root"), /--expose-secret-names/);
+  assert.match(getHelpText("exec"), /--expose-secret-names/);
 });
 
 test("formats provider actions with their actual collection names", () => {

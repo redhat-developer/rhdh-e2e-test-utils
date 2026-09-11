@@ -27,6 +27,7 @@ export interface ExecCliArguments {
   workspaces: string[];
   executable: string;
   args: string[];
+  exposeSecretNames?: boolean;
 }
 
 export type HelpTopic =
@@ -97,7 +98,7 @@ export type CliArguments =
 
 const HELP_TEXT: Record<HelpTopic, string> = {
   root: `Usage:
-  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] -- <command> [args...]
+  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] [--expose-secret-names] -- <command> [args...]
   rhdh-e2e-secrets create -c <collection> <secret-path> (-f <file> | -i) [--allow-empty] [--force] [--dry-run]
   rhdh-e2e-secrets update -c <collection> <secret-path> (-f <file> | -i) [--allow-empty] [--dry-run]
   rhdh-e2e-secrets delete -c <collection> <secret-path> [--force] [--dry-run]
@@ -111,11 +112,12 @@ Requirements:
   GSM commands use a cached copy of openshift/release hack/secret-manager.sh and require local gcloud authentication.
 `,
   exec: `Usage:
-  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] -- <command> [args...]
+  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] [--expose-secret-names] -- <command> [args...]
 
 Options:
   -p, --profile <file>       Secret profile JSON file (required)
   -w, --workspace <name>     Limit execution to a workspace; repeatable
+      --expose-secret-names  Add selected names to the child environment
   -h, --help                 Show this help
 `,
   create: `Usage:
@@ -225,9 +227,14 @@ function parseExecArguments(argv: readonly string[]): ExecCliArguments {
   const args = argv.slice(delimiter + 2);
   let profilePath: string | undefined;
   const workspaces: string[] = [];
+  let exposeSecretNames = false;
 
   for (let index = 0; index < options.length; index++) {
     const option = options[index]!;
+    if (option === "--expose-secret-names") {
+      exposeSecretNames = true;
+      continue;
+    }
     if (
       option === "--profile" ||
       option === "-p" ||
@@ -264,6 +271,7 @@ function parseExecArguments(argv: readonly string[]): ExecCliArguments {
     workspaces,
     executable: command,
     args,
+    ...(exposeSecretNames ? { exposeSecretNames: true } : {}),
   };
 }
 
@@ -521,6 +529,7 @@ export async function main(
         workspaces: parsed.workspaces,
         command: parsed.executable,
         args: parsed.args,
+        exposeSecretNames: parsed.exposeSecretNames,
       });
     }
     if (parsed.command === "gsm-login" || parsed.command === "gsm-clean") {

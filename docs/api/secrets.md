@@ -19,6 +19,16 @@ rhdh-e2e-secrets exec \
   -- yarn playwright test
 ```
 
+Callers that need to discover which secret variables were selected can opt in
+to name-only metadata:
+
+```bash
+rhdh-e2e-secrets exec \
+  --profile e2e-secrets.profile.json \
+  --expose-secret-names \
+  -- yarn playwright test
+```
+
 The `bw` executable must be installed locally and available on `PATH`. The
 tool does not log in, unlock, lock, or persist the Bitwarden session.
 
@@ -41,6 +51,7 @@ Supported option pairs are:
 - `-o`, `--output` - `text` or `json`, case-insensitive
 - `-p`, `--profile` - `exec` profile JSON file
 - `-w`, `--workspace` - repeatable `exec` workspace selector
+- `--expose-secret-names` - add selected variable names to the child environment
 
 The CLI intentionally does not support GSM's `-l/--from-literal`, because
 secret values should not be exposed in process arguments. Local-only controls
@@ -58,6 +69,13 @@ from an interactive shell even when the value is piped.
 For `exec`, arguments after `--` belong to the child command. For example,
 `rhdh-e2e-secrets exec -p profile.json -- node --help` forwards `--help` to
 Node instead of displaying this CLI's help.
+
+With `--expose-secret-names`, the child receives
+`RHDH_E2E_SECRET_NAMES` as a deterministically sorted JSON array. The array is
+generated from the same filtered, transformed, and validated secret set as the
+child environment. It contains names only, never values or Bitwarden provider
+credentials. The variable is not added when the flag is absent, and the CLI
+does not print its contents.
 
 ## Mutations
 
@@ -193,6 +211,10 @@ new GsmWrapper(options?: GsmWrapperOptions)
 Profiles contain collection and prefix selectors but never secret values. Only
 the approved paired collections are accepted; `rhdh-aws-credentials` is
 explicitly denied for Bitwarden operations.
+
+`ExecuteCommandOptions.exposeSecretNames` enables the same opt-in metadata for
+programmatic callers. It reuses the validated result of the single provider
+read performed by `executeCommand()`.
 
 ## Related Pages
 

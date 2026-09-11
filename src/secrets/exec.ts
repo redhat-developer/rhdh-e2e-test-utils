@@ -5,7 +5,10 @@ import {
   type ExpandedSecretSelector,
   type SecretProfile,
 } from "./config.js";
-import { materializeEnvironment } from "./environment.js";
+import {
+  materializeEnvironmentWithSecretNames,
+  SECRET_NAMES_ENVIRONMENT_VARIABLE,
+} from "./environment.js";
 
 export interface SecretReader {
   read(
@@ -25,6 +28,7 @@ export interface ExecuteCommandOptions {
   workspaces: readonly string[];
   command: string;
   args: readonly string[];
+  exposeSecretNames?: boolean;
   env?: NodeJS.ProcessEnv;
   client?: SecretReader;
   childRunner?: ChildRunner;
@@ -40,11 +44,16 @@ export async function executeCommand(
     options.profile.collection,
     expanded.selectors,
   );
-  const childEnvironment = materializeEnvironment(
-    secrets,
-    expanded.selectors,
-    options.env ?? process.env,
-  );
+  const { environment: childEnvironment, secretNames } =
+    materializeEnvironmentWithSecretNames(
+      secrets,
+      expanded.selectors,
+      options.env ?? process.env,
+    );
+  if (options.exposeSecretNames) {
+    childEnvironment[SECRET_NAMES_ENVIRONMENT_VARIABLE] =
+      JSON.stringify(secretNames);
+  }
   const childRunner = options.childRunner ?? runChild;
   return childRunner(options.command, options.args, childEnvironment);
 }

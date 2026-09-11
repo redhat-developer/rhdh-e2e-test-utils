@@ -22,6 +22,39 @@ rhdh-e2e-secrets exec \
 The `bw` executable must be installed locally and available on `PATH`. The
 tool does not log in, unlock, lock, or persist the Bitwarden session.
 
+## CLI Help and Options
+
+Root and subcommand help are provider-free and support both `-h` and
+`--help`:
+
+```bash
+rhdh-e2e-secrets --help
+rhdh-e2e-secrets create --help
+rhdh-e2e-secrets update -h
+```
+
+Supported option pairs are:
+
+- `-c`, `--collection` - paired secret collection
+- `-f`, `--from-file` - read an attachment-backed value from a file
+- `-i`, `--from-stdin` - read a note-backed value from stdin
+- `-o`, `--output` - `text` or `json`, case-insensitive
+- `-p`, `--profile` - `exec` profile JSON file
+- `-w`, `--workspace` - repeatable `exec` workspace selector
+
+The CLI intentionally does not support GSM's `-l/--from-literal`, because
+secret values should not be exposed in process arguments. Local-only controls
+such as `--allow-empty`, `--force`, and `--dry-run` remain long-only.
+
+`--from-stdin` requires piped input and exits immediately when stdin is an
+interactive terminal. For `create`, the secret is read from the pipe first and
+GSM's metadata prompts are then read from the controlling terminal, so run it
+from an interactive shell even when the value is piped.
+
+For `exec`, arguments after `--` belong to the child command. For example,
+`rhdh-e2e-secrets exec -p profile.json -- node --help` forwards `--help` to
+Node instead of displaying this CLI's help.
+
 ## Mutations
 
 Mutation commands apply by default. Add `--dry-run` to validate both providers,

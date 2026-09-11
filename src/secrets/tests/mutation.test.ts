@@ -76,6 +76,8 @@ test("dry-run creates one value-free plan and performs no writes", async () => {
     plan: {
       command: "create",
       collection: "rhdh-qe",
+      bitwardenCollection: "Rhdh Qe Ci Secrets",
+      gsmCollection: "rhdh-qe",
       bitwardenPath: "rhdh/test",
       gsmPath: "rhdh/test",
       byteLength: 9,
@@ -159,6 +161,8 @@ test("forced create reconciles existing providers and converts Bitwarden storage
   assert.deepEqual(result.plan, {
     command: "create",
     collection: "rhdh-qe",
+    bitwardenCollection: "Rhdh Qe Ci Secrets",
+    gsmCollection: "rhdh-qe",
     bitwardenPath: "rhdh/test",
     gsmPath: "rhdh/test",
     byteLength: 17,
@@ -170,6 +174,40 @@ test("forced create reconciles existing providers and converts Bitwarden storage
   assert.deepEqual(calls, [
     "bitwarden-update:replacement-value:attachment",
     "gsm-update",
+  ]);
+});
+
+test("checks the interactive terminal before writing Bitwarden for GSM create", async () => {
+  const calls: string[] = [];
+  await executeMutation({
+    command: "create",
+    collection: "rhdh-qe",
+    bitwardenPath: "rhdh/test",
+    fromStdin: true,
+    stdin: ["new-value"],
+    bitwarden: {
+      findItem: async () => undefined,
+      createItem: async () => {
+        calls.push("bitwarden-create");
+        return item("new-value");
+      },
+      updateItem: async () => item("new-value"),
+      deleteItem: async () => undefined,
+    },
+    gsm: gsm({
+      ensureInteractive: async () => {
+        calls.push("gsm-ensure-interactive");
+      },
+      create: async () => {
+        calls.push("gsm-create");
+      },
+    }),
+  });
+
+  assert.deepEqual(calls, [
+    "gsm-ensure-interactive",
+    "bitwarden-create",
+    "gsm-create",
   ]);
 });
 

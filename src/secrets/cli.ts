@@ -28,6 +28,22 @@ export interface ExecCliArguments {
   args: string[];
 }
 
+export type HelpTopic =
+  | "root"
+  | "exec"
+  | "create"
+  | "update"
+  | "delete"
+  | "describe"
+  | "list"
+  | "gsm-login"
+  | "gsm-clean";
+
+export interface HelpCliArguments {
+  command: "help";
+  topic: HelpTopic;
+}
+
 interface MutationCliBase {
   collection: string;
   bitwardenPath: string;
@@ -69,6 +85,7 @@ export interface ListCliArguments {
 }
 
 export type CliArguments =
+  | HelpCliArguments
   | ExecCliArguments
   | CreateCliArguments
   | UpdateCliArguments
@@ -77,10 +94,11 @@ export type CliArguments =
   | ListCliArguments
   | { command: "gsm-login" | "gsm-clean" };
 
-const HELP = `Usage:
-  rhdh-e2e-secrets exec --profile <profile.json> [--workspace <name> ...] -- <command> [args...]
-  rhdh-e2e-secrets create -c <collection> <secret-path> (-f <file> | --from-stdin) [--allow-empty] [--force] [--dry-run]
-  rhdh-e2e-secrets update -c <collection> <secret-path> (-f <file> | --from-stdin) [--allow-empty] [--dry-run]
+const HELP_TEXT: Record<HelpTopic, string> = {
+  root: `Usage:
+  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] -- <command> [args...]
+  rhdh-e2e-secrets create -c <collection> <secret-path> (-f <file> | -i) [--allow-empty] [--force] [--dry-run]
+  rhdh-e2e-secrets update -c <collection> <secret-path> (-f <file> | -i) [--allow-empty] [--dry-run]
   rhdh-e2e-secrets delete -c <collection> <secret-path> [--force] [--dry-run]
   rhdh-e2e-secrets describe -c <collection> <secret-path> [-o text|json]
   rhdh-e2e-secrets list [-c <collection>] [-o text|json]
@@ -90,7 +108,80 @@ const HELP = `Usage:
 Requirements:
   BW_SESSION must contain an already unlocked Bitwarden CLI session for exec and create, update, and delete.
   GSM commands use a cached copy of openshift/release hack/secret-manager.sh and require local gcloud authentication.
-`;
+`,
+  exec: `Usage:
+  rhdh-e2e-secrets exec -p <profile.json> [-w <name> ...] -- <command> [args...]
+
+Options:
+  -p, --profile <file>       Secret profile JSON file (required)
+  -w, --workspace <name>     Limit execution to a workspace; repeatable
+  -h, --help                 Show this help
+`,
+  create: `Usage:
+  rhdh-e2e-secrets create -c <collection> <secret-path> (-f <file> | -i) [options]
+
+Options:
+  -c, --collection <name>    Paired secret collection (required)
+  -f, --from-file <file>    Read an attachment-backed secret from a file
+  -i, --from-stdin          Read a note-backed secret from stdin
+      --allow-empty         Allow an empty secret value
+      --force               Reconcile an existing or partial target
+      --dry-run             Validate and print the plan without writing
+      --gsm-timeout-seconds <n>
+                            GSM operation timeout
+  -h, --help                 Show this help
+`,
+  update: `Usage:
+  rhdh-e2e-secrets update -c <collection> <secret-path> (-f <file> | -i) [options]
+
+Options:
+  -c, --collection <name>    Paired secret collection (required)
+  -f, --from-file <file>    Read an attachment-backed secret from a file
+  -i, --from-stdin          Read a note-backed secret from stdin
+      --allow-empty         Allow an empty secret value
+      --dry-run             Validate and print the plan without writing
+      --gsm-timeout-seconds <n>
+                            GSM operation timeout
+  -h, --help                 Show this help
+`,
+  delete: `Usage:
+  rhdh-e2e-secrets delete -c <collection> <secret-path> [options]
+
+Options:
+  -c, --collection <name>    Paired secret collection (required)
+      --force               Reconcile an already partial target
+      --dry-run             Validate and print the plan without writing
+      --gsm-timeout-seconds <n>
+                            GSM operation timeout
+  -h, --help                 Show this help
+`,
+  describe: `Usage:
+  rhdh-e2e-secrets describe -c <collection> <secret-path> [-o text|json]
+
+Options:
+  -c, --collection <name>    Paired secret collection (required)
+  -o, --output <text|json>   Output format (default: text)
+  -h, --help                 Show this help
+`,
+  list: `Usage:
+  rhdh-e2e-secrets list [-c <collection>] [-o text|json]
+
+Options:
+  -c, --collection <name>    List paths in one paired collection
+  -o, --output <text|json>   Output format (default: text)
+  -h, --help                 Show this help
+`,
+  ["gsm-login"]: `Usage:
+  rhdh-e2e-secrets gsm-login
+
+Authenticate the cached GSM wrapper.
+`,
+  ["gsm-clean"]: `Usage:
+  rhdh-e2e-secrets gsm-clean
+
+Remove cached GSM authentication.
+`,
+};
 
 const MUTATION_COMMANDS = ["create", "update", "delete"] as const;
 const READABLE_COLLECTIONS: readonly ReadableCollectionId[] = [
@@ -100,9 +191,11 @@ const READABLE_COLLECTIONS: readonly ReadableCollectionId[] = [
 ];
 
 export function parseCliArguments(argv: readonly string[]): CliArguments {
-  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
-    throw new Error(HELP);
-  }
+  if (argv.length === 0) return { command: "help", topic: "root" };
+  if (argv[0] === "--help" || argv[0] === "-h")
+    return { command: "help", topic: "root" };
+  const helpTopic = findHelpTopic(argv);
+  if (helpTopic) return { command: "help", topic: helpTopic };
   if (argv[0] === "exec") return parseExecArguments(argv);
   if (isMutationCommand(argv[0])) return parseMutationArguments(argv);
   if (argv[0] === "describe") return parseDescribeArguments(argv);
@@ -113,6 +206,20 @@ export function parseCliArguments(argv: readonly string[]): CliArguments {
     return { command: argv[0] };
   }
   throw new Error(`Unsupported command: ${argv[0]}`);
+}
+
+export function getHelpText(topic: HelpTopic): string {
+  return HELP_TEXT[topic];
+}
+
+function findHelpTopic(argv: readonly string[]): HelpTopic | undefined {
+  const command = argv[0];
+  if (!isHelpTopic(command)) return undefined;
+  const delimiter = command === "exec" ? argv.indexOf("--") : -1;
+  const options = argv.slice(1, delimiter === -1 ? argv.length : delimiter);
+  return options.includes("--help") || options.includes("-h")
+    ? command
+    : undefined;
 }
 
 function parseExecArguments(argv: readonly string[]): ExecCliArguments {
@@ -126,20 +233,27 @@ function parseExecArguments(argv: readonly string[]): ExecCliArguments {
 
   for (let index = 0; index < options.length; index++) {
     const option = options[index]!;
-    if (option === "--profile" || option === "--workspace") {
+    if (
+      option === "--profile" ||
+      option === "-p" ||
+      option === "--workspace" ||
+      option === "-w"
+    ) {
       const value = options[++index];
       if (!value) throw new Error(`${option} requires a value`);
-      if (option === "--profile") profilePath = value;
+      if (option === "--profile" || option === "-p") profilePath = value;
       else workspaces.push(value);
       continue;
     }
-    if (option.startsWith("--profile=")) {
-      profilePath = option.slice("--profile=".length);
+    if (option.startsWith("--profile=") || option.startsWith("-p=")) {
+      const prefix = option.startsWith("--profile=") ? "--profile=" : "-p=";
+      profilePath = option.slice(prefix.length);
       if (!profilePath) throw new Error("--profile requires a value");
       continue;
     }
-    if (option.startsWith("--workspace=")) {
-      const workspace = option.slice("--workspace=".length);
+    if (option.startsWith("--workspace=") || option.startsWith("-w=")) {
+      const prefix = option.startsWith("--workspace=") ? "--workspace=" : "-w=";
+      const workspace = option.slice(prefix.length);
       if (!workspace) throw new Error("--workspace requires a value");
       workspaces.push(workspace);
       continue;
@@ -185,8 +299,8 @@ function parseMutationArguments(
       bitwardenPath = option;
       continue;
     }
-    if (option === "--from-stdin") {
-      markOption(option);
+    if (option === "--from-stdin" || option === "-i") {
+      markOption("--from-stdin");
       fromStdin = true;
       continue;
     }
@@ -335,10 +449,11 @@ function parseReadArguments(
       index = value.nextIndex;
       if (value.name === "--collection") collection = value.value;
       else {
-        if (value.value !== "text" && value.value !== "json") {
+        const normalized = value.value.toLowerCase();
+        if (normalized !== "text" && normalized !== "json") {
           throw new Error("--output must be text or json");
         }
-        output = value.value;
+        output = normalized;
       }
       continue;
     }
@@ -386,12 +501,16 @@ export async function main(
   argv: readonly string[] = process.argv.slice(2),
 ): Promise<number> {
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
-    console.log(HELP);
+    console.log(getHelpText("root"));
     return 0;
   }
 
   try {
     const parsed = parseCliArguments(argv);
+    if (parsed.command === "help") {
+      console.log(getHelpText(parsed.topic));
+      return 0;
+    }
     if (parsed.command === "exec") {
       const profileValue = JSON.parse(
         await readFile(resolve(parsed.profilePath), "utf8"),
@@ -489,8 +608,8 @@ export function formatMutationResult(
 ): string {
   const lines = [
     `${state === "dry-run" ? "Dry-run" : "Applied"}: ${plan.command} ${plan.collection}/${plan.bitwardenPath}`,
-    `Bitwarden: ${plan.bitwardenAction}${plan.storage ? ` (${plan.storage})` : ""}`,
-    `GSM: ${plan.gsmAction} ${plan.gsmPath}`,
+    `Bitwarden: ${plan.bitwardenAction} ${plan.bitwardenCollection}/${plan.bitwardenPath}${plan.storage ? ` (${plan.storage})` : ""}`,
+    `GSM: ${plan.gsmAction} ${plan.gsmCollection}/${plan.gsmPath}`,
   ];
   if (plan.byteLength !== undefined)
     lines.push(`Input: ${plan.byteLength} bytes`);
@@ -501,6 +620,21 @@ function isMutationCommand(
   value: string | undefined,
 ): value is MutationCommand {
   return MUTATION_COMMANDS.includes(value as MutationCommand);
+}
+
+function isHelpTopic(
+  value: string | undefined,
+): value is Exclude<HelpTopic, "root"> {
+  return [
+    "exec",
+    "create",
+    "update",
+    "delete",
+    "describe",
+    "list",
+    "gsm-login",
+    "gsm-clean",
+  ].includes(value as Exclude<HelpTopic, "root">);
 }
 
 if (

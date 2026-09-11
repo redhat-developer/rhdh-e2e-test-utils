@@ -60,6 +60,8 @@ export interface MutationGsm {
 export interface MutationPlan {
   command: MutationCommand;
   collection: ReadableCollectionId;
+  bitwardenCollection: string;
+  gsmCollection: string;
   bitwardenPath: string;
   gsmPath: string;
   byteLength?: number;
@@ -132,6 +134,8 @@ export async function executeMutation(
       const plan = createPlan({
         command: options.command,
         collection: mapping.id,
+        bitwardenCollection: mapping.bitwardenCollection,
+        gsmCollection: mapping.gsmCollection,
         bitwardenPath,
         gsmPath,
         input,
@@ -168,6 +172,8 @@ export async function executeMutation(
 interface PlanInput {
   command: MutationCommand;
   collection: ReadableCollectionId;
+  bitwardenCollection: string;
+  gsmCollection: string;
   bitwardenPath: string;
   gsmPath: string;
   input?: SecretInput;
@@ -211,6 +217,8 @@ export function createPlan(input: PlanInput): MutationPlan {
   return {
     command: input.command,
     collection: input.collection,
+    bitwardenCollection: input.bitwardenCollection,
+    gsmCollection: input.gsmCollection,
     bitwardenPath: input.bitwardenPath,
     gsmPath: input.gsmPath,
     ...(input.input === undefined

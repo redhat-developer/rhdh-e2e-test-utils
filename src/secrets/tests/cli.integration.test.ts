@@ -7,6 +7,36 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+test("provides provider-free help for every CLI command", () => {
+  const topics = [
+    [["--help"], "rhdh-e2e-secrets exec"],
+    [["exec", "--help"], "--profile"],
+    [["create", "-h"], "--from-stdin"],
+    [["update", "--help"], "--from-file"],
+    [["delete", "-h"], "--force"],
+    [["describe", "--help"], "--output"],
+    [["list", "-h"], "--collection"],
+    [["gsm-login", "--help"], "Authenticate"],
+    [["gsm-clean", "-h"], "Remove"],
+  ] as const;
+
+  for (const [args, expected] of topics) {
+    const result = spawnSync(
+      process.execPath,
+      [path.resolve("dist/secrets/cli.js"), ...args],
+      { cwd: path.resolve("."), encoding: "utf8", env: process.env },
+    );
+    assert.equal(
+      result.status,
+      0,
+      `${args.join(" ")} failed: ${result.stderr}`,
+    );
+    assert.equal(result.stderr, "", `${args.join(" ")} wrote stderr`);
+    assert.match(result.stdout, /Usage:/);
+    assert.match(result.stdout, new RegExp(expected));
+  }
+});
+
 test("runs the package bin with a fake bw executable and redacted child auth", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "secrets-cli-test-"));
   const command = path.join(directory, "bw");

@@ -25,11 +25,18 @@ export type CommandRunner = (
   options?: CommandOptions,
 ) => Promise<CommandResult>;
 
+export function shouldDetachCommand(
+  options: Pick<CommandOptions, "tty"> = {},
+): boolean {
+  return process.platform !== "win32" && options.tty !== true;
+}
+
 export const runCommand: CommandRunner = async (
   command,
   args,
   options = {},
 ) => {
+  const detached = shouldDetachCommand(options);
   let tty: FileHandle | undefined;
   if (options.tty) {
     tty = await open("/dev/tty", "r+");
@@ -43,7 +50,7 @@ export const runCommand: CommandRunner = async (
         : options.stdio === "inherit"
           ? "inherit"
           : "pipe",
-      detached: process.platform !== "win32",
+      detached,
     });
     let stdout = "";
     let stderr = "";
@@ -51,7 +58,7 @@ export const runCommand: CommandRunner = async (
     let settled = false;
     let forceTimeout: NodeJS.Timeout | undefined;
     const terminate = (signal: NodeJS.Signals): void => {
-      if (child.pid !== undefined && process.platform !== "win32") {
+      if (child.pid !== undefined && detached) {
         try {
           process.kill(-child.pid, signal);
           return;

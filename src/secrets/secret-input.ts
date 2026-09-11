@@ -11,8 +11,13 @@ export interface SecretInputOptions {
   fromStdin?: boolean;
   allowEmpty?: boolean;
   readFile?: (path: string) => Promise<Buffer>;
-  stdin?: Iterable<Buffer | string> | AsyncIterable<Buffer | string>;
+  stdin?: SecretInputStream;
 }
+
+export type SecretInputStream = (
+  | Iterable<Buffer | string>
+  | AsyncIterable<Buffer | string>
+) & { isTTY?: boolean };
 
 export async function readSecretInput(
   options: SecretInputOptions,
@@ -24,9 +29,15 @@ export async function readSecretInput(
   }
 
   const fromFile = options.fromFile !== undefined;
+  const stdin = options.stdin ?? process.stdin;
+  if (!fromFile && stdin.isTTY === true) {
+    throw new Error(
+      "--from-stdin requires piped input; use --from-file for a file",
+    );
+  }
   const bytes = fromFile
     ? await (options.readFile ?? defaultReadFile)(options.fromFile!)
-    : await readStdin(options.stdin ?? process.stdin);
+    : await readStdin(stdin);
   let value: string;
   try {
     value = new TextDecoder("utf-8", {
@@ -46,9 +57,7 @@ export async function readSecretInput(
   };
 }
 
-async function readStdin(
-  input: Iterable<Buffer | string> | AsyncIterable<Buffer | string>,
-): Promise<Buffer> {
+async function readStdin(input: SecretInputStream): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of input) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, "utf8"));

@@ -38,6 +38,25 @@ test("reads stdin when selected and rejects a second input source", async () => 
   );
 });
 
+test("rejects terminal stdin before waiting for input", async () => {
+  let iterated = false;
+  const terminalStdin = {
+    isTTY: true,
+    [Symbol.asyncIterator]() {
+      iterated = true;
+      return {
+        next: async () => ({ done: true as const, value: undefined }),
+      };
+    },
+  };
+
+  await assert.rejects(
+    () => readSecretInput({ fromStdin: true, stdin: terminalStdin }),
+    /piped.*stdin|stdin.*piped/i,
+  );
+  assert.equal(iterated, false);
+});
+
 test("rejects missing input and invalid UTF-8", async () => {
   await assert.rejects(
     () => readSecretInput({ readFile: async () => Buffer.from("") }),

@@ -67,3 +67,10 @@ export {
   type SecretInput,
   type SecretInputOptions,
 } from "./secret-input.js";
+export {
+  decodeSecretStream,
+  SECRET_STREAM_ENVIRONMENT_VARIABLE,
+  SECRET_STREAM_FD,
+  writeSecretStream,
+  type SecretStreamEntry,
+} from "./stream.js";

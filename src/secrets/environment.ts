@@ -45,8 +45,16 @@ export function materializeEnvironment(
   selectors: readonly ExpandedSecretSelector[],
   parent: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return materializeEnvironmentWithSecrets(secrets, selectors, parent)
-    .environment;
+  const environment = materializeEnvironmentWithSecrets(
+    secrets,
+    selectors,
+    parent,
+  ).environment;
+  if (Object.hasOwn(parent, SECRET_STREAM_ENVIRONMENT_VARIABLE)) {
+    environment[SECRET_STREAM_ENVIRONMENT_VARIABLE] =
+      parent[SECRET_STREAM_ENVIRONMENT_VARIABLE];
+  }
+  return environment;
 }
 
 export function materializeEnvironmentWithSecrets(

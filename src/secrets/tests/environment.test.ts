@@ -119,9 +119,13 @@ test("keeps the legacy environment result unchanged", () => {
   ];
 
   assert.deepEqual(
-    materializeEnvironment(secrets, [selector], { PATH: "/bin" }),
+    materializeEnvironment(secrets, [selector], {
+      PATH: "/bin",
+      RHDH_E2E_SECRET_FD: "inherited-fd",
+    }),
     {
       PATH: "/bin",
+      RHDH_E2E_SECRET_FD: "inherited-fd",
       VAULT_TOKEN: "synthetic-value",
     },
   );

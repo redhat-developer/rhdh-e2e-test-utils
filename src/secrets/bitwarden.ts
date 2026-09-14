@@ -699,6 +699,7 @@ export class BitwardenClient {
     item: BitwardenSecretItem,
     value: string,
   ): Promise<BitwardenSecretItem> {
+    let attachmentUploaded = false;
     try {
       await this.editItem(
         item.id,
@@ -711,6 +712,7 @@ export class BitwardenClient {
         value,
         item.name,
       );
+      attachmentUploaded = true;
       const updated = await this.refreshItem(item);
       if (updated.storage !== "attachment" || updated.value !== value) {
         throw new Error(
@@ -719,9 +721,43 @@ export class BitwardenClient {
       }
       return updated;
     } catch (error) {
-      await this.restoreNote(item);
+      let attachmentCleanupError: unknown;
+      if (attachmentUploaded) {
+        try {
+          await this.removeUploadedAttachment(item);
+        } catch (cleanupError) {
+          attachmentCleanupError = cleanupError;
+        }
+      }
+      try {
+        await this.restoreNote(item);
+      } catch {
+        throw new Error(
+          `Bitwarden update failed and note rollback failed: ${item.name}`,
+          { cause: error },
+        );
+      }
+      if (attachmentCleanupError !== undefined) {
+        throw new Error(
+          `Bitwarden update failed and attachment rollback failed: ${item.name}`,
+          { cause: error },
+        );
+      }
       throw error;
     }
+  }
+
+  private async removeUploadedAttachment(
+    item: BitwardenSecretItem,
+  ): Promise<void> {
+    const attachment = (await this.readAttachmentMetadata(item)).find(
+      ({ fileName }) => fileName === attachmentFileName(item.name),
+    );
+    if (!attachment) return;
+    await this.runOrThrow(
+      ["delete", "attachment", attachment.id],
+      `Bitwarden attachment rollback failed for ${item.name}`,
+    );
   }
 
   private async convertAttachmentToNote(

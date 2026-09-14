@@ -1179,3 +1179,92 @@ test("restores a note when note-to-attachment edit loses its response", async ()
   assert.equal(storage, "note");
   assert.equal(value, "old-value");
 });
+
+test("deletes an uploaded attachment before restoring a note after read-back failure", async () => {
+  let storage: "note" | "attachment" = "note";
+  let value = "old-value";
+  let uploaded = false;
+  let verificationReadFailed = false;
+  const commands: string[] = [];
+  const runner: BitwardenCommandRunner = async (_command, args, options) => {
+    commands.push(args.join(" "));
+    if (args[0] === "--version") return result("2026.5.0");
+    if (args[0] === "status")
+      return result(JSON.stringify({ status: "unlocked" }));
+    if (args[0] === "sync") return result();
+    if (args[0] === "list" && args[1] === "collections") {
+      return result(
+        JSON.stringify([
+          {
+            id: "collection-id",
+            name: "Rhdh Qe Ci Secrets",
+            organizationId: "org-id",
+          },
+        ]),
+      );
+    }
+    if (args[0] === "list" && args[1] === "items")
+      return result(JSON.stringify([{ id: "item-id" }]));
+    if (args[0] === "get" && args[1] === "item") {
+      if (uploaded && !verificationReadFailed) {
+        verificationReadFailed = true;
+        throw new Error("post-upload read failed");
+      }
+      return result(
+        JSON.stringify({
+          id: "item-id",
+          name: "rhdh/test",
+          notes: storage === "note" ? value : null,
+          type: 2,
+          collectionIds: ["collection-id"],
+          organizationId: "org-id",
+          revisionDate: storage === "note" ? "revision-1" : "revision-2",
+          ...(uploaded
+            ? {
+                attachments: [
+                  { id: "uploaded-attachment-id", fileName: "test" },
+                ],
+              }
+            : {}),
+        }),
+      );
+    }
+    if (args[0] === "edit" && args[1] === "item") {
+      const payload = JSON.parse(
+        Buffer.from(options?.input ?? "", "base64").toString("utf8"),
+      ) as Record<string, unknown>;
+      storage = payload.notes === null ? "attachment" : "note";
+      value = typeof payload.notes === "string" ? payload.notes : value;
+      return result();
+    }
+    if (args[0] === "create" && args[1] === "attachment") {
+      uploaded = true;
+      return result();
+    }
+    if (args[0] === "delete" && args[1] === "attachment") {
+      assert.equal(args[2], "uploaded-attachment-id");
+      uploaded = false;
+      return result();
+    }
+    throw new Error(`Unexpected command: ${args.join(" ")}`);
+  };
+
+  const client = new BitwardenClient({
+    env: { BW_SESSION: "synthetic-session" },
+    runner,
+  });
+  const existing = await client.readItem("rhdh-qe", "rhdh/test");
+
+  await assert.rejects(
+    () => client.updateItem(existing, "new-value", "attachment"),
+    /item read failed/i,
+  );
+  assert.equal(storage, "note");
+  assert.equal(value, "old-value");
+  assert.equal(uploaded, false);
+  assert.ok(commands.indexOf("delete attachment uploaded-attachment-id") > -1);
+  assert.ok(
+    commands.indexOf("delete attachment uploaded-attachment-id") <
+      commands.lastIndexOf("edit item item-id"),
+  );
+});

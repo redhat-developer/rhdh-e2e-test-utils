@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect -- node:test assertions */
 
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -102,6 +109,40 @@ test("passes interactive GSM commands through the terminal", async () => {
       { stdio: received?.stdio, tty: received?.tty },
       { stdio: "inherit", tty: true },
     );
+  } finally {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+});
+
+test("cleans the local GSM authentication directory without the wrapper", async () => {
+  const cacheDir = await mkdtemp(path.join(os.tmpdir(), "gsm-wrapper-test-"));
+  const authDir = path.join(
+    cacheDir,
+    "gcp-secret-manager",
+    ".secret-manager-gcloud",
+  );
+  let fetched = false;
+  let executed = false;
+  try {
+    await mkdir(authDir, { recursive: true });
+    await writeFile(path.join(authDir, "credentials.db"), "synthetic");
+    const wrapper = new GsmWrapper({
+      cacheDir,
+      fetchScript: async () => {
+        fetched = true;
+        throw new Error("offline");
+      },
+      commandRunner: async () => {
+        executed = true;
+        throw new Error("wrapper must not execute");
+      },
+    });
+
+    await wrapper.clean();
+
+    await assert.rejects(() => access(authDir), /ENOENT/);
+    assert.equal(fetched, false);
+    assert.equal(executed, false);
   } finally {
     await rm(cacheDir, { recursive: true, force: true });
   }

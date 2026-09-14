@@ -8,6 +8,7 @@ import {
   getCollectionMapping,
   gsmPathFromBitwardenPath,
   parseProfile,
+  type CollectionMapping,
   type SecretProfile,
 } from "../config.js";
 
@@ -43,6 +44,14 @@ test("maps each approved collection to its exact Bitwarden collection name", () 
     bitwardenCollection: "Rhdh Qe Ci Secrets",
     gsmCollection: "rhdh-qe",
   });
+});
+
+test("keeps legacy collection mappings constructible without a GSM name", () => {
+  const mapping: CollectionMapping = {
+    id: "rhdh-qe",
+    bitwardenCollection: "Rhdh Qe Ci Secrets",
+  };
+  assert.equal(mapping.gsmCollection, undefined);
 });
 
 test("maps dotted Bitwarden paths to the GSM punctuation encoding", () => {

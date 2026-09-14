@@ -132,15 +132,7 @@ export class GsmClient {
       { stdio: "inherit", tty: true },
     );
     this.wrapperSha256 = result.sha256;
-    if (result.timedOut) {
-      throw gsmMutationError(
-        `GSM create is indeterminate after ${timeoutMs}ms: ${secretPath}`,
-        true,
-      );
-    }
-    if (result.status !== 0) {
-      throw gsmMutationError(`GSM create failed: ${secretPath}`, false);
-    }
+    assertMutationResult("create", result, secretPath, timeoutMs);
   }
 
   async update(
@@ -155,15 +147,7 @@ export class GsmClient {
       timeoutMs,
     );
     this.wrapperSha256 = result.sha256;
-    if (result.timedOut) {
-      throw gsmMutationError(
-        `GSM update is indeterminate after ${timeoutMs}ms: ${secretPath}`,
-        true,
-      );
-    }
-    if (result.status !== 0) {
-      throw gsmMutationError(`GSM update failed: ${secretPath}`, false);
-    }
+    assertMutationResult("update", result, secretPath, timeoutMs);
   }
 
   async delete(
@@ -177,15 +161,7 @@ export class GsmClient {
       timeoutMs,
     );
     this.wrapperSha256 = result.sha256;
-    if (result.timedOut) {
-      throw gsmMutationError(
-        `GSM delete is indeterminate after ${timeoutMs}ms: ${secretPath}`,
-        true,
-      );
-    }
-    if (result.status !== 0) {
-      throw gsmMutationError(`GSM delete failed: ${secretPath}`, false);
-    }
+    assertMutationResult("delete", result, secretPath, timeoutMs);
   }
 }
 
@@ -196,6 +172,33 @@ export function gsmMutationError(
   const error = new Error(message) as Error & { indeterminate: boolean };
   error.indeterminate = indeterminate;
   return error;
+}
+
+function isIndeterminateResult(result: GsmWrapperRunResult): boolean {
+  return (
+    result.timedOut === true ||
+    (result.status === null && result.signal !== undefined)
+  );
+}
+
+function assertMutationResult(
+  operation: "create" | "update" | "delete",
+  result: GsmWrapperRunResult,
+  secretPath: string,
+  timeoutMs: number,
+): void {
+  if (isIndeterminateResult(result)) {
+    const reason = result.timedOut
+      ? `after ${timeoutMs}ms`
+      : `after signal ${result.signal ?? "process termination"}`;
+    throw gsmMutationError(
+      `GSM ${operation} is indeterminate ${reason}: ${secretPath}`,
+      true,
+    );
+  }
+  if (result.status !== 0) {
+    throw gsmMutationError(`GSM ${operation} failed: ${secretPath}`, false);
+  }
 }
 
 function isNotFoundResult(result: GsmWrapperRunResult): boolean {

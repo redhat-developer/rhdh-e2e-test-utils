@@ -69,6 +69,29 @@ test("executes a command with only selected secrets in its child environment", a
   assert.equal(received?.env.RHDH_E2E_SECRET_NAMES, undefined);
 });
 
+test("removes an inherited secret-name marker when exposure is disabled", async () => {
+  let childEnvironment: NodeJS.ProcessEnv | undefined;
+
+  const exitCode = await executeCommand({
+    profile,
+    workspaces: [],
+    command: "playwright",
+    args: [],
+    env: {
+      BW_SESSION: "synthetic-session",
+      RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+    },
+    client: { read: async () => [secret] },
+    childRunner: async (_command, _args, env) => {
+      childEnvironment = env;
+      return 0;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(childEnvironment?.RHDH_E2E_SECRET_NAMES, undefined);
+});
+
 test("exposes only sorted validated secret names from one provider read", async () => {
   const expandedSelector = secret.selector;
   const secrets: BitwardenSecret[] = [

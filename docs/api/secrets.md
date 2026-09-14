@@ -177,6 +177,8 @@ rhdh-e2e-secrets gsm-clean
 The CLI maintains its own wrapper and Google ADC cache. Authenticating a
 different `secret-manager.sh` copy does not authenticate `rhdh-e2e-secrets`;
 run `gsm-login` through this CLI.
+`gsm-clean` removes the local Google ADC directory directly, so it does not
+need to download or execute the wrapper.
 
 The wrapper is refreshed from the OpenShift `release` repository's `main`
 branch, with a validated local cache used when refresh is unavailable. GSM

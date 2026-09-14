@@ -95,7 +95,19 @@ export class GsmWrapper {
   }
 
   async clean(): Promise<GsmWrapperRunResult> {
-    return this.run(["clean"], undefined, { stdio: "inherit" });
+    await rm(
+      path.join(this.cacheDir, "gcp-secret-manager", ".secret-manager-gcloud"),
+      { recursive: true, force: true },
+    );
+    return {
+      status: 0,
+      stdout: "",
+      stderr: "",
+      usedCache: this.activeMetadata?.usedCache ?? false,
+      ...(this.activeMetadata?.sha256
+        ? { sha256: this.activeMetadata.sha256 }
+        : {}),
+    };
   }
 
   async ensureInteractive(): Promise<void> {

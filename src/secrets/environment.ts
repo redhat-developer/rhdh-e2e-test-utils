@@ -47,6 +47,7 @@ export function materializeEnvironmentWithSecretNames(
 ): MaterializedEnvironment {
   const child = { ...parent };
   removeProviderEnvironmentVariables(child);
+  delete child[SECRET_NAMES_ENVIRONMENT_VARIABLE];
 
   const mapped = new Map<string, string>();
   for (const secret of secrets) {

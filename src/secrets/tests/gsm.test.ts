@@ -4,8 +4,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { GsmClient, type GsmRunner } from "../gsm.js";
 
-function result(stdout = "", status: number | null = 0, timedOut = false) {
-  return { status, stdout, stderr: "synthetic", timedOut, usedCache: false };
+function result(
+  stdout = "",
+  status: number | null = 0,
+  timedOut = false,
+  signal?: NodeJS.Signals,
+) {
+  return {
+    status,
+    stdout,
+    stderr: "synthetic",
+    timedOut,
+    ...(signal === undefined ? {} : { signal }),
+    usedCache: false,
+  };
 }
 
 test("describes GSM metadata without exposing provider output", async () => {
@@ -93,6 +105,62 @@ test("updates GSM using the private snapshot and reports timeout as indeterminat
         "/private/snapshot",
         123,
       ),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes("indeterminate") &&
+      (error as Error & { indeterminate?: boolean }).indeterminate === true,
+  );
+});
+
+test("reports a signal-terminated GSM create as indeterminate", async () => {
+  const runner: GsmRunner = {
+    run: async () => result("", null, false, "SIGTERM"),
+  };
+
+  await assert.rejects(
+    () =>
+      new GsmClient({ runner }).create(
+        "rhdh-qe",
+        "rhdh/test",
+        "/private/snapshot",
+        123,
+      ),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes("indeterminate") &&
+      error.message.includes("SIGTERM") &&
+      (error as Error & { indeterminate?: boolean }).indeterminate === true,
+  );
+});
+
+test("reports a signal-terminated GSM update as indeterminate", async () => {
+  const runner: GsmRunner = {
+    run: async () => result("", null, false, "SIGINT"),
+  };
+
+  await assert.rejects(
+    () =>
+      new GsmClient({ runner }).update(
+        "rhdh-qe",
+        "rhdh/test",
+        "/private/snapshot",
+        123,
+      ),
+    (error: unknown) =>
+      error instanceof Error &&
+      error.message.includes("indeterminate") &&
+      error.message.includes("SIGINT") &&
+      (error as Error & { indeterminate?: boolean }).indeterminate === true,
+  );
+});
+
+test("reports a signal-terminated GSM delete as indeterminate", async () => {
+  const runner: GsmRunner = {
+    run: async () => result("", null, false, "SIGTERM"),
+  };
+
+  await assert.rejects(
+    () => new GsmClient({ runner }).delete("rhdh-qe", "rhdh/test", 123),
     (error: unknown) =>
       error instanceof Error &&
       error.message.includes("indeterminate") &&

@@ -6,6 +6,10 @@ export type ReadableCollectionId =
 export interface CollectionMapping {
   id: ReadableCollectionId;
   bitwardenCollection: string;
+  gsmCollection?: string;
+}
+
+interface GsmCollectionMapping extends CollectionMapping {
   gsmCollection: string;
 }
 
@@ -38,7 +42,7 @@ export interface ExpandedSecretProfile {
   selectors: readonly ExpandedSecretSelector[];
 }
 
-export const COLLECTIONS: readonly CollectionMapping[] = [
+export const COLLECTIONS: readonly GsmCollectionMapping[] = [
   {
     id: "rhdh-qe",
     bitwardenCollection: "Rhdh Qe Ci Secrets",
@@ -64,7 +68,7 @@ const DENIED_COLLECTION = "rhdh-aws-credentials";
 const WORKSPACE_TOKEN = "${workspace}";
 const WORKSPACE_NAME = /^[a-z0-9][a-z0-9-]*$/;
 
-export function getCollectionMapping(collection: string): CollectionMapping {
+export function getCollectionMapping(collection: string): GsmCollectionMapping {
   if (collection === DENIED_COLLECTION) {
     throw new Error(
       `Collection ${DENIED_COLLECTION} is GSM-only and cannot be read from Bitwarden`,

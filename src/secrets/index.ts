@@ -27,6 +27,7 @@ export {
   executeCommand,
   runChild,
   type ChildRunner,
+  type ChildRunnerOptions,
   type ExecuteCommandOptions,
   type SecretReader,
 } from "./exec.js";

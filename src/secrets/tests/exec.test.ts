@@ -443,35 +443,50 @@ test("waits for child termination before rejecting a fatal stream writer error",
 
 test("kills an unresponsive child after a fatal stream writer error", async () => {
   if (process.platform === "win32") return;
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "rhdh-e2e-exec-unresponsive-test-"),
+  );
+  const ready = path.join(directory, "ready");
+  let childReady = false;
   let valueReads = 0;
   const entry = {
     name: "UNRESPONSIVE_STREAM_VALUE",
     get value(): string {
       valueReads++;
-      if (valueReads > 4) throw new Error("synthetic writer failure");
+      if (valueReads > 4) {
+        for (let attempt = 0; attempt < 100 && !existsSync(ready); attempt++) {
+          execFileSync("/bin/sh", ["-c", "sleep 0.01"], { stdio: "ignore" });
+        }
+        childReady = existsSync(ready);
+        throw new Error("synthetic writer failure");
+      }
       return "synthetic-value";
     },
   };
   const childScript = [
+    "const fs = require('node:fs');",
     "process.on('SIGTERM', () => {});",
+    `fs.writeFileSync(${JSON.stringify(ready)}, 'ready');`,
     "setTimeout(() => {}, 10000);",
   ].join(" ");
 
-  await assert.rejects(
-    () =>
-      Promise.race([
+  try {
+    const startedAt = Date.now();
+    await assert.rejects(
+      () =>
         runChild(
           process.execPath,
           ["-e", childScript],
           { ...process.env, RHDH_E2E_SECRET_FD: "3" },
           { secretStream: [entry] },
         ),
-        delay(2_000).then(() => {
-          throw new Error("unresponsive child left runChild pending");
-        }),
-      ]),
-    /Unable to write secret stream/,
-  );
+      /Unable to write secret stream/,
+    );
+    assert.equal(childReady, true);
+    assert.ok(Date.now() - startedAt < 2_000);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("does not write or leak values when the stream command cannot start", async () => {

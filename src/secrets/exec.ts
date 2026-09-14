@@ -120,6 +120,7 @@ async function runChildWithSpawn(
     let writerPromise: Promise<void> | undefined;
     let writerSettled = secretStream === undefined;
     let streamClosing = false;
+    let forceTermination: NodeJS.Timeout | undefined;
 
     const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
     const signalExitCodes = new Map<(typeof signals)[number], number>([
@@ -128,7 +129,7 @@ async function runChildWithSpawn(
       ["SIGHUP", 129],
     ]);
     const forwarders = new Map<(typeof signals)[number], () => void>();
-    const terminate = (signal: (typeof signals)[number]): void => {
+    const terminate = (signal: NodeJS.Signals): void => {
       if (detached && child.pid !== undefined) {
         try {
           process.kill(-child.pid, signal);
@@ -144,6 +145,10 @@ async function runChildWithSpawn(
         process.removeListener(signal, forwardSignal);
       }
       forwarders.clear();
+    };
+    const clearForceTermination = () => {
+      if (forceTermination !== undefined) clearTimeout(forceTermination);
+      forceTermination = undefined;
     };
     const onStreamError = (error: unknown) => {
       streamFailure = error;
@@ -179,6 +184,7 @@ async function runChildWithSpawn(
     const finish = () => {
       if (settled || !childClosed || !writerSettled) return;
       settled = true;
+      clearForceTermination();
       removeForwarders();
       if (fatalStreamError) reject(fatalStreamError);
       else resolve(childResult ?? 1);
@@ -197,6 +203,10 @@ async function runChildWithSpawn(
       removeForwarders();
       closeSecretStream();
       terminate("SIGTERM");
+      forceTermination = setTimeout(() => {
+        forceTermination = undefined;
+        if (!childClosed) terminate("SIGKILL");
+      }, 1_000);
       finish();
     };
     const startStream = () => {
@@ -255,6 +265,7 @@ async function runChildWithSpawn(
     child.once("error", () => {
       if (settled) return;
       settled = true;
+      clearForceTermination();
       removeForwarders();
       settleUnstartedWriter();
       closeSecretStream();

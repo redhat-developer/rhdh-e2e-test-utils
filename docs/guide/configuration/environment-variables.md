@@ -32,7 +32,7 @@ These are set automatically during deployment:
 | Variable                | Description                                                    | Required |
 | ----------------------- | -------------------------------------------------------------- | -------- |
 | `BW_SESSION`            | Session from an already unlocked local `bw` CLI installation   | For `rhdh-e2e-secrets` |
-| `RHDH_E2E_SECRET_NAMES` | Sorted JSON array of selected secret names in the child process | No       |
+| `RHDH_E2E_SECRET_FD`    | Internal child marker for the opt-in secret stream on FD 3      | Set by the CLI |
 
 Export `BW_SESSION` in the invoking shell before running
 `rhdh-e2e-secrets exec`, `create`, `update`, or `delete`. The wrapper uses it to
@@ -40,10 +40,14 @@ retrieve or update selected Bitwarden items and removes it from child test
 processes. The `describe` and `list` commands query GSM only and do not need
 `BW_SESSION`.
 
-`rhdh-e2e-secrets exec --expose-secret-names -- <command>` adds
-`RHDH_E2E_SECRET_NAMES` only to the child process. It contains validated
-environment-variable names, never secret values or Bitwarden credentials, and
-is not added without the flag.
+Normal `rhdh-e2e-secrets exec` execution remains environment-based. To opt in
+to the stream transport, run
+`rhdh-e2e-secrets exec --stream-secrets -- <command>`. The CLI removes the
+selected secret names from the child environment, sends their `{name,value}`
+entries over inherited file descriptor 3, and sets
+`RHDH_E2E_SECRET_FD=3`. This marker is not a secret value or a user-configured
+credential. The child's stdin remains inherited, and a consumer must decode
+the stream and close FD 3 immediately afterward.
 
 GSM secret operations use the cached OpenShift CI wrapper. Run
 `rhdh-e2e-secrets gsm-login` once before the first GSM operation; use

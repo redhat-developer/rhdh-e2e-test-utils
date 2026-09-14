@@ -11,7 +11,10 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - **Bitwarden/GSM secret management**: Added create, update, delete, describe, and list commands with unified dry-runs, forced reconciliation, Bitwarden read-back verification, and GSM operations through the OpenShift CI wrapper.
-- **Secret-name metadata**: Added opt-in `RHDH_E2E_SECRET_NAMES` child metadata for callers that need the sorted names materialized by `rhdh-e2e-secrets exec` without exposing values.
+- **Portable secret streaming**: Added opt-in `--stream-secrets` support for
+  passing selected `{name,value}` entries through inherited file descriptor 3,
+  marked by `RHDH_E2E_SECRET_FD=3`, without placing values in the child
+  environment. Normal execution remains environment-based for compatibility.
 
 ### Changed
 

@@ -19,14 +19,15 @@ rhdh-e2e-secrets exec \
   -- yarn playwright test
 ```
 
-Callers that need to discover which secret variables were selected can opt in
-to name-only metadata:
+For commands that need to consume secrets without placing their values in the
+child environment, opt in to the FD 3 stream:
 
 ```bash
+export BW_SESSION="<session-from-an-unlocked-bw-cli>"
 rhdh-e2e-secrets exec \
   --profile e2e-secrets.profile.json \
-  --expose-secret-names \
-  -- yarn playwright test
+  --stream-secrets \
+  -- ./container-entrypoint.sh
 ```
 
 The `bw` executable must be installed locally and available on `PATH`. The
@@ -51,7 +52,7 @@ Supported option pairs are:
 - `-o`, `--output` - `text` or `json`, case-insensitive
 - `-p`, `--profile` - `exec` profile JSON file
 - `-w`, `--workspace` - repeatable `exec` workspace selector
-- `--expose-secret-names` - add selected variable names to the child environment
+- `--stream-secrets` - write selected values to child file descriptor 3 instead of the environment
 
 The CLI intentionally does not support GSM's `-l/--from-literal`, because
 secret values should not be exposed in process arguments. Local-only controls
@@ -68,14 +69,31 @@ from an interactive shell even when the value is piped.
 
 For `exec`, arguments after `--` belong to the child command. For example,
 `rhdh-e2e-secrets exec -p profile.json -- node --help` forwards `--help` to
-Node instead of displaying this CLI's help.
+Node instead of displaying this CLI's help. The `--stream-secrets` option must
+appear before this delimiter; after `--`, it is passed to the child command.
 
-With `--expose-secret-names`, the child receives
-`RHDH_E2E_SECRET_NAMES` as a deterministically sorted JSON array. The array is
-generated from the same filtered, transformed, and validated secret set as the
-child environment. It contains names only, never values or Bitwarden provider
-credentials. The variable is not added when the flag is absent, and the CLI
-does not print its contents.
+With `--stream-secrets`, selected values are removed from the child environment.
+The child receives `RHDH_E2E_SECRET_FD=3` as a non-secret marker identifying the
+stream. Consumers must decode the complete stream and close file descriptor 3
+immediately after decoding. The stream is intended for a local, trusted
+parent-child boundary, not for remote authentication.
+
+The stream format is:
+
+```text
+header:  ASCII "RHDHSEC1" (8 bytes) + entry count (4-byte unsigned big-endian integer)
+entry:   name length (4-byte unsigned big-endian integer)
+         + value length (4-byte unsigned big-endian integer)
+         + UTF-8 name bytes + UTF-8 value bytes
+footer:  ASCII "RHDHEND1" (8 bytes)
+```
+
+Entries are sorted by name. Names and values are UTF-8 strings. Decoders must
+fail closed for malformed or truncated input, invalid UTF-8 or environment
+names, duplicate names, NUL bytes, oversized fields or streams, and trailing
+data. The implementation limits streams to 65,535 entries, 8 MiB per field,
+and 64 MiB total. The stream mode is opt-in; normal execution continues to
+materialize selected values in the child environment.
 
 ## Mutations
 
@@ -203,6 +221,11 @@ COLLECTIONS: readonly CollectionMapping[]
 READABLE_COLLECTIONS: readonly ReadableCollectionId[]
 new BitwardenClient(options?: BitwardenClientOptions)
 executeCommand(options: ExecuteCommandOptions): Promise<number>
+writeSecretStream(stream: NodeJS.WritableStream, entries: readonly SecretStreamEntry[]): Promise<void>
+decodeSecretStream(input: Uint8Array): SecretStreamEntry[]
+SECRET_STREAM_ENVIRONMENT_VARIABLE: "RHDH_E2E_SECRET_FD"
+SECRET_STREAM_FD: 3
+type SecretStreamEntry = { name: string; value: string }
 materializeEnvironment(secrets, selectors, parent?): NodeJS.ProcessEnv
 readSecretInput(options): Promise<SecretInput>
 executeMutation(options): Promise<MutationResult>
@@ -214,9 +237,11 @@ Profiles contain collection and prefix selectors but never secret values. Only
 the approved paired collections are accepted; `rhdh-aws-credentials` is
 explicitly denied for Bitwarden operations.
 
-`ExecuteCommandOptions.exposeSecretNames` enables the same opt-in metadata for
-programmatic callers. It reuses the validated result of the single provider
-read performed by `executeCommand()`.
+`ExecuteCommandOptions.streamSecrets` enables the same opt-in FD 3 transport
+for programmatic callers. It reuses the validated result of the single
+provider read performed by `executeCommand()`, removes the selected names from
+the child environment, and passes them to the stream writer. Without this
+option, `executeCommand()` retains its normal environment-based behavior.
 
 ## Related Pages
 

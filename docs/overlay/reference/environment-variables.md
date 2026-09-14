@@ -18,10 +18,13 @@ All secrets **must** start with the `VAULT_` prefix (e.g., `VAULT_API_KEY`, `VAU
 For local access, use the `e2e-secrets.profile.json` profile and the
 `rhdh-e2e-secrets exec` command.
 
-Tools that need to forward only the selected variables can add
-`--expose-secret-names`. The child then receives `RHDH_E2E_SECRET_NAMES` as a
-sorted JSON array of validated names. This opt-in variable contains no secret
-values or Bitwarden credentials and is not added during normal executions.
+Normal execution forwards selected values as environment variables. Consumers
+that support the portable stream can opt in with
+`rhdh-e2e-secrets exec --stream-secrets -- <command>`. The CLI removes the
+selected names from the child environment and sends `{name,value}` entries on
+inherited file descriptor 3. It sets the non-secret child marker
+`RHDH_E2E_SECRET_FD=3`; stdin remains inherited, and the consumer must decode
+the stream and close FD 3 immediately afterward.
 
 ## Bitwarden Access (Local Development)
 

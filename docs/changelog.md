@@ -8,20 +8,26 @@ All notable changes to this project will be documented in this file.
 
 - **New frontend system secret removed**: the layer set `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION`. RHDH 2.x renamed that package to `app` and dropped the flag, so naming `app-next` stopped the backend from starting on every NFS lane. Deployments now fall back to the app plugin's own default. Release branches keep the old behaviour through their pinned older version of this package.
 
+### Added
+
+- **Bitwarden/GSM secret management**: Added create, update, delete, describe, and list commands with unified dry-runs, forced reconciliation, Bitwarden read-back verification, and GSM operations through the OpenShift CI wrapper.
+- **Secret-name metadata**: Added opt-in `RHDH_E2E_SECRET_NAMES` child metadata for callers that need the sorted names materialized by `rhdh-e2e-secrets exec` without exposing values.
+
+### Changed
+
+- **Secrets CLI reliability**: Added safer retry guidance, canonical mutation locks, bounded GSM timeouts, metadata-only GSM JSON output, and lower-overhead Bitwarden reads.
+
 ## [2.1.14]
 
 ### Added
 
 - **Bitwarden local secret execution**: Added the `./secrets` export and `rhdh-e2e-secrets exec` command for scoped, value-free profile loading into a child test process.
 - **Bitwarden attachment-backed items**: Supports one validated attachment as an in-memory secret payload while preserving note-backed items.
-- **Bitwarden/GSM secret management**: Added create, update, delete, describe, and list commands with unified dry-runs, forced reconciliation, Bitwarden read-back verification, and GSM operations through the OpenShift CI wrapper.
-- **Secret-name metadata**: Added opt-in `RHDH_E2E_SECRET_NAMES` child metadata for callers that need the sorted names materialized by `rhdh-e2e-secrets exec` without exposing values.
 
 ### Changed
 
 - **Playwright global setup**: Secret-provider access and credential cleanup are external to global setup. Local `.env` values override inherited values, while CI environment values remain authoritative.
 - **Overlay local workflows**: Secret-backed tests use the `test:secrets` command and preserve the existing `VAULT_*` payload variable names.
-- **Secrets CLI reliability**: Added safer retry guidance, canonical mutation locks, bounded GSM timeouts, metadata-only GSM JSON output, and lower-overhead Bitwarden reads.
 
 ## [2.1.13]
 

@@ -1,11 +1,28 @@
 /* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect -- node:test fixture models CLI environment keys */
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { chmod, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
+
+const SECRET_METADATA = [
+  {
+    name: "VAULT_CERT_PEM",
+    byteLength: Buffer.byteLength("synthetic-attachment-value"),
+    sha256: createHash("sha256")
+      .update("synthetic-attachment-value")
+      .digest("hex"),
+  },
+  {
+    name: "VAULT_TOKEN",
+    byteLength: Buffer.byteLength("synthetic-note-value"),
+    sha256: createHash("sha256").update("synthetic-note-value").digest("hex"),
+  },
+] as const;
 
 test("provides provider-free help for every CLI command", () => {
   const topics = [
@@ -79,6 +96,7 @@ else process.exitCode = 1;
   );
 
   try {
+    const expectedMetadata = JSON.stringify(SECRET_METADATA);
     const result = spawnSync(
       entrypoint,
       [
@@ -88,7 +106,14 @@ else process.exitCode = 1;
         "--",
         process.execPath,
         "-e",
-        "if (process.env.VAULT_TOKEN === 'synthetic-note-value' && process.env.VAULT_CERT_PEM === 'synthetic-attachment-value' && process.env.BW_SESSION === undefined && process.env.RHDH_E2E_SECRET_NAMES === undefined) process.stdout.write('child-ran'); else process.exit(1)",
+        [
+          "const { createHash } = require('node:crypto');",
+          `const expected = ${expectedMetadata};`,
+          "const digest = (value) => createHash('sha256').update(value).digest('hex');",
+          "const actual = ['VAULT_CERT_PEM', 'VAULT_TOKEN'].map((name) => ({ name, byteLength: Buffer.byteLength(process.env[name] ?? ''), sha256: typeof process.env[name] === 'string' ? digest(process.env[name]) : '' }));",
+          "if (JSON.stringify(actual) !== JSON.stringify(expected) || process.env.BW_SESSION !== undefined) process.exit(1);",
+          "process.stdout.write('child-ran');",
+        ].join(" "),
       ],
       {
         cwd: path.resolve("."),
@@ -101,23 +126,37 @@ else process.exitCode = 1;
       },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /child-ran/);
+    assert.equal(result.stdout, "child-ran");
+    assert.equal(result.stderr, "");
     assert.doesNotMatch(result.stdout, /synthetic-(note|attachment)-value/);
     assert.doesNotMatch(result.stderr, /synthetic-(note|attachment)-value/);
     assert.doesNotMatch(result.stdout, /synthetic-session/);
     assert.doesNotMatch(result.stderr, /synthetic-session/);
 
-    const exposed = spawnSync(
+    const streamModuleUrl = pathToFileURL(
+      path.resolve("dist/secrets/stream.js"),
+    ).href;
+    const streamed = spawnSync(
       entrypoint,
       [
         "exec",
         "--profile",
         profile,
-        "--expose-secret-names",
+        "--stream-secrets",
         "--",
         process.execPath,
+        "--input-type=module",
         "-e",
-        `if (process.env.RHDH_E2E_SECRET_NAMES === '["VAULT_CERT_PEM","VAULT_TOKEN"]' && process.env.BW_SESSION === undefined) process.stdout.write('child-ran-with-names'); else process.exit(1)`,
+        [
+          "import fs from 'node:fs';",
+          "import { createHash } from 'node:crypto';",
+          `import { decodeSecretStream } from ${JSON.stringify(streamModuleUrl)};`,
+          `const expected = ${expectedMetadata};`,
+          "const entries = decodeSecretStream(fs.readFileSync(3));",
+          "const actual = entries.map(({ name, value }) => ({ name, byteLength: Buffer.byteLength(value), sha256: createHash('sha256').update(value).digest('hex') }));",
+          "if (JSON.stringify(actual) !== JSON.stringify(expected) || process.env.VAULT_TOKEN !== undefined || process.env.VAULT_CERT_PEM !== undefined || process.env.RHDH_E2E_SECRET_FD !== '3' || process.env.BW_SESSION !== undefined) process.exit(1);",
+          "process.stdout.write('child-ran-with-stream');",
+        ].join(" "),
       ],
       {
         cwd: path.resolve("."),
@@ -129,12 +168,76 @@ else process.exitCode = 1;
         },
       },
     );
-    assert.equal(exposed.status, 0, exposed.stderr);
-    assert.match(exposed.stdout, /child-ran-with-names/);
-    assert.doesNotMatch(exposed.stdout, /synthetic-(note|attachment)-value/);
-    assert.doesNotMatch(exposed.stderr, /synthetic-(note|attachment)-value/);
-    assert.doesNotMatch(exposed.stdout, /synthetic-session/);
-    assert.doesNotMatch(exposed.stderr, /synthetic-session/);
+    assert.equal(streamed.status, 0, streamed.stderr);
+    assert.equal(streamed.stdout, "child-ran-with-stream");
+    assert.equal(streamed.stderr, "");
+    assert.doesNotMatch(streamed.stdout, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(streamed.stderr, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(streamed.stdout, /synthetic-session/);
+    assert.doesNotMatch(streamed.stderr, /synthetic-session/);
+
+    const childEnvironment = {
+      ...process.env,
+      PATH: `${directory}${path.delimiter}${process.env.PATH ?? ""}`,
+      BW_SESSION: "synthetic-session",
+    };
+    const ignored = spawnSync(
+      entrypoint,
+      [
+        "exec",
+        "--profile",
+        profile,
+        "--stream-secrets",
+        "--",
+        process.execPath,
+        "-e",
+        "process.exit(0)",
+      ],
+      {
+        cwd: path.resolve("."),
+        encoding: "utf8",
+        env: childEnvironment,
+        timeout: 2_000,
+      },
+    );
+    assert.equal(ignored.error, undefined);
+    assert.notEqual(ignored.status, null);
+    assert.doesNotMatch(ignored.stdout, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(ignored.stderr, /synthetic-(note|attachment)-value/);
+    assert.doesNotMatch(ignored.stdout, /synthetic-session/);
+    assert.doesNotMatch(ignored.stderr, /synthetic-session/);
+
+    const earlyClosed = spawnSync(
+      entrypoint,
+      [
+        "exec",
+        "--profile",
+        profile,
+        "--stream-secrets",
+        "--",
+        process.execPath,
+        "-e",
+        "require('node:fs').closeSync(3); setTimeout(() => process.exit(17), 50)",
+      ],
+      {
+        cwd: path.resolve("."),
+        encoding: "utf8",
+        env: childEnvironment,
+        timeout: 2_000,
+      },
+    );
+    assert.equal(earlyClosed.error, undefined);
+    assert.equal(earlyClosed.status, 17, earlyClosed.stderr);
+    assert.doesNotMatch(
+      earlyClosed.stdout,
+      /synthetic-(note|attachment)-value/,
+    );
+    assert.doesNotMatch(
+      earlyClosed.stderr,
+      /synthetic-(note|attachment)-value/,
+    );
+    assert.doesNotMatch(earlyClosed.stdout, /synthetic-session/);
+    assert.doesNotMatch(earlyClosed.stderr, /synthetic-session/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -39,13 +39,13 @@ test("parses the exec profile, repeated workspaces, and command after --", () =>
   } satisfies ExecCliArguments);
 });
 
-test("parses secret-name exposure before the child command", () => {
+test("parses secret streaming before the child command", () => {
   assert.deepEqual(
     parseCliArguments([
       "exec",
       "--profile",
       "profile.json",
-      "--expose-secret-names",
+      "--stream-secrets",
       "--",
       "node",
     ]),
@@ -55,12 +55,12 @@ test("parses secret-name exposure before the child command", () => {
       workspaces: [],
       executable: "node",
       args: [],
-      exposeSecretNames: true,
+      streamSecrets: true,
     } satisfies ExecCliArguments,
   );
 });
 
-test("keeps secret-name exposure after -- as a child argument", () => {
+test("keeps --stream-secrets after -- as a child argument", () => {
   assert.deepEqual(
     parseCliArguments([
       "exec",
@@ -68,21 +68,23 @@ test("keeps secret-name exposure after -- as a child argument", () => {
       "profile.json",
       "--",
       "node",
-      "--expose-secret-names",
+      "--stream-secrets",
     ]),
     {
       command: "exec",
       profilePath: "profile.json",
       workspaces: [],
       executable: "node",
-      args: ["--expose-secret-names"],
+      args: ["--stream-secrets"],
     } satisfies ExecCliArguments,
   );
 });
 
-test("advertises secret-name exposure in root and exec help", () => {
-  assert.match(getHelpText("root"), /--expose-secret-names/);
-  assert.match(getHelpText("exec"), /--expose-secret-names/);
+test("advertises secret streaming and removes secret-name exposure from help", () => {
+  assert.doesNotMatch(getHelpText("root"), /--expose-secret-names/);
+  assert.doesNotMatch(getHelpText("exec"), /--expose-secret-names/);
+  assert.match(getHelpText("root"), /--stream-secrets/);
+  assert.match(getHelpText("exec"), /--stream-secrets/);
 });
 
 test("formats provider actions with their actual collection names", () => {

@@ -106,10 +106,15 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
     let settled = false;
     let childClosed = false;
     let forwardedSignal = false;
+    let childResult: number | undefined;
+    let fatalStreamError: Error | undefined;
+    let streamFailure: unknown;
     let secretPipe: Writable | undefined;
+    let streamWriter: SecretStreamWriter | undefined;
     let writerPromise: Promise<void> | undefined;
-    let writerSettled = false;
+    let writerSettled = secretStream === undefined;
     let streamClosing = false;
+
     const signals = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
     const signalExitCodes = new Map<(typeof signals)[number], number>([
       ["SIGINT", 130],
@@ -128,25 +133,25 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
       }
       child.kill(signal);
     };
-
     const removeForwarders = () => {
       for (const [signal, forwardSignal] of forwarders) {
         process.removeListener(signal, forwardSignal);
       }
       forwarders.clear();
     };
-    const removeStreamListeners = () => {
-      if (!secretPipe) return;
-      secretPipe.removeListener("error", onStreamError);
-      secretPipe.removeListener("close", onStreamClose);
-    };
     const onStreamError = (error: unknown) => {
       streamFailure = error;
     };
     const onStreamClose = () => {
-      if (streamClosing) removeStreamListeners();
+      if (streamClosing && writerSettled) removeStreamListeners();
     };
-    let streamFailure: unknown;
+    const removeStreamListeners = () => {
+      if (secretPipe) {
+        secretPipe.removeListener("error", onStreamError);
+        secretPipe.removeListener("close", onStreamClose);
+      }
+      streamWriter?.removeListener("error", onStreamError);
+    };
     const adoptSecretPipe = (): void => {
       if (!secretPipe && child.stdio[3] instanceof Writable) {
         secretPipe = child.stdio[3];
@@ -154,27 +159,20 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
     };
     const closeSecretStream = (reason?: Error): void => {
       adoptSecretPipe();
-      if (streamClosing) {
-        if (secretPipe && !secretPipe.destroyed) {
-          try {
-            secretPipe.destroy(reason);
-          } catch {
-            removeStreamListeners();
-          }
-        }
-        return;
-      }
+      if (streamClosing) return;
       streamClosing = true;
-      if (!secretPipe) return;
-      try {
-        if (secretPipe.destroyed) {
-          removeStreamListeners();
-        } else {
-          secretPipe.destroy(reason);
-        }
-      } catch {
-        removeStreamListeners();
+      if (streamWriter && !streamWriter.destroyed) {
+        streamWriter.destroy(reason);
+      } else if (secretPipe && !secretPipe.destroyed) {
+        secretPipe.destroy();
       }
+    };
+    const finish = () => {
+      if (settled || !childClosed || !writerSettled) return;
+      settled = true;
+      removeForwarders();
+      if (fatalStreamError) reject(fatalStreamError);
+      else resolve(childResult ?? 1);
     };
     const rejectStreamFailure = () => {
       if (
@@ -182,36 +180,44 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
         childClosed ||
         forwardedSignal ||
         isBrokenPipe(streamFailure)
-      )
+      ) {
+        finish();
         return;
-      settled = true;
+      }
+      fatalStreamError ??= streamError(command);
       removeForwarders();
-      closeSecretStream(new Error("secret stream failure"));
+      closeSecretStream();
       terminate("SIGTERM");
-      reject(streamError(command));
+      finish();
     };
     const startStream = () => {
       const candidate = child.stdio[3];
       if (!(candidate instanceof Writable) || !candidate.writable) {
+        writerSettled = true;
         rejectStreamFailure();
         return;
       }
       secretPipe = candidate;
       secretPipe.on("error", onStreamError);
       secretPipe.once("close", onStreamClose);
-      writerPromise = writeSecretStream(secretPipe, secretStream!).then(
+      streamWriter = new SecretStreamWriter(secretPipe, onStreamError);
+      streamWriter.on("error", onStreamError);
+      writerPromise = writeSecretStream(streamWriter, secretStream!).then(
         () => {
           writerSettled = true;
           removeStreamListeners();
+          finish();
         },
         () => {
           writerSettled = true;
           rejectStreamFailure();
-          throw streamError(command);
+          removeStreamListeners();
+          finish();
         },
       );
       void writerPromise.catch(() => undefined);
     };
+
     for (const signal of signals) {
       const forwardSignal = () => {
         if (settled) return;
@@ -238,36 +244,85 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
       if (settled) return;
       settled = true;
       removeForwarders();
-      closeSecretStream(
-        writerPromise && !writerSettled
-          ? new Error("secret stream closed")
-          : undefined,
-      );
+      closeSecretStream();
       reject(new Error(`Unable to start command: ${command}`));
     });
     child.once("close", (code, signal) => {
       childClosed = true;
+      const signalExitCode = signal
+        ? signalExitCodes.get(signal as (typeof signals)[number])
+        : undefined;
+      childResult = code ?? signalExitCode ?? 1;
       closeSecretStream(
         writerPromise && !writerSettled
           ? new Error("secret stream closed")
           : undefined,
       );
       removeForwarders();
-      if (settled) return;
-      const signalExitCode = signal
-        ? signalExitCodes.get(signal as (typeof signals)[number])
-        : undefined;
-      const childResult = code ?? signalExitCode ?? 1;
-      const pumpSettlement =
-        writerPromise?.catch(() => undefined) ?? Promise.resolve();
-      void pumpSettlement.then(() => {
-        if (settled) return;
-        settled = true;
-        resolve(childResult);
-      });
+      finish();
     });
   });
 };
+
+/* eslint-disable @typescript-eslint/naming-convention -- Node Writable hook names */
+class SecretStreamWriter extends Writable {
+  private readonly target: Writable;
+  private readonly onFailure: (error: unknown) => void;
+  private readonly onTargetError: (error: Error) => void;
+  private readonly onTargetClose: () => void;
+
+  constructor(target: Writable, onFailure: (error: unknown) => void) {
+    super();
+    this.target = target;
+    this.onFailure = onFailure;
+    this.onTargetError = (error) => {
+      onFailure(error);
+      if (!this.destroyed) this.destroy(error);
+    };
+    this.onTargetClose = () => {
+      if (this.destroyed || this.writableFinished) return;
+      const error = pipeClosedError();
+      onFailure(error);
+      this.destroy(error);
+    };
+    target.on("error", this.onTargetError);
+    target.once("close", this.onTargetClose);
+  }
+
+  override _write(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ): void {
+    try {
+      if (this.target.write(chunk)) callback();
+      else this.target.once("drain", callback);
+    } catch (error) {
+      this.onFailure(error);
+      callback(toError(error));
+    }
+  }
+
+  override _final(callback: (error?: Error | null) => void): void {
+    try {
+      this.target.end(callback);
+    } catch (error) {
+      this.onFailure(error);
+      callback(toError(error));
+    }
+  }
+
+  override _destroy(
+    error: Error | null,
+    callback: (error?: Error | null) => void,
+  ): void {
+    this.target.removeListener("error", this.onTargetError);
+    this.target.removeListener("close", this.onTargetClose);
+    if (!this.target.destroyed) this.target.destroy();
+    callback(error);
+  }
+}
+/* eslint-enable @typescript-eslint/naming-convention */
 
 async function validateSecretStream(
   entries: readonly SecretStreamEntry[],
@@ -293,6 +348,16 @@ function isBrokenPipe(error: unknown): boolean {
   );
 }
 
+function pipeClosedError(): Error {
+  return Object.assign(new Error("secret stream pipe closed"), {
+    code: "ERR_STREAM_DESTROYED",
+  });
+}
+
 function streamError(command: string): Error {
   return new Error(`Unable to write secret stream for command: ${command}`);
+}
+
+function toError(error: unknown): Error {
+  return error instanceof Error ? error : new Error("secret stream failure");
 }

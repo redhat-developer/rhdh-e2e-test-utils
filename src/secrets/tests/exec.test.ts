@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect, playwright/no-conditional-in-test -- node:test fixtures model process environment keys */
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -329,6 +331,103 @@ test("preserves the child result when it closes the stream before reading it", a
   );
 
   assert.equal(exitCode, 17);
+});
+
+test("settles a backpressured writer when the child closes FD 3 without an error", async () => {
+  const childScript = [
+    "const fs = require('node:fs');",
+    "fs.closeSync(3);",
+    "setTimeout(() => process.exit(17), 100);",
+  ].join(" ");
+
+  const exitCode = await runChild(
+    process.execPath,
+    ["-e", childScript],
+    { ...process.env, RHDH_E2E_SECRET_FD: "3" },
+    {
+      secretStream: [
+        { name: "BACKPRESSURED_VALUE", value: "x".repeat(160 * 1024) },
+      ],
+    },
+  );
+
+  assert.equal(exitCode, 17);
+});
+
+test("maps a forwarded SIGTERM while the stream writer is backpressured", async () => {
+  if (process.platform === "win32") return;
+  const childScript = "setTimeout(() => {}, 10000);";
+  const result = runChild(
+    process.execPath,
+    ["-e", childScript],
+    { ...process.env, RHDH_E2E_SECRET_FD: "3" },
+    {
+      secretStream: [
+        { name: "SIGNAL_BACKPRESSURED_VALUE", value: "x".repeat(160 * 1024) },
+      ],
+    },
+  );
+
+  await delay(20);
+  process.kill(process.pid, "SIGTERM");
+  assert.equal(await result, 143);
+});
+
+test("waits for child termination before rejecting a fatal stream writer error", async () => {
+  if (process.platform === "win32") return;
+  const directory = await mkdtemp(
+    path.join(os.tmpdir(), "rhdh-e2e-exec-stream-error-test-"),
+  );
+  const marker = path.join(directory, "state");
+  const ready = path.join(directory, "ready");
+  let valueReads = 0;
+  const entry = {
+    name: "FATAL_STREAM_VALUE",
+    get value(): string {
+      valueReads++;
+      if (valueReads > 4) {
+        for (let attempt = 0; attempt < 100 && !existsSync(ready); attempt++) {
+          execFileSync("/bin/sh", ["-c", "sleep 0.01"], { stdio: "ignore" });
+        }
+        throw Object.assign(new Error("synthetic writer failure"), {
+          code: "EIO",
+        });
+      }
+      return "synthetic-value";
+    },
+  };
+  const childScript = [
+    "const fs = require('node:fs');",
+    `process.on('SIGTERM', () => { fs.writeFileSync(${JSON.stringify(marker)}, 'signal'); setTimeout(() => { fs.writeFileSync(${JSON.stringify(marker)}, 'closed'); process.exit(0); }, 100); });`,
+    `fs.writeFileSync(${JSON.stringify(ready)}, 'ready');`,
+    "setTimeout(() => {}, 10000);",
+  ].join(" ");
+
+  try {
+    await assert.rejects(
+      () =>
+        runChild(
+          process.execPath,
+          ["-e", childScript],
+          { ...process.env, RHDH_E2E_SECRET_FD: "3" },
+          { secretStream: [entry] },
+        ),
+      /Unable to write secret stream/,
+    );
+    let state: string | undefined;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      try {
+        state = await readFile(marker, "utf8");
+        break;
+      } catch {
+        await delay(10);
+      }
+    }
+    assert.equal(state, "closed");
+  } finally {
+    await delay(150);
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("does not write or leak values when the stream command cannot start", async () => {

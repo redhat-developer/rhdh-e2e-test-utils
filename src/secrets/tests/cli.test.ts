@@ -87,6 +87,21 @@ test("advertises secret streaming and removes secret-name exposure from help", (
   assert.match(getHelpText("exec"), /--stream-secrets/);
 });
 
+test("rejects the removed secret-name exposure option", () => {
+  assert.throws(
+    () =>
+      parseCliArguments([
+        "exec",
+        "--profile",
+        "profile.json",
+        "--expose-secret-names",
+        "--",
+        "node",
+      ]),
+    /Unknown option: --expose-secret-names/,
+  );
+});
+
 test("formats provider actions with their actual collection names", () => {
   const plan: MutationPlan = {
     command: "delete",

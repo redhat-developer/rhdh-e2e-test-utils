@@ -22,7 +22,6 @@ export interface MaterializedSecret {
   value: string;
 }
 
-const LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
 const PROVIDER_ENVIRONMENT_KEYS = new Set([
   "VAULT",
   "VAULT_TOKEN",
@@ -45,16 +44,8 @@ export function materializeEnvironment(
   selectors: readonly ExpandedSecretSelector[],
   parent: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const environment = materializeEnvironmentWithSecrets(
-    secrets,
-    selectors,
-    parent,
-  ).environment;
-  if (Object.hasOwn(parent, SECRET_STREAM_ENVIRONMENT_VARIABLE)) {
-    environment[SECRET_STREAM_ENVIRONMENT_VARIABLE] =
-      parent[SECRET_STREAM_ENVIRONMENT_VARIABLE];
-  }
-  return environment;
+  return materializeEnvironmentWithSecrets(secrets, selectors, parent)
+    .environment;
 }
 
 export function materializeEnvironmentWithSecrets(
@@ -64,7 +55,6 @@ export function materializeEnvironmentWithSecrets(
 ): MaterializedEnvironment {
   const child = { ...parent };
   removeProviderEnvironmentVariables(child);
-  delete child[LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE];
   delete child[SECRET_STREAM_ENVIRONMENT_VARIABLE];
 
   const mapped = new Map<string, string>();
@@ -95,10 +85,7 @@ export function materializeEnvironmentWithSecrets(
     if (!isValidEnvironmentName(key)) {
       throw new Error(`Invalid environment variable name: ${key}`);
     }
-    if (
-      key === LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE ||
-      key === SECRET_STREAM_ENVIRONMENT_VARIABLE
-    ) {
+    if (key === SECRET_STREAM_ENVIRONMENT_VARIABLE) {
       throw new Error(`Reserved environment variable name: ${key}`);
     }
     if (key.startsWith("BW_")) {

@@ -12,8 +12,6 @@ import {
 } from "./environment.js";
 import { writeSecretStream, type SecretStreamEntry } from "./stream.js";
 
-const LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
-
 export interface SecretReader {
   read(
     collection: SecretProfile["collection"],
@@ -37,7 +35,6 @@ export interface ExecuteCommandOptions {
   workspaces: readonly string[];
   command: string;
   args: readonly string[];
-  exposeSecretNames?: boolean;
   streamSecrets?: boolean;
   env?: NodeJS.ProcessEnv;
   client?: SecretReader;
@@ -62,11 +59,6 @@ export async function executeCommand(
   const childEnvironment = options.streamSecrets
     ? materializeStreamEnvironment(materialized)
     : materialized.environment;
-  if (options.exposeSecretNames) {
-    childEnvironment[LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE] = JSON.stringify(
-      materialized.secrets.map(({ name }) => name),
-    );
-  }
   const childRunner = options.childRunner ?? runChild;
   if (options.streamSecrets) {
     return childRunner(options.command, options.args, childEnvironment, {
@@ -76,7 +68,21 @@ export async function executeCommand(
   return childRunner(options.command, options.args, childEnvironment);
 }
 
-export const runChild: ChildRunner = async (command, args, env, options) => {
+export const runChild: ChildRunner = createChildRunner(spawn);
+
+/** Internal spawn seam used by lifecycle tests; omitted from the package barrel. */
+export function createChildRunner(spawnCommand: typeof spawn): ChildRunner {
+  return (command, args, env, options) =>
+    runChildWithSpawn(spawnCommand, command, args, env, options);
+}
+
+async function runChildWithSpawn(
+  spawnCommand: typeof spawn,
+  command: string,
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+  options?: ChildRunnerOptions,
+): Promise<number> {
   const secretStream = options?.secretStream;
   if (secretStream !== undefined) {
     try {
@@ -90,7 +96,7 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
     const detached = process.platform !== "win32";
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(command, args, {
+      child = spawnCommand(command, args, {
         detached,
         env,
         stdio:
@@ -270,7 +276,7 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
       finish();
     });
   });
-};
+}
 
 /* eslint-disable @typescript-eslint/naming-convention -- Node Writable hook names */
 class SecretStreamWriter extends Writable {

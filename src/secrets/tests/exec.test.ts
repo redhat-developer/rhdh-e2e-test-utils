@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention, playwright/expect-expect, playwright/no-conditional-in-test -- node:test fixtures model process environment keys */
 
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -10,6 +11,7 @@ import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import {
+  createChildRunner,
   executeCommand,
   runChild,
   type ChildRunner,
@@ -75,7 +77,6 @@ test("executes a command with only selected secrets in its child environment", a
   assert.equal(received?.env.VAULT_TOKEN, "synthetic-value");
   assert.equal(received?.env.EXISTING_VALUE, "preserved");
   assert.equal(received?.env.BW_SESSION, undefined);
-  assert.equal(received?.env.RHDH_E2E_SECRET_NAMES, undefined);
   assert.equal(received?.env.RHDH_E2E_SECRET_FD, undefined);
 });
 
@@ -98,31 +99,6 @@ test("does not pass stream options to a non-stream injected runner", async () =>
 
   assert.equal(exitCode, 0);
   assert.equal(receivedArgumentCount, 3);
-});
-
-test("removes an inherited secret-name marker when exposure is disabled", async () => {
-  let childEnvironment: NodeJS.ProcessEnv | undefined;
-
-  const exitCode = await executeCommand({
-    profile,
-    workspaces: [],
-    command: "playwright",
-    args: [],
-    env: {
-      BW_SESSION: "synthetic-session",
-      RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
-      RHDH_E2E_SECRET_FD: "stale-fd",
-    },
-    client: { read: async () => [secret] },
-    childRunner: async (_command, _args, env) => {
-      childEnvironment = env;
-      return 0;
-    },
-  });
-
-  assert.equal(exitCode, 0);
-  assert.equal(childEnvironment?.RHDH_E2E_SECRET_NAMES, undefined);
-  assert.equal(childEnvironment?.RHDH_E2E_SECRET_FD, undefined);
 });
 
 test("streams selected secrets without placing values in the child environment", async () => {
@@ -154,7 +130,6 @@ test("streams selected secrets without placing values in the child environment",
   assert.equal(childEnvironment?.VAULT_TOKEN, undefined);
   assert.equal(childEnvironment?.BW_SESSION, undefined);
   assert.equal(childEnvironment?.BW_CLIENTID, undefined);
-  assert.equal(childEnvironment?.RHDH_E2E_SECRET_NAMES, undefined);
   assert.equal(childEnvironment?.RHDH_E2E_SECRET_FD, "3");
   assert.deepEqual(runnerOptions, {
     secretStream: [{ name: "VAULT_TOKEN", value: "synthetic-value" }],
@@ -232,7 +207,6 @@ test("decodes multiline, empty, and large values without exposing them to the ch
     "if (values.get('VAULT_LARGE_VALUE')?.length !== 160 * 1024) process.exit(5);",
     "if (process.env.VAULT_EMPTY_VALUE !== undefined || process.env.VAULT_MULTILINE_VALUE !== undefined || process.env.VAULT_LARGE_VALUE !== undefined) process.exit(6);",
     "if (process.env.BW_SESSION !== undefined || process.env.BW_CLIENTID !== undefined) process.exit(7);",
-    "if (process.env.RHDH_E2E_SECRET_NAMES !== undefined) process.exit(8);",
     "try { fs.fstatSync(0); fs.fstatSync(3); } catch { process.exit(9); }",
     "if (process.stdin.fd !== 0 || 0 === 3) process.exit(10);",
   ].join(" ");
@@ -467,6 +441,39 @@ test("waits for child termination before rejecting a fatal stream writer error",
   }
 });
 
+test("kills an unresponsive child after a fatal stream writer error", async () => {
+  if (process.platform === "win32") return;
+  let valueReads = 0;
+  const entry = {
+    name: "UNRESPONSIVE_STREAM_VALUE",
+    get value(): string {
+      valueReads++;
+      if (valueReads > 4) throw new Error("synthetic writer failure");
+      return "synthetic-value";
+    },
+  };
+  const childScript = [
+    "process.on('SIGTERM', () => {});",
+    "setTimeout(() => {}, 10000);",
+  ].join(" ");
+
+  await assert.rejects(
+    () =>
+      Promise.race([
+        runChild(
+          process.execPath,
+          ["-e", childScript],
+          { ...process.env, RHDH_E2E_SECRET_FD: "3" },
+          { secretStream: [entry] },
+        ),
+        delay(2_000).then(() => {
+          throw new Error("unresponsive child left runChild pending");
+        }),
+      ]),
+    /Unable to write secret stream/,
+  );
+});
+
 test("does not write or leak values when the stream command cannot start", async () => {
   await assert.rejects(
     () =>
@@ -488,81 +495,61 @@ test("does not write or leak values when the stream command cannot start", async
   );
 });
 
-test("exposes only sorted validated secret names from one provider read", async () => {
-  const expandedSelector = secret.selector;
-  const secrets: BitwardenSecret[] = [
-    {
-      id: "zeta-id",
-      name: "global/VAULT_ZETA",
-      value: "zeta-secret-value",
-      selector: expandedSelector,
-    },
-    {
-      id: "filtered-id",
-      name: "global/OTHER_VALUE",
-      value: "filtered-secret-value",
-      selector: expandedSelector,
-    },
-    {
-      id: "alpha-id",
-      name: "global/VAULT_A-B",
-      value: "alpha-secret-value",
-      selector: expandedSelector,
-    },
-  ];
-  let readCount = 0;
-  let childEnvironment: NodeJS.ProcessEnv | undefined;
+test("rejects an unavailable secret stream pipe without environment fallback", async () => {
+  let spawnOptions!: Parameters<typeof spawn>[2];
+  const unavailablePipeSpawn = ((
+    _command: string,
+    _args: readonly string[],
+    options: Parameters<typeof spawn>[2],
+  ) => {
+    spawnOptions = options;
+    const child = new EventEmitter() as unknown as ReturnType<typeof spawn>;
+    Object.defineProperty(child, "stdio", {
+      value: [null, null, null, null],
+    });
+    child.kill = (() => {
+      queueMicrotask(() => child.emit("close", null, "SIGTERM"));
+      return true;
+    }) as typeof child.kill;
+    queueMicrotask(() => child.emit("spawn"));
+    return child;
+  }) as typeof spawn;
 
-  const exitCode = await executeCommand({
-    profile,
-    workspaces: [],
-    command: "playwright",
-    args: [],
-    exposeSecretNames: true,
-    env: {
-      BW_SESSION: "synthetic-session",
-      BW_CLIENTID: "synthetic-client-id",
-      RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+  await assert.rejects(
+    () =>
+      executeCommand({
+        profile,
+        workspaces: [],
+        command: "unavailable-pipe-command",
+        args: [],
+        streamSecrets: true,
+        env: {
+          BW_SESSION: "synthetic-session",
+          VAULT_TOKEN: "stale-value",
+        },
+        client: { read: async () => [secret] },
+        childRunner: createChildRunner(unavailablePipeSpawn),
+      }),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.equal(
+        error.message,
+        "Unable to write secret stream for command: unavailable-pipe-command",
+      );
+      assert.doesNotMatch(error.message, /synthetic|session|token/i);
+      return true;
     },
-    client: {
-      read: async () => {
-        readCount++;
-        return secrets;
-      },
-    },
-    childRunner: async (_command, _args, env) => {
-      childEnvironment = env;
-      return 0;
-    },
-  });
-
-  assert.equal(exitCode, 0);
-  assert.equal(readCount, 1);
-  assert.equal(
-    childEnvironment?.RHDH_E2E_SECRET_NAMES,
-    '["VAULT_A_B","VAULT_ZETA"]',
   );
-  assert.equal(childEnvironment?.BW_SESSION, undefined);
-  assert.equal(childEnvironment?.BW_CLIENTID, undefined);
-  assert.doesNotMatch(
-    childEnvironment?.RHDH_E2E_SECRET_NAMES ?? "",
-    /synthetic|OTHER_VALUE|BW_/,
-  );
-});
 
-test("preserves the child exit code when secret names are exposed", async () => {
-  const exitCode = await executeCommand({
-    profile,
-    workspaces: [],
-    command: "playwright",
-    args: [],
-    exposeSecretNames: true,
-    env: { BW_SESSION: "synthetic-session" },
-    client: { read: async () => [secret] },
-    childRunner: async () => 17,
-  });
-
-  assert.equal(exitCode, 17);
+  assert.deepEqual(spawnOptions?.stdio, [
+    "inherit",
+    "inherit",
+    "inherit",
+    "pipe",
+  ]);
+  assert.equal(spawnOptions?.env?.VAULT_TOKEN, undefined);
+  assert.equal(spawnOptions?.env?.BW_SESSION, undefined);
+  assert.equal(spawnOptions?.env?.RHDH_E2E_SECRET_FD, "3");
 });
 
 test("validates all selected mappings before starting the child", async () => {

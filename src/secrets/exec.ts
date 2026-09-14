@@ -157,6 +157,9 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
         secretPipe = child.stdio[3];
       }
     };
+    const settleUnstartedWriter = (): void => {
+      if (secretStream !== undefined && !streamWriter) writerSettled = true;
+    };
     const closeSecretStream = (reason?: Error): void => {
       adoptSecretPipe();
       if (streamClosing) return;
@@ -223,6 +226,7 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
         if (settled) return;
         forwardedSignal = true;
         removeForwarders();
+        settleUnstartedWriter();
         closeSecretStream(
           writerPromise && !writerSettled
             ? new Error("secret stream closed")
@@ -236,19 +240,23 @@ export const runChild: ChildRunner = async (command, args, env, options) => {
 
     child.once("spawn", () => {
       if (secretStream !== undefined) {
-        if (forwardedSignal || settled) closeSecretStream();
-        else startStream();
+        if (forwardedSignal || settled) {
+          settleUnstartedWriter();
+          closeSecretStream();
+        } else startStream();
       }
     });
     child.once("error", () => {
       if (settled) return;
       settled = true;
       removeForwarders();
+      settleUnstartedWriter();
       closeSecretStream();
       reject(new Error(`Unable to start command: ${command}`));
     });
     child.once("close", (code, signal) => {
       childClosed = true;
+      settleUnstartedWriter();
       const signalExitCode = signal
         ? signalExitCodes.get(signal as (typeof signals)[number])
         : undefined;

@@ -373,6 +373,43 @@ test("maps a forwarded SIGTERM while the stream writer is backpressured", async 
   assert.equal(await result, 143);
 });
 
+test("does not wait for an unstarted writer after a pre-spawn SIGTERM", async () => {
+  if (process.platform === "win32") return;
+  const originalOn = process.on;
+  process.on = ((
+    event: string | symbol,
+    listener: (...args: unknown[]) => void,
+  ) => {
+    const result = originalOn.call(process, event, listener);
+    if (event === "SIGTERM") (listener as () => void)();
+    return result;
+  }) as typeof process.on;
+  try {
+    const result = runChild(
+      process.execPath,
+      ["-e", "setTimeout(() => {}, 10000);"],
+      { ...process.env, RHDH_E2E_SECRET_FD: "3" },
+      {
+        secretStream: [
+          { name: "PRE_SPAWN_SIGNAL_VALUE", value: "x".repeat(160 * 1024) },
+        ],
+      },
+    );
+
+    assert.equal(
+      await Promise.race([
+        result,
+        delay(500).then(() => {
+          throw new Error("pre-spawn signal left runChild pending");
+        }),
+      ]),
+      143,
+    );
+  } finally {
+    process.on = originalOn;
+  }
+});
+
 test("waits for child termination before rejecting a fatal stream writer error", async () => {
   if (process.platform === "win32") return;
   const directory = await mkdtemp(

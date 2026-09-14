@@ -1,4 +1,9 @@
 import type { ExpandedSecretSelector } from "./config.js";
+import {
+  SECRET_STREAM_ENVIRONMENT_VARIABLE,
+  SECRET_STREAM_FD,
+} from "./stream.js";
+import { isValidEnvironmentName } from "./environment-name.js";
 
 export interface EnvironmentSecret {
   id: string;
@@ -9,11 +14,15 @@ export interface EnvironmentSecret {
 
 export interface MaterializedEnvironment {
   environment: NodeJS.ProcessEnv;
-  secretNames: readonly string[];
+  secrets: readonly MaterializedSecret[];
 }
 
-const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-export const SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
+export interface MaterializedSecret {
+  name: string;
+  value: string;
+}
+
+const LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
 const PROVIDER_ENVIRONMENT_KEYS = new Set([
   "VAULT",
   "VAULT_TOKEN",
@@ -36,18 +45,19 @@ export function materializeEnvironment(
   selectors: readonly ExpandedSecretSelector[],
   parent: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return materializeEnvironmentWithSecretNames(secrets, selectors, parent)
+  return materializeEnvironmentWithSecrets(secrets, selectors, parent)
     .environment;
 }
 
-export function materializeEnvironmentWithSecretNames(
+export function materializeEnvironmentWithSecrets(
   secrets: readonly EnvironmentSecret[],
   selectors: readonly ExpandedSecretSelector[],
   parent: NodeJS.ProcessEnv = process.env,
 ): MaterializedEnvironment {
   const child = { ...parent };
   removeProviderEnvironmentVariables(child);
-  delete child[SECRET_NAMES_ENVIRONMENT_VARIABLE];
+  delete child[LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE];
+  delete child[SECRET_STREAM_ENVIRONMENT_VARIABLE];
 
   const mapped = new Map<string, string>();
   for (const secret of secrets) {
@@ -74,10 +84,13 @@ export function materializeEnvironmentWithSecretNames(
       relativeName,
       selector.destination.keyTransform,
     );
-    if (!ENVIRONMENT_NAME.test(key)) {
+    if (!isValidEnvironmentName(key)) {
       throw new Error(`Invalid environment variable name: ${key}`);
     }
-    if (key === SECRET_NAMES_ENVIRONMENT_VARIABLE) {
+    if (
+      key === LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE ||
+      key === SECRET_STREAM_ENVIRONMENT_VARIABLE
+    ) {
       throw new Error(`Reserved environment variable name: ${key}`);
     }
     if (key.startsWith("BW_")) {
@@ -90,6 +103,11 @@ export function materializeEnvironmentWithSecretNames(
     }
     mapped.set(key, secret.value);
   }
+  const mappedSecrets = [...mapped.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((left, right) =>
+      left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+    );
 
   for (const [key, value] of mapped) {
     Object.defineProperty(child, key, {
@@ -101,8 +119,17 @@ export function materializeEnvironmentWithSecretNames(
   }
   return {
     environment: child,
-    secretNames: [...mapped.keys()].sort(),
+    secrets: mappedSecrets,
   };
+}
+
+export function materializeStreamEnvironment(
+  materialized: MaterializedEnvironment,
+): NodeJS.ProcessEnv {
+  const child = { ...materialized.environment };
+  for (const secret of materialized.secrets) delete child[secret.name];
+  child[SECRET_STREAM_ENVIRONMENT_VARIABLE] = String(SECRET_STREAM_FD);
+  return child;
 }
 
 function transformEnvironmentName(

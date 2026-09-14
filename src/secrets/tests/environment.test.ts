@@ -3,10 +3,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  materializeEnvironmentWithSecrets,
   materializeEnvironment,
+  materializeStreamEnvironment,
   type EnvironmentSecret,
 } from "../environment.js";
 import type { ExpandedSecretSelector } from "../config.js";
+import {
+  SECRET_STREAM_ENVIRONMENT_VARIABLE,
+  SECRET_STREAM_FD,
+} from "../stream.js";
 
 const selector: ExpandedSecretSelector = {
   prefix: "global/",
@@ -67,6 +73,149 @@ test("maps selected notes into a child environment without mutating the parent",
   });
 });
 
+test("returns sorted mapped secret entries", () => {
+  const identitySelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+      keyTransform: "identity",
+    },
+  };
+
+  const result = materializeEnvironmentWithSecrets(
+    [
+      {
+        id: "zeta-id",
+        name: "global/ZETA",
+        value: "zeta-value",
+        selector: identitySelector,
+      },
+      {
+        id: "alpha-id",
+        name: "global/ALPHA",
+        value: "alpha-value",
+        selector: identitySelector,
+      },
+    ],
+    [identitySelector],
+    {},
+  );
+
+  assert.deepEqual(result.secrets, [
+    { name: "ALPHA", value: "alpha-value" },
+    { name: "ZETA", value: "zeta-value" },
+  ]);
+});
+
+test("keeps the legacy environment result unchanged", () => {
+  const secrets: EnvironmentSecret[] = [
+    {
+      id: "token-id",
+      name: "global/VAULT_TOKEN",
+      value: "synthetic-value",
+      selector,
+    },
+  ];
+
+  assert.deepEqual(
+    materializeEnvironment(secrets, [selector], { PATH: "/bin" }),
+    {
+      PATH: "/bin",
+      VAULT_TOKEN: "synthetic-value",
+    },
+  );
+});
+
+test("removes selected names from a stream child environment", () => {
+  const parent = {
+    PATH: "/bin",
+    VAULT_TOKEN: "inherited-value",
+    RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+    RHDH_E2E_SECRET_FD: "stale-fd",
+  };
+  const materialized = materializeEnvironmentWithSecrets(
+    [
+      {
+        id: "token-id",
+        name: "global/VAULT_TOKEN",
+        value: "stream-value",
+        selector,
+      },
+    ],
+    [selector],
+    parent,
+  );
+
+  const streamEnvironment = materializeStreamEnvironment(materialized);
+
+  assert.equal(streamEnvironment.VAULT_TOKEN, undefined);
+  assert.equal(streamEnvironment.RHDH_E2E_SECRET_NAMES, undefined);
+  assert.equal(
+    streamEnvironment[SECRET_STREAM_ENVIRONMENT_VARIABLE],
+    String(SECRET_STREAM_FD),
+  );
+  assert.equal(streamEnvironment.PATH, "/bin");
+  assert.equal(parent.VAULT_TOKEN, "inherited-value");
+  assert.equal(parent.RHDH_E2E_SECRET_FD, "stale-fd");
+});
+
+test("does not mutate the parent process environment", () => {
+  const parent = {
+    RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+    RHDH_E2E_SECRET_FD: "stale-fd",
+    VAULT_TOKEN: "old-value",
+  };
+
+  const materialized = materializeEnvironmentWithSecrets(
+    [
+      {
+        id: "token-id",
+        name: "global/VAULT_TOKEN",
+        value: "new-value",
+        selector,
+      },
+    ],
+    [selector],
+    parent,
+  );
+  materializeStreamEnvironment(materialized);
+
+  assert.deepEqual(parent, {
+    RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+    RHDH_E2E_SECRET_FD: "stale-fd",
+    VAULT_TOKEN: "old-value",
+  });
+});
+
+test("reserves RHDH_E2E_SECRET_FD", () => {
+  const identitySelector: ExpandedSecretSelector = {
+    ...selector,
+    destination: {
+      ...selector.destination,
+      requirePrefix: undefined,
+      keyTransform: "identity",
+    },
+  };
+
+  assert.throws(
+    () =>
+      materializeEnvironmentWithSecrets(
+        [
+          {
+            id: "reserved-fd-id",
+            name: "global/RHDH_E2E_SECRET_FD",
+            value: "synthetic",
+            selector: identitySelector,
+          },
+        ],
+        [identitySelector],
+        {},
+      ),
+    /reserved environment variable name.*RHDH_E2E_SECRET_FD/i,
+  );
+});
+
 test("filters item names that do not satisfy requirePrefix", () => {
   const secrets: EnvironmentSecret[] = [
     {
@@ -98,7 +247,7 @@ test("rejects transformed environment-name collisions", () => {
   ];
 
   assert.throws(
-    () => materializeEnvironment(secrets, [selector], {}),
+    () => materializeEnvironmentWithSecrets(secrets, [selector], {}),
     /environment variable collision.*VAULT_A_B/i,
   );
 });
@@ -115,7 +264,7 @@ test("rejects the reserved secret-name metadata variable", () => {
 
   assert.throws(
     () =>
-      materializeEnvironment(
+      materializeEnvironmentWithSecrets(
         [
           {
             id: "reserved-id",
@@ -142,7 +291,7 @@ test("rejects names transformed to the reserved metadata variable", () => {
 
   assert.throws(
     () =>
-      materializeEnvironment(
+      materializeEnvironmentWithSecrets(
         [
           {
             id: "reserved-id",
@@ -170,7 +319,7 @@ test("rejects selected Bitwarden provider variables", () => {
 
   assert.throws(
     () =>
-      materializeEnvironment(
+      materializeEnvironmentWithSecrets(
         [
           {
             id: "provider-id",
@@ -225,7 +374,7 @@ test("rejects invalid identity environment names", () => {
 
   assert.throws(
     () =>
-      materializeEnvironment(
+      materializeEnvironmentWithSecrets(
         [
           {
             id: "invalid-id",

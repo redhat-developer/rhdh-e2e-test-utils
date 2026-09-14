@@ -54,6 +54,7 @@ test("executes a command with only selected secrets in its child environment", a
     env: {
       PATH: "/usr/bin",
       BW_SESSION: "synthetic-session",
+      RHDH_E2E_SECRET_FD: "stale-fd",
       EXISTING_VALUE: "preserved",
     },
     client,
@@ -67,6 +68,7 @@ test("executes a command with only selected secrets in its child environment", a
   assert.equal(received?.env.EXISTING_VALUE, "preserved");
   assert.equal(received?.env.BW_SESSION, undefined);
   assert.equal(received?.env.RHDH_E2E_SECRET_NAMES, undefined);
+  assert.equal(received?.env.RHDH_E2E_SECRET_FD, undefined);
 });
 
 test("removes an inherited secret-name marker when exposure is disabled", async () => {
@@ -80,6 +82,7 @@ test("removes an inherited secret-name marker when exposure is disabled", async 
     env: {
       BW_SESSION: "synthetic-session",
       RHDH_E2E_SECRET_NAMES: '["STALE_NAME"]',
+      RHDH_E2E_SECRET_FD: "stale-fd",
     },
     client: { read: async () => [secret] },
     childRunner: async (_command, _args, env) => {
@@ -90,6 +93,7 @@ test("removes an inherited secret-name marker when exposure is disabled", async 
 
   assert.equal(exitCode, 0);
   assert.equal(childEnvironment?.RHDH_E2E_SECRET_NAMES, undefined);
+  assert.equal(childEnvironment?.RHDH_E2E_SECRET_FD, undefined);
 });
 
 test("exposes only sorted validated secret names from one provider read", async () => {

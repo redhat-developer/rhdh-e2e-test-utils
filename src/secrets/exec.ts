@@ -5,10 +5,9 @@ import {
   type ExpandedSecretSelector,
   type SecretProfile,
 } from "./config.js";
-import {
-  materializeEnvironmentWithSecretNames,
-  SECRET_NAMES_ENVIRONMENT_VARIABLE,
-} from "./environment.js";
+import { materializeEnvironmentWithSecrets } from "./environment.js";
+
+const LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE = "RHDH_E2E_SECRET_NAMES";
 
 export interface SecretReader {
   read(
@@ -40,19 +39,20 @@ export async function executeCommand(
   const expanded = expandProfile(options.profile, options.workspaces);
   const client =
     options.client ?? new BitwardenClient({ env: options.env ?? process.env });
-  const secrets = await client.read(
+  const secretValues = await client.read(
     options.profile.collection,
     expanded.selectors,
   );
-  const { environment: childEnvironment, secretNames } =
-    materializeEnvironmentWithSecretNames(
-      secrets,
+  const { environment: childEnvironment, secrets } =
+    materializeEnvironmentWithSecrets(
+      secretValues,
       expanded.selectors,
       options.env ?? process.env,
     );
   if (options.exposeSecretNames) {
-    childEnvironment[SECRET_NAMES_ENVIRONMENT_VARIABLE] =
-      JSON.stringify(secretNames);
+    childEnvironment[LEGACY_SECRET_NAMES_ENVIRONMENT_VARIABLE] = JSON.stringify(
+      secrets.map(({ name }) => name),
+    );
   }
   const childRunner = options.childRunner ?? runChild;
   return childRunner(options.command, options.args, childEnvironment);

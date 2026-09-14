@@ -32,8 +32,11 @@ export {
 } from "./exec.js";
 export {
   materializeEnvironment,
+  materializeEnvironmentWithSecrets,
   removeProviderEnvironmentVariables,
   type EnvironmentSecret,
+  type MaterializedEnvironment,
+  type MaterializedSecret,
 } from "./environment.js";
 export {
   GsmClient,

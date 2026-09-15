@@ -104,8 +104,8 @@ async function runChildWithSpawn(
             ? "inherit"
             : ["inherit", "inherit", "inherit", "pipe"],
       });
-    } catch {
-      reject(new Error(`Unable to start command: ${command}`));
+    } catch (error) {
+      reject(commandStartError(command, error));
       return;
     }
 
@@ -262,14 +262,14 @@ async function runChildWithSpawn(
         } else startStream();
       }
     });
-    child.once("error", () => {
+    child.once("error", (error) => {
       if (settled) return;
       settled = true;
       clearForceTermination();
       removeForwarders();
       settleUnstartedWriter();
       closeSecretStream();
-      reject(new Error(`Unable to start command: ${command}`));
+      reject(commandStartError(command, error));
     });
     child.once("close", (code, signal) => {
       childClosed = true;
@@ -369,8 +369,21 @@ function isBrokenPipe(error: unknown): boolean {
     typeof error === "object" &&
     error !== null &&
     "code" in error &&
-    (error.code === "EPIPE" || error.code === "ERR_STREAM_DESTROYED")
+    (error.code === "EPIPE" ||
+      error.code === "ECONNRESET" ||
+      error.code === "ERR_STREAM_DESTROYED")
   );
+}
+
+function commandStartError(command: string, error: unknown): Error {
+  const environmentHint =
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "E2BIG"
+      ? "; child environment exceeds OS limits; retry with --stream-secrets"
+      : "";
+  return new Error(`Unable to start command: ${command}${environmentHint}`);
 }
 
 function pipeClosedError(): Error {

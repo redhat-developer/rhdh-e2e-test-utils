@@ -7,6 +7,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { Writable } from "node:stream";
 import test from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
@@ -508,6 +509,59 @@ test("does not write or leak values when the stream command cannot start", async
       return true;
     },
   );
+});
+
+test("suggests stream mode when the child environment exceeds OS limits", async () => {
+  const oversizedEnvironmentSpawn = (() => {
+    throw Object.assign(new Error("spawn E2BIG"), { code: "E2BIG" });
+  }) as typeof spawn;
+
+  await assert.rejects(
+    () =>
+      createChildRunner(oversizedEnvironmentSpawn)(process.execPath, [], {
+        LARGE_VALUE: "synthetic-value",
+      }),
+    (error: unknown) => {
+      assert(error instanceof Error);
+      assert.equal(
+        error.message,
+        `Unable to start command: ${process.execPath}; child environment exceeds OS limits; retry with --stream-secrets`,
+      );
+      return true;
+    },
+  );
+});
+
+test("preserves the child result when the secret pipe resets", async () => {
+  let child!: ReturnType<typeof spawn>;
+  const resetPipe = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback(
+        Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+      );
+      setTimeout(() => child.emit("close", 17, null), 10);
+    },
+  });
+  const resetPipeSpawn = (() => {
+    child = new EventEmitter() as unknown as ReturnType<typeof spawn>;
+    Object.defineProperty(child, "stdio", {
+      value: [null, null, null, resetPipe],
+    });
+    child.kill = (() => true) as typeof child.kill;
+    queueMicrotask(() => child.emit("spawn"));
+    return child;
+  }) as typeof spawn;
+
+  const exitCode = await createChildRunner(resetPipeSpawn)(
+    process.execPath,
+    [],
+    { RHDH_E2E_SECRET_FD: "3" },
+    {
+      secretStream: [{ name: "RESET_VALUE", value: "x".repeat(160 * 1024) }],
+    },
+  );
+
+  assert.equal(exitCode, 17);
 });
 
 test("rejects an unavailable secret stream pipe without environment fallback", async () => {

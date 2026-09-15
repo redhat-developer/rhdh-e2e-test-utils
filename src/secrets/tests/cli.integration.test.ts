@@ -12,9 +12,9 @@ import { pathToFileURL } from "node:url";
 const SECRET_METADATA = [
   {
     name: "VAULT_CERT_PEM",
-    byteLength: 160 * 1024,
+    byteLength: 64 * 1024,
     sha256: createHash("sha256")
-      .update("x".repeat(160 * 1024))
+      .update("x".repeat(64 * 1024))
       .digest("hex"),
   },
   {
@@ -71,7 +71,7 @@ else if (args[0] === "list" && args[1] === "collections") process.stdout.write(J
 else if (args[0] === "list" && args[1] === "items") process.stdout.write(JSON.stringify([{ id: "note-item-id" }, { id: "attachment-item-id" }]));
 else if (args[0] === "get" && args[1] === "item" && args[2] === "note-item-id") process.stdout.write(JSON.stringify({ id: "note-item-id", name: "global/VAULT_TOKEN", notes: "synthetic-note-value", type: 2, collectionIds: ["collection-id"], organizationId: "organization-id" }));
 else if (args[0] === "get" && args[1] === "item" && args[2] === "attachment-item-id") process.stdout.write(JSON.stringify({ id: "attachment-item-id", name: "global/VAULT_CERT_PEM", notes: null, type: 2, collectionIds: ["collection-id"], organizationId: "organization-id", attachments: [{ id: "attachment-id", fileName: "VAULT_CERT_PEM" }] }));
-else if (args[0] === "get" && args[1] === "attachment" && args[2] === "VAULT_CERT_PEM" && args[3] === "--itemid" && args[4] === "attachment-item-id" && args[5] === "--raw") process.stdout.write("x".repeat(160 * 1024));
+else if (args[0] === "get" && args[1] === "attachment" && args[2] === "VAULT_CERT_PEM" && args[3] === "--itemid" && args[4] === "attachment-item-id" && args[5] === "--raw") process.stdout.write("x".repeat(64 * 1024));
 else process.exitCode = 1;
 `,
   );

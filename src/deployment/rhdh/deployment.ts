@@ -29,6 +29,19 @@ import type {
   DeploymentMethod,
 } from "./types.js";
 
+/**
+ * Whether the target RHDH still ships the NFS shell as a separate `app-next`
+ * package. Up to the 1.x line it did, and the backend has to be told the name.
+ * From 2.x NFS is the only frontend and the package is plain `app`, so naming
+ * `app-next` makes `resolvePackagePath` throw and the backend never starts.
+ * `next` tracks main, which is on the 2.x line.
+ */
+export function hasSeparateAppNextPackage(version: string): boolean {
+  // `next` parses to NaN, and every comparison against NaN is false, which is
+  // the answer we want for it.
+  return Number.parseInt(version, 10) < 2;
+}
+
 export class RHDHDeployment {
   public k8sClient = new KubernetesClientHelper();
   public rhdhUrl: string;
@@ -105,7 +118,8 @@ export class RHDHDeployment {
     const secretsPaths = [
       DEFAULT_CONFIG_PATHS.secrets,
       authConfig.secrets,
-      ...(this.deploymentConfig.useNewFrontendSystem
+      ...(this.deploymentConfig.useNewFrontendSystem &&
+      hasSeparateAppNextPackage(this.deploymentConfig.version)
         ? [DEFAULT_CONFIG_PATHS.newFrontendSystem.secrets]
         : []),
       this.deploymentConfig.secrets,

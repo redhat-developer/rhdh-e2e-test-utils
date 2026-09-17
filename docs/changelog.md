@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.14] - Current
+## [2.1.15] - Current
+
+### Fixed
+
+- **New frontend system secret on 2.x targets**: `APP_CONFIG_app_packageName: app-next` is now applied only to the 1.x lines, which still ship that package. RHDH 2.x renamed it to `app`, so naming `app-next` stopped the backend from starting on every NFS lane; those targets now fall back to the app plugin's own default.
+
+## [2.1.14]
 
 ### Added
 
@@ -29,7 +35,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **The GitHub session file was shared with no locking** ([RHIDP-16459](https://redhat.atlassian.net/browse/RHIDP-16459)): the path was a bare relative `authState_<user>.json`, resolved against `process.cwd()` — which the worker fixture sets to the same workspace directory for every project. So every lane and every worker shared one file with no lock: a reader landing mid-write failed on truncated JSON, as a flake that looked nothing like the plugin under test, and every added lane adds a writer. Access to *creating* the session is now serialised across the whole run, the write goes through a temp file and a rename (removed even when it fails), the path is absolute, and an unreadable or empty session falls through to a full login instead of throwing. Deliberately still **one file per user, not per project**: scoping it per project is the obvious fix and is the wrong one, because `logintoGithub` derives its 2FA code from a single shared TOTP secret, so lanes logging in inside the same 30-second window submit the identical code and GitHub rejects the second.
+- **The GitHub session file was shared with no locking** ([RHIDP-16459](https://redhat.atlassian.net/browse/RHIDP-16459)): the path was a bare relative `authState_<user>.json`, resolved against `process.cwd()` — which the worker fixture sets to the same workspace directory for every project. So every lane and every worker shared one file with no lock: a reader landing mid-write failed on truncated JSON, as a flake that looked nothing like the plugin under test, and every added lane adds a writer. Access to _creating_ the session is now serialised across the whole run, the write goes through a temp file and a rename (removed even when it fails), the path is absolute, and an unreadable or empty session falls through to a full login instead of throwing. Deliberately still **one file per user, not per project**: scoping it per project is the obvious fix and is the wrong one, because `logintoGithub` derives its 2FA code from a single shared TOTP secret, so lanes logging in inside the same 30-second window submit the identical code and GitHub rejects the second.
 
   Only creation takes the lock. Reusing an existing session is cookies plus a Sign In click against a different namespace host, and holding the lock across it made every lane queue behind a sign-in it did not need — long enough that a waiter could exhaust Playwright's default test timeout, since `test.setTimeout` is raised inside the login itself, which is exactly the path a waiter is not on. The session file is re-read inside the lock so a caller that queued behind the lane that created it reuses that session instead of logging in again.
 
@@ -80,6 +86,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - **Trace retention on all test runs**: Changed Playwright trace setting from `"retain-on-failure"` to `"on"` so traces are always retained, including on passed tests. This enables the fullsend e2e-triage agent to compare passing and failing traces for more accurate root cause analysis.
+
 ## [2.1.4]
 
 ### Changed
@@ -134,7 +141,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Starting CSV version for OSL operator was removed so latest stable will now be installed directly.
-
 
 ## [1.1.43]
 

@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import { deepMerge } from "../../utils/merge-yamls.js";
 import { getNormalizedPluginMergeKey } from "../../utils/plugin-metadata.js";
-import { hasSeparateAppNextPackage } from "./deployment.js";
 
 /**
  * Tests the merge behavior used when user dynamic-plugins config does not exist:
@@ -109,23 +108,5 @@ describe("dynamic-plugins merge (no user config path)", () => {
     const includes = merged.includes as unknown[];
     assert.strictEqual(includes?.length, 1);
     assert.strictEqual(includes[0], "dynamic-plugins.default.yaml");
-  });
-});
-
-/**
- * RHDH renamed `packages/app-next` to `packages/app` on the 2.x line, so the NFS
- * secret that names `app-next` stops the backend from starting there.
- */
-describe("hasSeparateAppNextPackage", () => {
-  it("is true for the 1.x lines, which still ship the separate package", () => {
-    for (const version of ["1.9", "1.10", "1.10.5"]) {
-      assert.equal(hasSeparateAppNextPackage(version), true, version);
-    }
-  });
-
-  it("is false for 2.x and for next, which tracks main", () => {
-    for (const version of ["2.0", "2.1", "2.1.0", "next"]) {
-      assert.equal(hasSeparateAppNextPackage(version), false, version);
-    }
   });
 });

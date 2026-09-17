@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **New frontend system secret on 2.x targets**: `APP_CONFIG_app_packageName: app-next` is now applied only to the 1.x lines, which still ship that package. RHDH 2.x renamed it to `app`, so naming `app-next` stopped the backend from starting on every NFS lane; those targets now fall back to the app plugin's own default.
+- **New frontend system secret removed**: the layer set `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION`. RHDH 2.x renamed that package to `app` and dropped the flag, so naming `app-next` stopped the backend from starting on every NFS lane. Deployments now fall back to the app plugin's own default. Release branches keep the old behaviour through their pinned older version of this package.
 
 ## [2.1.14]
 

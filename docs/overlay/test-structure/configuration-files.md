@@ -37,7 +37,6 @@ tests/config/
 
 When the new frontend system is enabled (see [`configure()`](/guide/deployment/rhdh-deployment#configureoptions) and [New frontend system](/guide/deployment/rhdh-deployment#new-frontend-system-usenewfrontendsystem)), `@red-hat-developer-hub/e2e-test-utils` merges:
 
-- **Secrets** — `APP_CONFIG_app_packageName=app-next` and `ENABLE_STANDARD_MODULE_FEDERATION=true` into the `rhdh-secrets` Secret (merged with common/auth/workspace layers before `envsubst`; you no longer need duplicate keys in a separate `rhdh-secrets-next.yaml` for that).
 - **Dynamic plugins** — Default OCI entries for **app-auth** and **app-integrations** as package defaults; override versions in `tests/config/dynamic-plugins.yaml` ([guide](/guide/configuration/config-files#dynamic-pluginsyaml)).
 
 You can **remove** hand-maintained `app-auth` / `app-integrations` lines from `dynamic-plugins.yaml` when the framework defaults match your train.

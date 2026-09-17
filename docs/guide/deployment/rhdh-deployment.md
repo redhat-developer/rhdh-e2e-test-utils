@@ -58,7 +58,7 @@ test("example", async ({ rhdh }) => {
 | `valueFile` | `string` | Helm values file (Helm only) |
 | `subscription` | `string` | Backstage CR file (Operator only) |
 | `disablePlugins` | `string[]` | Default plugins to disable in PR builds (wrapper + OCI `{{inherit}}`) |
-| `useNewFrontendSystem` | `boolean` | Enables the Backstage **new frontend system** shell (app-next / NFS): merges app-next secrets, default OCI **app-auth** and **app-integrations** plugins (as defaults — override in `tests/config/dynamic-plugins.yaml`), and extra Helm values from `config/new-frontend-system/value_file.yaml` plus optional `tests/config/value_file-app-next.yaml`. Omit to **auto-detect**: on when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass `false` to force off. |
+| `useNewFrontendSystem` | `boolean` | Enables the Backstage **new frontend system** shell (app-next / NFS): merges default OCI **app-auth** and **app-integrations** plugins (as defaults — override in `tests/config/dynamic-plugins.yaml`), and extra Helm values from `config/new-frontend-system/value_file.yaml` plus optional `tests/config/value_file-app-next.yaml`. Omit to **auto-detect**: on when the namespace ends with `-app-next` or `USE_NEW_FRONTEND_SYSTEM=true`. Pass `false` to force off. |
 
 ### New frontend system (`useNewFrontendSystem`)
 
@@ -87,11 +87,10 @@ await rhdh.configure({ auth: "keycloak" });
 await rhdh.deploy();
 ```
 
-What gets merged (same order as other config: package defaults → auth → NFS defaults → your workspace files; later wins; secrets are merged then **envsubst** runs once on the result):
+What gets merged (same order as other config: package defaults → auth → NFS defaults → your workspace files; later wins):
 
-1. **Secrets** — `APP_CONFIG_app_packageName: app-next` and `ENABLE_STANDARD_MODULE_FEDERATION: "true"` (your `rhdh-secrets.yaml` still wins on conflicts and can use `$VAR` substitution).
-2. **Dynamic plugins** — Default OCI refs for `red-hat-developer-hub-backstage-plugin-app-auth` and `...-app-integrations` from package YAML; override pins in **`tests/config/dynamic-plugins.yaml`** (same as other plugins).
-3. **Helm** — Package `config/new-frontend-system/value_file.yaml`, then your `value_file.yaml`, then optional `tests/config/value_file-app-next.yaml` when that file exists.
+1. **Dynamic plugins** — Default OCI refs for `red-hat-developer-hub-backstage-plugin-app-auth` and `...-app-integrations` from package YAML; override pins in **`tests/config/dynamic-plugins.yaml`** (same as other plugins).
+2. **Helm** — Package `config/new-frontend-system/value_file.yaml`, then your `value_file.yaml`, then optional `tests/config/value_file-app-next.yaml` when that file exists.
 
 Workspace-specific **app-config** (titles, plugin routes, etc.) remains your responsibility.
 

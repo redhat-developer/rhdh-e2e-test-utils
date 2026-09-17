@@ -67,7 +67,7 @@ These control automatic plugin configuration injection from metadata files.
 
 ## New frontend system (app-next)
 
-NFS merge layers ship under `config/new-frontend-system/` in the package (secrets, dynamic plugins, Helm values), same layering idea as `auth/`.
+NFS merge layers ship under `config/new-frontend-system/` in the package (dynamic plugins and Helm values), same layering idea as `auth/`.
 
 **Enabling app-next behavior**
 

@@ -87,7 +87,7 @@ yarn check     # typecheck + lint + prettier
 Package defaults (config/common/)
   ↓ deep merge
 Auth-specific (config/auth/{keycloak|guest|github}/)
-  ↓ deep merge (when useNewFrontendSystem)
+  ↓ deep merge (dynamic plugins and Helm values, when useNewFrontendSystem)
 New frontend system defaults (config/new-frontend-system/)
   ↓ deep merge
 User config (workspace's tests/config/*.yaml)
@@ -95,7 +95,7 @@ User config (workspace's tests/config/*.yaml)
 = Final merged config
 ```
 
-`useNewFrontendSystem` is true when set explicitly, when the namespace ends with `-app-next`, or when `USE_NEW_FRONTEND_SYSTEM=true`. Secrets use the same layer order, then a single `envsubst` pass on the merged result.
+`useNewFrontendSystem` is true when set explicitly, when the namespace ends with `-app-next`, or when `USE_NEW_FRONTEND_SYSTEM=true`. It contributes dynamic-plugin and Helm-value defaults only. Secrets use the same layer order without it, then a single `envsubst` pass on the merged result.
 
 Array merge uses "replace" strategy by default. Plugin arrays use `byKey: "package"` with normalized keys (strips trailing `-dynamic`).
 

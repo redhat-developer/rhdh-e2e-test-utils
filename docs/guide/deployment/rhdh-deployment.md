@@ -149,7 +149,7 @@ await rhdh.deploy({ timeout: null });
 `deploy()` automatically skips if the deployment already succeeded in the current test run (e.g., after a worker restart due to test failure). This prevents expensive re-deployments.
 
 This method:
-1. Merges configuration files (common → auth → optional NFS defaults → project overrides) for app-config, secrets, and dynamic plugins
+1. Merges configuration files (common → auth → project overrides) for app-config and secrets, and the same with optional NFS defaults for dynamic plugins
 2. Substitutes environment variables in the merged secrets (`envsubst`)
 3. [Injects plugin metadata](/guide/configuration/config-files#plugin-metadata-injection) into dynamic plugins config
 4. Applies ConfigMaps (app-config, dynamic-plugins)

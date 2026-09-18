@@ -24,6 +24,8 @@ const WRAPPER_URL =
 const WRAPPER_FILE = "secret-manager.sh";
 const CACHE_METADATA_FILE = "secret-manager.json";
 const DEFAULT_FETCH_TIMEOUT_MS = 60_000;
+const TRUSTED_IMAGE_PATTERN =
+  /^quay\.io\/openshift\/ci-public(?::[A-Za-z0-9][A-Za-z0-9._-]*|@sha256:[a-f0-9]{64})$/;
 
 export interface GsmWrapperOptions {
   cacheDir?: string;
@@ -134,11 +136,14 @@ export class GsmWrapper {
       const script = await this.fetchScript(this.fetchTimeoutMs);
       validateWrapper(script);
       return (this.activeMetadata = await this.writeCache(script, false));
-    } catch {
+    } catch (error) {
       const cached = await this.readCachedMetadata();
       if (!cached) {
         throw new Error(
-          "Unable to download the GSM wrapper and no validated cache exists",
+          `Unable to download the GSM wrapper and no validated cache exists: ${
+            error instanceof Error ? error.message : "untrusted wrapper"
+          }`,
+          { cause: error },
         );
       }
       this.warning(
@@ -249,6 +254,12 @@ export function validateWrapper(script: string): void {
   ) {
     throw new Error("GSM wrapper validation failed");
   }
+  const image = script.match(
+    /^IMAGE="\$\{SECRET_MANAGER_IMAGE:-([^}]+)\}"$/m,
+  )?.[1];
+  if (!image || !TRUSTED_IMAGE_PATTERN.test(image)) {
+    throw new Error("GSM wrapper validation failed: trusted image is required");
+  }
 }
 
 async function fetchCurrentWrapper(
@@ -257,6 +268,9 @@ async function fetchCurrentWrapper(
   const response = await fetch(WRAPPER_URL, {
     signal: AbortSignal.timeout(timeoutMs),
   });
+  if (response.url !== WRAPPER_URL) {
+    throw new Error("GSM wrapper download redirected to an unexpected URL");
+  }
   if (!response.ok) {
     throw new Error(`GitHub returned HTTP ${response.status}`);
   }
@@ -268,6 +282,9 @@ function hash(value: string): string {
 }
 
 function buildGsmEnvironment(parent: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (parent.SECRET_MANAGER_IMAGE !== undefined) {
+    validateImageReference(parent.SECRET_MANAGER_IMAGE);
+  }
   const allowed = new Set([
     "PATH",
     "HOME",
@@ -297,6 +314,14 @@ function buildGsmEnvironment(parent: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     }
   }
   return result;
+}
+
+function validateImageReference(image: string): void {
+  if (!TRUSTED_IMAGE_PATTERN.test(image)) {
+    throw new Error(
+      "SECRET_MANAGER_IMAGE must reference the trusted image repository quay.io/openshift/ci-public",
+    );
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

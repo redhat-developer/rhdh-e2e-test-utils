@@ -1,6 +1,3 @@
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
 import {
   BitwardenClient,
   type BitwardenSecretItem,
@@ -16,6 +13,10 @@ import { GsmClient } from "./gsm.js";
 import { MAX_TIMEOUT_MS } from "./command.js";
 import { defaultLockDir, withSecretLock } from "./lock.js";
 import { readSecretInput, type SecretInput } from "./secret-input.js";
+import {
+  createTemporarySecretFile,
+  type TemporarySecretFile,
+} from "./temporary-secret.js";
 
 export type MutationCommand = "create" | "update" | "delete";
 export type MutationAction = "create" | "update" | "delete" | "skip";
@@ -378,29 +379,12 @@ function mutationFailure(
   });
 }
 
-async function createSnapshot(value: string): Promise<{ path: string }> {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "rhdh-e2e-secret-"));
-  const snapshotPath = path.join(directory, "value");
-  try {
-    await writeFile(snapshotPath, value, { encoding: "utf8", mode: 0o600 });
-    await chmod(snapshotPath, 0o600);
-  } catch (error) {
-    try {
-      await rm(directory, { recursive: true, force: true });
-    } catch (cleanupError) {
-      throw new AggregateError(
-        [error],
-        "Secret snapshot creation and cleanup failed",
-        { cause: cleanupError },
-      );
-    }
-    throw error;
-  }
-  return { path: snapshotPath };
+async function createSnapshot(value: string): Promise<TemporarySecretFile> {
+  return createTemporarySecretFile(value, "value");
 }
 
-async function removeSnapshot(snapshot: { path: string }): Promise<void> {
-  await rm(path.dirname(snapshot.path), { recursive: true, force: true });
+async function removeSnapshot(snapshot: TemporarySecretFile): Promise<void> {
+  await snapshot.remove();
 }
 
 function isIndeterminateError(error: unknown): boolean {

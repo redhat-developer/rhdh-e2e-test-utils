@@ -53,12 +53,24 @@ GSM secret operations use the cached OpenShift CI wrapper. Run
 `rhdh-e2e-secrets gsm-login` once before the first GSM operation; use
 `rhdh-e2e-secrets gsm-clean` to remove its cached credentials. The wrapper
 honors its existing `CONTAINER_ENGINE` and `SECRET_MANAGER_IMAGE` variables.
+`SECRET_MANAGER_IMAGE` must refer to the `quay.io/openshift/ci-public` repository;
+the wrapper and image follow the upstream moving release channel and are not
+version-pinned. The package verifies the download URL and wrapper structure,
+but this remains an explicit trust boundary on OpenShift CI's GitHub and Quay
+repositories.
 The wrapper cache defaults to `~/.cache/rhdh-e2e-secrets/gsm` and mutation
 locks default to `~/.local/state/rhdh-e2e-secrets`; `XDG_CACHE_HOME` and
 `XDG_STATE_HOME` override those locations when set to absolute paths. For
 corporate network setups, start Node with `NODE_USE_ENV_PROXY=1` to use
 `HTTP_PROXY`/`HTTPS_PROXY`, and use `NODE_EXTRA_CA_CERTS` for an additional
 trusted CA.
+
+Secret mutation files are created below `os.tmpdir()/rhdh-e2e-secrets` with
+`0700` directories and `0600` files. They are removed after each mutation
+operation completes, and abandoned directories from processes that no longer
+exist are removed on the next invocation. The operating system's
+temporary-file cleanup is only a final fallback after an ungraceful
+termination such as `SIGKILL`.
 
 ## Optional Variables
 

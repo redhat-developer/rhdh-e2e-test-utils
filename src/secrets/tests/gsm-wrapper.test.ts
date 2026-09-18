@@ -15,7 +15,7 @@ import test from "node:test";
 import { GsmWrapper } from "../gsm-wrapper.js";
 
 const script =
-  "#!/bin/bash\nset -euo pipefail\nGCLOUD_CONFIG_PATH=x\nCONTAINER_ENGINE=podman\n";
+  '#!/bin/bash\nset -euo pipefail\nGCLOUD_CONFIG_PATH=x\nCONTAINER_ENGINE=podman\nIMAGE="${SECRET_MANAGER_IMAGE:-quay.io/openshift/ci-public:ci_secret-manager_latest}"\n';
 
 test("downloads and atomically caches the GSM wrapper", async () => {
   const cacheDir = await mkdtemp(path.join(os.tmpdir(), "gsm-wrapper-test-"));
@@ -87,6 +87,36 @@ test("rejects an untrusted downloaded wrapper", async () => {
   } finally {
     await rm(cacheDir, { recursive: true, force: true });
   }
+});
+
+test("rejects a wrapper that selects an image outside the trusted repository", async () => {
+  const cacheDir = await mkdtemp(path.join(os.tmpdir(), "gsm-wrapper-test-"));
+  try {
+    const wrapper = new GsmWrapper({
+      cacheDir,
+      fetchScript: async () =>
+        script.replace(
+          "quay.io/openshift/ci-public:ci_secret-manager_latest",
+          "docker.io/example/secret-manager:latest",
+        ),
+      commandRunner: async () => ({ status: 0, stdout: "", stderr: "" }),
+    });
+    await assert.rejects(() => wrapper.run(["list"]), /trusted image/i);
+  } finally {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+});
+
+test("rejects an image override outside the trusted repository", () => {
+  assert.throws(
+    () =>
+      new GsmWrapper({
+        env: {
+          SECRET_MANAGER_IMAGE: "docker.io/example/secret-manager:latest",
+        },
+      }),
+    /trusted image/i,
+  );
 });
 
 test("passes interactive GSM commands through the terminal", async () => {

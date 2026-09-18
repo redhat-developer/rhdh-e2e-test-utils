@@ -1,12 +1,12 @@
 import { runCommand, type CommandResult } from "./command.js";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import {
   getCollectionMapping,
   type ExpandedSecretSelector,
   type ReadableCollectionId,
 } from "./config.js";
+import { createTemporarySecretFile } from "./temporary-secret.js";
 
 export interface BitwardenCommandRunner {
   (
@@ -873,14 +873,13 @@ export class BitwardenClient {
     if (path.basename(fileName) !== fileName) {
       throw new Error(`Bitwarden attachment filename is unsafe: ${name}`);
     }
-    const directory = await mkdtemp(path.join(os.tmpdir(), "rhdh-e2e-secret-"));
-    const filePath = path.join(directory, fileName);
+    const temporary = await createTemporarySecretFile(value, fileName, {
+      removeDirectory: this.removeTemporaryDirectory,
+    });
     let operationError: unknown;
     try {
-      await writeFile(filePath, value, { encoding: "utf8", mode: 0o600 });
-      await chmod(filePath, 0o600);
       await this.runOrThrow(
-        ["create", "attachment", "--file", filePath, "--itemid", itemId],
+        ["create", "attachment", "--file", temporary.path, "--itemid", itemId],
         `Bitwarden attachment update failed for ${name}`,
       );
     } catch (error) {
@@ -888,7 +887,7 @@ export class BitwardenClient {
     }
     let cleanupError: unknown;
     try {
-      await this.removeTemporaryDirectory(directory);
+      await temporary.remove();
     } catch (error) {
       cleanupError = error;
     }

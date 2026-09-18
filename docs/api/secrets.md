@@ -199,9 +199,20 @@ run `gsm-login` through this CLI.
 need to download or execute the wrapper.
 
 The wrapper is refreshed from the OpenShift `release` repository's `main`
-branch, with a validated local cache used when refresh is unavailable. GSM
-values are always passed with `--from-file`; the CLI never uses
-`--from-literal`.
+branch, with a validated local cache used when refresh is unavailable. The
+download must remain at the expected GitHub raw URL, and the wrapper must use
+the `quay.io/openshift/ci-public` image repository. The wrapper and image are
+intentionally not version-pinned because they are an upstream-managed pair;
+this remains an explicit trust boundary on those repositories. GSM values are
+always passed with `--from-file`; the CLI never uses `--from-literal`.
+
+Mutation values are written only to a private temporary directory below
+`os.tmpdir()/rhdh-e2e-secrets`, using `0700` directories and `0600` files. The
+files are removed after each mutation operation. If a process is terminated
+before cleanup, the next invocation removes directories whose owning process
+no longer exists, and the operating system may eventually prune the temporary
+directory according to its platform policy. `TMPDIR` can be used to select a
+different temporary filesystem.
 
 The wrapper cache defaults to
 `$XDG_CACHE_HOME/rhdh-e2e-secrets/gsm` or

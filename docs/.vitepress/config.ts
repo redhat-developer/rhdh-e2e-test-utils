@@ -33,7 +33,7 @@ export default defineConfig({
       { text: "Examples", link: "/examples/" },
       { text: "Overlay Testing", link: "/overlay/" },
       {
-        text: "v2.1.15",
+        text: "v2.1.16",
         items: [{ text: "Changelog", link: "/changelog" }],
       },
     ],
@@ -215,7 +215,10 @@ export default defineConfig({
             },
             { text: "KeycloakHelper", link: "/api/deployment/keycloak-helper" },
             { text: "Keycloak Types", link: "/api/deployment/keycloak-types" },
-            { text: "installOrchestrator", link: "/api/deployment/orchestrator" },
+            {
+              text: "installOrchestrator",
+              link: "/api/deployment/orchestrator",
+            },
           ],
         },
         {

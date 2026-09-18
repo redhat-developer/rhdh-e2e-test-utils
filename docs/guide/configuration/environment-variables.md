@@ -68,9 +68,12 @@ trusted CA.
 Secret mutation files are created below `os.tmpdir()/rhdh-e2e-secrets` with
 `0700` directories and `0600` files. They are removed after each mutation
 operation completes, and abandoned directories from processes that no longer
-exist are removed on the next invocation. The operating system's
-temporary-file cleanup is only a final fallback after an ungraceful
-termination such as `SIGKILL`.
+exist are removed before the next operation that creates a temporary secret.
+Read-only commands and dry runs do not trigger this cleanup. The operating
+system's temporary-file cleanup is only a final fallback after an ungraceful
+termination such as `SIGKILL`. See
+[Temporary secret files](/api/secrets#temporary-secret-files) for the cleanup
+and manual recovery procedures.
 
 ## Optional Variables
 

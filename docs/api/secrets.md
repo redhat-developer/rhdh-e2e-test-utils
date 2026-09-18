@@ -160,6 +160,61 @@ same command. Use `--force` for `create` or `delete` when the first attempt
 created or removed only one side. There is no resume journal or stored secret
 value.
 
+## Temporary secret files
+
+The GSM wrapper and the Bitwarden attachment CLI require filesystem paths.
+Applied `create` and `update` operations therefore write plaintext secret
+values to temporary files. `--dry-run`, `delete`, `list`, and `describe` do not
+create these files.
+
+The CLI stores temporary secret files below
+`path.join(os.tmpdir(), "rhdh-e2e-secrets")`. Node.js honors `TMPDIR`, `TMP`, and
+`TEMP` when it resolves `os.tmpdir()`. The package root and each operation
+directory use mode `0700`. Secret files use mode `0600`. Each operation
+directory has the form `<pid>-<random>`.
+
+Cleanup has three layers:
+
+1. The CLI removes a Bitwarden attachment file as soon as the attachment
+   command finishes. It removes the shared GSM snapshot after the paired
+   mutation finishes, including normal provider failures. If cleanup fails,
+   the CLI reports that failure with the provider result.
+2. Before an operation creates another temporary secret, the CLI scans its
+   package-owned root. It removes operation directories whose process no longer
+   exists and preserves directories owned by the current or another active
+   process. Unknown entries and symbolic links are not followed or removed.
+   PID reuse can delay cleanup, but it cannot delete an active process's
+   directory.
+3. The operating system may eventually prune abandoned files. Fedora commonly
+   manages `/tmp` through `systemd-tmpfiles`. macOS normally gives each user a
+   private temporary directory under `/var/folders`. Administrators can change
+   these policies, and neither platform guarantees a cleanup interval to this
+   package.
+
+`SIGKILL`, power loss, and runtime crashes can prevent immediate cleanup. The
+next operation that creates a temporary secret runs the stale-directory scan.
+Read-only commands and dry runs do not trigger it.
+
+If automatic recovery is not available, stop all `rhdh-e2e-secrets` processes.
+Then inspect and remove the package-owned temporary root:
+
+```bash
+TEMP_ROOT="$(node -p 'require("node:path").join(require("node:os").tmpdir(), "rhdh-e2e-secrets")')"
+ls -la "$TEMP_ROOT"
+rm -rf -- "$TEMP_ROOT"
+```
+
+::: caution
+If a secret mutation is active, do not remove this directory. Removing it can
+make the operation fail or leave the providers in different states.
+:::
+
+File permissions limit access to the current operating-system user, but they
+do not encrypt the values. Removing a file unlinks it. It does not guarantee
+forensic erasure from SSDs, copy-on-write filesystems, journals, or backups. If
+stronger protection is required, set `TMPDIR` to an encrypted or memory-backed
+private filesystem.
+
 ## GSM Read Commands
 
 `describe` shows GSM metadata without reading Bitwarden or exposing the secret
@@ -205,14 +260,6 @@ the `quay.io/openshift/ci-public` image repository. The wrapper and image are
 intentionally not version-pinned because they are an upstream-managed pair;
 this remains an explicit trust boundary on those repositories. GSM values are
 always passed with `--from-file`; the CLI never uses `--from-literal`.
-
-Mutation values are written only to a private temporary directory below
-`os.tmpdir()/rhdh-e2e-secrets`, using `0700` directories and `0600` files. The
-files are removed after each mutation operation. If a process is terminated
-before cleanup, the next invocation removes directories whose owning process
-no longer exists, and the operating system may eventually prune the temporary
-directory according to its platform policy. `TMPDIR` can be used to select a
-different temporary filesystem.
 
 The wrapper cache defaults to
 `$XDG_CACHE_HOME/rhdh-e2e-secrets/gsm` or

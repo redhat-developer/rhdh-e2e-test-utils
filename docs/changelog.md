@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.17] - Current
+## [2.1.18] - Current
+
+### Changed
+
+- New locator for sidebar navigation in post-login wait.
+
+## [2.1.17]
 
 ### Changed
 

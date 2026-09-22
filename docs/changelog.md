@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.18] - Current
+## [2.1.19] - Current
+
+### Changed
+
+- The standalone Orchestrator deployment now uses PostgreSQL 18.
+
+## [2.1.18]
 
 ### Changed
 

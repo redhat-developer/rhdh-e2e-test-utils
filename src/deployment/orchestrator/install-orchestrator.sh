@@ -271,7 +271,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: registry.redhat.io/rhel9/postgresql-15:latest
+        image: registry.redhat.io/rhel10/postgresql-18:latest
         env:
         - name: POSTGRESQL_USER
           valueFrom: { secretKeyRef: { name: ${postgres_name}-secret, key: POSTGRESQL_USER } }

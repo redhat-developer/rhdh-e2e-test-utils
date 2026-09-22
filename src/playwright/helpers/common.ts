@@ -147,7 +147,7 @@ export class LoginHelper {
 
     await this.uiHelper.verifyHeading("Select a sign-in method");
     await this.uiHelper.clickButton("Enter");
-    await this.page.waitForSelector("nav a", { timeout: 10_000 });
+    await this.waitForSidebar();
   }
 
   async signOut() {
@@ -229,7 +229,7 @@ export class LoginHelper {
 
     const popup = await popupPromise;
     await this.logintoKeycloak(popup, userid, password);
-    await this.page.waitForSelector("nav a", { timeout: 30_000 });
+    await this.waitForSidebar();
   }
 
   async loginAsGithubUser(
@@ -262,8 +262,7 @@ export class LoginHelper {
     await this.uiHelper.clickButton("Sign In");
 
     // Wait for either: sidebar appears (auto-login) or popup opens (needs auth)
-    const navPromise = this.page
-      .waitForSelector("nav a", { timeout: 15_000 })
+    const navPromise = this.waitForSidebar(15_000)
       .then(() => "nav" as const)
       .catch(() => null);
 
@@ -292,7 +291,7 @@ export class LoginHelper {
     await this.uiHelper.waitForLoad(240000);
     await this.uiHelper.clickButton("Sign In");
     await this.checkAndReauthorizeGithubApp();
-    await this.page.waitForSelector("nav a", { timeout: 10_000 });
+    await this.waitForSidebar(10000);
     await writeStorageStateAtomically(this.page, sessionFileName);
     console.log(`Authentication state saved for user: ${userid}`);
   }
@@ -557,6 +556,14 @@ export class LoginHelper {
         }
       }
     }
+  }
+
+  private async waitForSidebar(timeout = 30_000) {
+    return this.page
+      .getByLabel("sidebar nav")
+      .getByRole("link")
+      .first()
+      .waitFor({ state: "visible", timeout });
   }
 }
 

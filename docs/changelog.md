@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.18] - Current
+## [3.0.0] - Current
+
+### Changed
+
+- **BREAKING: RHDH chart 2.y migration**: Updated deployment logic, default Helm values, and documentation to the new standalone chart format. Key renames: `global.dynamic` → `dynamicPlugins`, `global.catalogIndex` → `catalogIndex`, `global.clusterRouterBase` → `openshift.clusterRouterBase`, `global.lightspeed` → `intelligentAssistant`. Image digest is now explicitly emptied when setting a tag. Values files written for chart 1.y are no longer compatible.
+
+## [2.1.18]
 
 ### Changed
 

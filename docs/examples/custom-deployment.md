@@ -118,39 +118,37 @@ test("update and restart", async ({ rhdh }) => {
 
 **tests/config/custom-values.yaml:**
 ```yaml
-global:
-  clusterRouterBase: ${K8S_CLUSTER_ROUTER_BASE}
+image:
+  registry: quay.io
+  repository: rhdh/rhdh-hub-rhel9
+  tag: ${RHDH_VERSION}
+  digest: ""
 
-upstream:
-  backstage:
-    image:
-      registry: quay.io
-      repository: rhdh/rhdh-hub-rhel9
-      tag: ${RHDH_VERSION}
+extraEnv:
+  - name: LOG_LEVEL
+    value: "debug"
+  - name: CUSTOM_FLAG
+    value: "enabled"
 
-    extraEnvVars:
-      - name: LOG_LEVEL
-        value: "debug"
-      - name: CUSTOM_FLAG
-        value: "enabled"
+extraEnvFrom:
+  - secretRef:
+      name: rhdh-secrets
+  - secretRef:
+      name: custom-secrets
 
-    extraEnvVarsSecrets:
-      - rhdh-secrets
-      - custom-secrets
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "1000m"
+  limits:
+    memory: "4Gi"
+    cpu: "2000m"
 
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "1000m"
-      limits:
-        memory: "4Gi"
-        cpu: "2000m"
-
-  postgresql:
-    enabled: true
-    primary:
-      persistence:
-        size: 10Gi
+postgresql:
+  enabled: true
+  primary:
+    persistence:
+      size: 10Gi
 ```
 
 ## Multiple Deployments

@@ -26,30 +26,26 @@ Create a custom values file to override Helm chart defaults.
 ### Example: `tests/config/value_file.yaml`
 
 ```yaml
-global:
-  clusterRouterBase: ${K8S_CLUSTER_ROUTER_BASE}
+image:
+  registry: quay.io
+  repository: rhdh/rhdh-hub-rhel9
+  tag: ${RHDH_VERSION}
+  digest: ""
 
-upstream:
-  backstage:
-    image:
-      registry: quay.io
-      repository: rhdh/rhdh-hub-rhel9
-      tag: ${RHDH_VERSION}
+extraEnv:
+  - name: NODE_TLS_REJECT_UNAUTHORIZED
+    value: "0"
 
-    extraEnvVars:
-      - name: NODE_TLS_REJECT_UNAUTHORIZED
-        value: "0"
+appConfig:
+  # App config is mounted from ConfigMap
+  # See app-config-rhdh.yaml
 
-    appConfig:
-      # App config is mounted from ConfigMap
-      # See app-config-rhdh.yaml
-
-  postgresql:
-    enabled: true
-    auth:
-      secretKeys:
-        adminPasswordKey: postgres-password
-        userPasswordKey: password
+postgresql:
+  enabled: true
+  auth:
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
 ```
 
 ## Default Chart URL
@@ -129,25 +125,22 @@ GITHUB_TOKEN=ghp_xxxxx
 ### `tests/config/value_file.yaml`
 
 ```yaml
-global:
-  clusterRouterBase: ${K8S_CLUSTER_ROUTER_BASE}
+image:
+  registry: quay.io
+  repository: rhdh/rhdh-hub-rhel9
+  tag: ${RHDH_VERSION}
+  digest: ""
 
-upstream:
-  backstage:
-    image:
-      registry: quay.io
-      repository: rhdh/rhdh-hub-rhel9
-      tag: ${RHDH_VERSION}
+extraEnv:
+  - name: LOG_LEVEL
+    value: "debug"
 
-    extraEnvVars:
-      - name: LOG_LEVEL
-        value: "debug"
+extraEnvFrom:
+  - secretRef:
+      name: rhdh-secrets
 
-    extraEnvVarsSecrets:
-      - rhdh-secrets
-
-  postgresql:
-    enabled: true
+postgresql:
+  enabled: true
 ```
 
 ### `tests/config/app-config-rhdh.yaml`

@@ -238,10 +238,7 @@ export class RHDHDeployment {
     this._logBoxen("Value File", valueFileObject);
 
     // Merge dynamic plugins into the values file (including auth-specific plugins)
-    if (!valueFileObject.global) {
-      valueFileObject.global = {};
-    }
-    valueFileObject.global.dynamic = await this._buildDynamicPluginsConfig();
+    valueFileObject.dynamicPlugins = await this._buildDynamicPluginsConfig();
 
     // Set catalog index image if CATALOG_INDEX_IMAGE env var is provided.
     // The catalog index provides dynamic-plugins.default.yaml with default plugin
@@ -250,17 +247,18 @@ export class RHDHDeployment {
     if (catalogIndexImage) {
       const [imageRef, tag] = catalogIndexImage.split(":");
       const firstSlash = imageRef.indexOf("/");
-      valueFileObject.global.catalogIndex = {
+      valueFileObject.catalogIndex = {
         image: {
           registry: imageRef.substring(0, firstSlash),
           repository: imageRef.substring(firstSlash + 1),
           tag: tag || "latest",
+          digest: "",
         },
       };
       this._log(`Catalog index image: ${catalogIndexImage}`);
     }
 
-    this._logBoxen("Dynamic Plugins", valueFileObject.global.dynamic);
+    this._logBoxen("Dynamic Plugins", valueFileObject.dynamicPlugins);
 
     // Escape {{inherit}} for Helm's Go template engine.
     // The RHDH chart uses `tpl` on dynamic plugin values, so {{inherit}} would be
@@ -279,7 +277,7 @@ export class RHDHDeployment {
     await $`
       helm upgrade redhat-developer-hub -i "${process.env.CHART_URL || CHART_URL}" --version "${chartVersion}" \
         -f "${valueFilePath}" \
-        --set global.clusterRouterBase="${process.env.K8S_CLUSTER_ROUTER_BASE}" \
+        --set openshift.clusterRouterBase="${process.env.K8S_CLUSTER_ROUTER_BASE}" \
         --namespace="${this.deploymentConfig.namespace}"
     `;
 

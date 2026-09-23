@@ -1,10 +1,8 @@
-upstream:
-  backstage:
-    extraAppConfig:
-      - configMapRef: app-config-rhdh
-        filename: app-config-rhdh.yaml
-    extraEnvVarsSecrets:
-      - rhdh-secrets
-global:
-  lightspeed:
-    enabled: false
+extraAppConfig:
+  - configMapRef: app-config-rhdh
+    filename: app-config-rhdh.yaml
+extraEnvFrom:
+  - secretRef:
+      name: rhdh-secrets
+intelligentAssistant:
+  enabled: false

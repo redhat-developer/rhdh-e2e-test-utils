@@ -93,9 +93,6 @@ stringData:
 
   # Custom API keys
   MY_API_KEY: ${MY_API_KEY:-default-key}
-
-  # Backend auth
-  BACKEND_SECRET: ${BACKEND_SECRET}
 ```
 
 Environment variables are substituted at deployment time.
@@ -105,29 +102,26 @@ Environment variables are substituted at deployment time.
 Helm values for RHDH chart:
 
 ```yaml
-global:
-  clusterRouterBase: ${K8S_CLUSTER_ROUTER_BASE}
+image:
+  registry: quay.io
+  repository: rhdh/rhdh-hub-rhel9
+  tag: ${RHDH_VERSION}
+  digest: ""
 
-upstream:
-  backstage:
-    image:
-      registry: quay.io
-      repository: rhdh/rhdh-hub-rhel9
-      tag: ${RHDH_VERSION}
+extraEnv:
+  - name: LOG_LEVEL
+    value: "debug"
 
-    extraEnvVars:
-      - name: LOG_LEVEL
-        value: "debug"
+extraEnvFrom:
+  - secretRef:
+      name: rhdh-secrets
 
-    extraEnvVarsSecrets:
-      - rhdh-secrets
-
-  postgresql:
-    enabled: true
-    auth:
-      secretKeys:
-        adminPasswordKey: postgres-password
-        userPasswordKey: password
+postgresql:
+  enabled: true
+  auth:
+    secretKeys:
+      adminPasswordKey: postgres-password
+      userPasswordKey: password
 ```
 
 ## Configuration Merging Order

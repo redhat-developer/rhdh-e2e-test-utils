@@ -71,6 +71,7 @@ export class RHDHDeployment {
           await this._applyDynamicPlugins();
           await this._deployWithOperator(this.deploymentConfig.subscription);
         }
+        await this._applyNetworkPolicies();
         await this.waitUntilReady();
       },
     );
@@ -282,6 +283,43 @@ export class RHDHDeployment {
     `;
 
     this._log(`Helm deployment completed successfully`);
+  }
+
+  /**
+   * Apply NetworkPolicies that the chart's default-deny rules don't cover.
+   * The chart allows egress on 443 (HTTPS), 53/5353 (DNS), 5432 (PostgreSQL),
+   * and 6379 (Redis), but Keycloak in CI uses a plain HTTP route (port 80).
+   *
+   * TODO: Remove once the RHDH chart allows port 80 egress out of the box.
+   */
+  private async _applyNetworkPolicies(): Promise<void> {
+    const namespace = this.deploymentConfig.namespace;
+    await this.k8sClient.applyNetworkPolicy(
+      {
+        apiVersion: "networking.k8s.io/v1",
+        kind: "NetworkPolicy",
+        metadata: {
+          name: "rhdh-allow-http-egress",
+          namespace,
+        },
+        spec: {
+          podSelector: {
+            matchLabels: {
+              "app.kubernetes.io/component": "backstage",
+            },
+          },
+          policyTypes: ["Egress"],
+          egress: [
+            {
+              to: [{ namespaceSelector: {} }],
+              ports: [{ port: 80, protocol: "TCP" }],
+            },
+          ],
+        },
+      },
+      namespace,
+    );
+    this._log("Applied NetworkPolicy: rhdh-allow-http-egress");
   }
 
   private async _deployWithOperator(subscription: string): Promise<void> {

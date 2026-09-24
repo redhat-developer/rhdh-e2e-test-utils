@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.19] - Current
+## [2.1.20] - Current
+
+### Fixed
+
+- **NetworkPolicy for Keycloak HTTP egress**: The RHDH chart 2.y default-deny NetworkPolicies block port 80 egress, but Keycloak in CI uses a plain HTTP route. Added an external NetworkPolicy after deployment that allows TCP port 80 egress to in-cluster destinations, fixing OIDC discovery timeouts. This is temporary until the chart allows port 80 egress out of the box.
+
+### Added
+
+- **`applyNetworkPolicy` in `KubernetesClientHelper`**: New method to create or update NetworkPolicies using the Kubernetes client API (same pattern as ConfigMap/Secret).
+
+## [2.1.19]
 
 ### Changed
 

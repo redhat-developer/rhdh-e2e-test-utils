@@ -288,9 +288,9 @@ export class RHDHDeployment {
   /**
    * Apply NetworkPolicies that the chart's default-deny rules don't cover.
    * The chart allows egress on 443 (HTTPS), 53/5353 (DNS), 5432 (PostgreSQL),
-   * and 6379 (Redis), but Keycloak in CI uses a plain HTTP route (port 80).
-   *
-   * TODO: Remove once the RHDH chart allows port 80 egress out of the box.
+   * and 6379 (Redis). Keycloak in CI uses a plain HTTP route (port 80)
+   * accessed via the external Route URL (router/LB IP), so the chart's
+   * in-cluster-only port 80 NP (namespaceSelector) does not cover it.
    */
   private async _applyNetworkPolicies(): Promise<void> {
     const namespace = this.deploymentConfig.namespace;

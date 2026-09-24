@@ -305,6 +305,7 @@ export class RHDHDeployment {
         spec: {
           podSelector: {
             matchLabels: {
+              // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended label; dots/slashes violate camelCase rule
               "app.kubernetes.io/component": "backstage",
             },
           },

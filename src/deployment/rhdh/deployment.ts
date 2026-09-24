@@ -294,6 +294,20 @@ export class RHDHDeployment {
    */
   private async _applyNetworkPolicies(): Promise<void> {
     const namespace = this.deploymentConfig.namespace;
+
+    const matchLabels: Record<string, string> =
+      this.deploymentConfig.method === "operator"
+        ? // eslint-disable-next-line @typescript-eslint/naming-convention -- standard operator label; dots/slashes violate camelCase rule
+          { "rhdh.redhat.com/app": "backstage-developer-hub" }
+        : {
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/name": "developer-hub",
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/instance": "redhat-developer-hub",
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/component": "backstage",
+          };
+
     await this.k8sClient.applyNetworkPolicy(
       {
         apiVersion: "networking.k8s.io/v1",
@@ -303,12 +317,7 @@ export class RHDHDeployment {
           namespace,
         },
         spec: {
-          podSelector: {
-            matchLabels: {
-              // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended label; dots/slashes violate camelCase rule
-              "app.kubernetes.io/component": "backstage",
-            },
-          },
+          podSelector: { matchLabels },
           policyTypes: ["Egress"],
           egress: [
             {

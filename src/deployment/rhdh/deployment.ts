@@ -287,10 +287,10 @@ export class RHDHDeployment {
 
   /**
    * Apply NetworkPolicies that the chart's default-deny rules don't cover.
-   * The chart allows egress on 443 (HTTPS), 53/5353 (DNS), 5432 (PostgreSQL),
-   * and 6379 (Redis). Keycloak in CI uses a plain HTTP route (port 80)
-   * accessed via the external Route URL (router/LB IP), so the chart's
-   * in-cluster-only port 80 NP (namespaceSelector) does not cover it.
+   * The chart ships default-deny NPs allowing egress only on specific ports
+   * (443, 53/5353, 5432, 6379). E2E tests talk to services on many other
+   * ports (Keycloak HTTP routes, ArgoCD, external APIs), so we allow all
+   * egress from the RHDH pods in CI.
    */
   private async _applyNetworkPolicies(): Promise<void> {
     const namespace = this.deploymentConfig.namespace;
@@ -313,11 +313,11 @@ export class RHDHDeployment {
         apiVersion: "networking.k8s.io/v1",
         kind: "NetworkPolicy",
         metadata: {
-          name: "rhdh-allow-http-egress",
+          name: "rhdh-allow-all-egress",
           namespace,
         },
         spec: {
-          // TODO: narrow back to port 80 once baseline confirms no other NP gaps
+          // TODO: narrow to explicit ports once all required destinations are mapped
           podSelector: { matchLabels },
           policyTypes: ["Egress"],
           egress: [{}],
@@ -325,7 +325,7 @@ export class RHDHDeployment {
       },
       namespace,
     );
-    this._log("Applied NetworkPolicy: rhdh-allow-http-egress");
+    this._log("Applied NetworkPolicy: rhdh-allow-all-egress");
   }
 
   private async _deployWithOperator(subscription: string): Promise<void> {

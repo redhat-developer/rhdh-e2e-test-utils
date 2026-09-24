@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **NetworkPolicy for Keycloak HTTP egress**: The RHDH chart 2.y default-deny NetworkPolicies block port 80 egress, but Keycloak in CI uses a plain HTTP route. Added an external NetworkPolicy after deployment that allows broad TCP port 80 egress to any destination, fixing OIDC discovery timeouts. 
+- **NetworkPolicy for CI egress**: The RHDH chart 2.y ships default-deny NetworkPolicies that only allow egress on specific ports (443, 53/5353, 5432, 6379). E2E tests need access to many other services (Keycloak HTTP routes, ArgoCD, external APIs), so we now apply a permissive `rhdh-allow-all-egress` NetworkPolicy after deployment. A TODO is kept to narrow this to explicit ports once all required destinations are mapped.
 
 ### Added
 

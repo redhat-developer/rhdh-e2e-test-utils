@@ -317,13 +317,10 @@ export class RHDHDeployment {
           namespace,
         },
         spec: {
+          // TODO: narrow back to port 80 once baseline confirms no other NP gaps
           podSelector: { matchLabels },
           policyTypes: ["Egress"],
-          // No 'to' selector: Keycloak is accessed via an OpenShift Route
-          // (plain HTTP), which resolves to a router/LB IP — not a pod IP —
-          // so namespaceSelector would only work if accessed via the internal
-          // Service DNS name (e.g., keycloak.rhdh-keycloak.svc.cluster.local).
-          egress: [{ ports: [{ port: 80, protocol: "TCP" }] }],
+          egress: [{}],
         },
       },
       namespace,

@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.19] - Current
+## [2.1.20] - Current
+
+### Fixed
+
+- **Helm install against chart 2.0-90+**: Set `global.security.allowInsecureImages: true` in the default Helm values so Bitnami's PostgreSQL subchart accepts RHDH's Red Hat `rhel9/postgresql-15` image (bitnami/charts#30850).
+
+## [2.1.19]
 
 ### Changed
 

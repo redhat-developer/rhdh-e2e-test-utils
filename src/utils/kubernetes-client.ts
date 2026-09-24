@@ -331,7 +331,9 @@ class KubernetesClientHelper {
           namespace,
           body: policy,
         });
-        console.log(`✓ Created NetworkPolicy ${name} in namespace ${namespace}`);
+        console.log(
+          `✓ Created NetworkPolicy ${name} in namespace ${namespace}`,
+        );
       } catch (createError) {
         console.error(
           `✗ Failed to create/update NetworkPolicy ${name} in namespace ${namespace}:`,

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- **NetworkPolicy for Keycloak HTTP egress**: The RHDH chart 2.y default-deny NetworkPolicies block port 80 egress, but Keycloak in CI uses a plain HTTP route. Added an external NetworkPolicy after deployment that allows TCP port 80 egress to in-cluster destinations, fixing OIDC discovery timeouts. This is temporary until the chart allows port 80 egress out of the box.
+- **NetworkPolicy for Keycloak HTTP egress**: The RHDH chart 2.y default-deny NetworkPolicies block port 80 egress, but Keycloak in CI uses a plain HTTP route. Added an external NetworkPolicy after deployment that allows broad TCP port 80 egress to any destination, fixing OIDC discovery timeouts. 
 
 ### Added
 

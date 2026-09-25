@@ -13,6 +13,7 @@ class KubernetesClientHelper {
   private _kc: k8s.KubeConfig;
   private _k8sApi: k8s.CoreV1Api;
   private _appsApi: k8s.AppsV1Api;
+  private _networkingApi: k8s.NetworkingV1Api;
   private _customObjectsApi: k8s.CustomObjectsApi;
 
   constructor() {
@@ -22,6 +23,7 @@ class KubernetesClientHelper {
     try {
       this._k8sApi = this._kc.makeApiClient(k8s.CoreV1Api);
       this._appsApi = this._kc.makeApiClient(k8s.AppsV1Api);
+      this._networkingApi = this._kc.makeApiClient(k8s.NetworkingV1Api);
       this._customObjectsApi = this._kc.makeApiClient(k8s.CustomObjectsApi);
     } catch (error) {
       if (
@@ -304,6 +306,37 @@ class KubernetesClientHelper {
       } catch (createError) {
         console.error(
           `✗ Failed to create/update Secret ${name} in namespace ${namespace}:`,
+          createError instanceof Error ? createError.message : createError,
+        );
+        throw createError;
+      }
+    }
+  }
+
+  async applyNetworkPolicy(
+    policy: k8s.V1NetworkPolicy,
+    namespace: string,
+  ): Promise<void> {
+    const name = policy.metadata!.name!;
+    try {
+      await this._networkingApi.replaceNamespacedNetworkPolicy({
+        name,
+        namespace,
+        body: policy,
+      });
+      console.log(`✓ Updated NetworkPolicy ${name} in namespace ${namespace}`);
+    } catch {
+      try {
+        await this._networkingApi.createNamespacedNetworkPolicy({
+          namespace,
+          body: policy,
+        });
+        console.log(
+          `✓ Created NetworkPolicy ${name} in namespace ${namespace}`,
+        );
+      } catch (createError) {
+        console.error(
+          `✗ Failed to create/update NetworkPolicy ${name} in namespace ${namespace}:`,
           createError instanceof Error ? createError.message : createError,
         );
         throw createError;

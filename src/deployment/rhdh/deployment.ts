@@ -71,6 +71,7 @@ export class RHDHDeployment {
           await this._applyDynamicPlugins();
           await this._deployWithOperator(this.deploymentConfig.subscription);
         }
+        await this._applyNetworkPolicies();
         await this.waitUntilReady();
       },
     );
@@ -282,6 +283,49 @@ export class RHDHDeployment {
     `;
 
     this._log(`Helm deployment completed successfully`);
+  }
+
+  /**
+   * Apply NetworkPolicies that the chart's default-deny rules don't cover.
+   * The chart ships default-deny NPs allowing egress only on specific ports
+   * (443, 53/5353, 5432, 6379). E2E tests talk to services on many other
+   * ports (Keycloak HTTP routes, ArgoCD, external APIs), so we allow all
+   * egress from the RHDH pods in CI.
+   */
+  private async _applyNetworkPolicies(): Promise<void> {
+    const namespace = this.deploymentConfig.namespace;
+
+    const matchLabels: Record<string, string> =
+      this.deploymentConfig.method === "operator"
+        ? // eslint-disable-next-line @typescript-eslint/naming-convention -- standard operator label; dots/slashes violate camelCase rule
+          { "rhdh.redhat.com/app": "backstage-developer-hub" }
+        : {
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/name": "developer-hub",
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/instance": "redhat-developer-hub",
+            // eslint-disable-next-line @typescript-eslint/naming-convention -- standard Kubernetes recommended labels; dots/slashes violate camelCase rule
+            "app.kubernetes.io/component": "backstage",
+          };
+
+    await this.k8sClient.applyNetworkPolicy(
+      {
+        apiVersion: "networking.k8s.io/v1",
+        kind: "NetworkPolicy",
+        metadata: {
+          name: "rhdh-allow-all-egress",
+          namespace,
+        },
+        spec: {
+          // TODO: narrow to explicit ports once all required destinations are mapped
+          podSelector: { matchLabels },
+          policyTypes: ["Egress"],
+          egress: [{}],
+        },
+      },
+      namespace,
+    );
+    this._log("Applied NetworkPolicy: rhdh-allow-all-egress");
   }
 
   private async _deployWithOperator(subscription: string): Promise<void> {

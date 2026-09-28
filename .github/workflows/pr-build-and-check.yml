@@ -164,3 +164,39 @@ jobs:
             exit 1
           fi
           echo "Changelog updated for version bump"
+
+      - name: Verify package version matches the RHDH release
+        env:
+          RHDH_BRANCH: ${{ github.base_ref }}
+        run: |
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/redhat-developer/rhdh/${RHDH_BRANCH}/package.json" \
+            --output "$RUNNER_TEMP/rhdh-package.json"
+
+          RHDH_PACKAGE_JSON="$RUNNER_TEMP/rhdh-package.json" node <<'NODE'
+          const fs = require('node:fs');
+
+          const parseVersion = (label, version) => {
+            const match = /^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(version ?? '');
+            if (!match) {
+              console.error(`::error::${label} has an invalid semantic version: ${version}`);
+              process.exit(1);
+            }
+            return `${match[1]}.${match[2]}`;
+          };
+
+          const utilsVersion = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+          const rhdhVersion = JSON.parse(fs.readFileSync(process.env.RHDH_PACKAGE_JSON, 'utf8')).version;
+          const utilsRelease = parseVersion('Utilities package version', utilsVersion);
+          const rhdhRelease = parseVersion('RHDH package version', rhdhVersion);
+
+          console.log(`RHDH ${process.env.RHDH_BRANCH} version: ${rhdhVersion}`);
+          console.log(`Utilities package version: ${utilsVersion}`);
+
+          if (utilsRelease !== rhdhRelease) {
+            console.error(`::error::Utilities package version ${utilsVersion} must use the ${rhdhRelease}.x release line to match RHDH ${rhdhVersion} on ${process.env.RHDH_BRANCH}. Only the patch version may differ.`);
+            process.exit(1);
+          }
+
+          console.log(`Utilities package is on the matching ${utilsRelease}.x release line.`);
+          NODE

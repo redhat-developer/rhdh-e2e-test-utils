@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.20] - Current
+## [2.1.21] - Current
+
+### Fixed
+
+- **LoginHelper#logintoGithub**: remove the wait for the outdated Home heading locator and wait for the redirect to the GitHub homepage.
+
+## [2.1.20]
 
 ### Fixed
 

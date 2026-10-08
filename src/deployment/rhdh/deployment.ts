@@ -445,25 +445,17 @@ export class RHDHDeployment {
 
     // Semantic versions (e.g., 1.2, 1.10)
     if (/^(\d+(\.\d+)?)$/.test(resolvedVersion)) {
-      const response = await fetch(
-        "https://quay.io/api/v1/repository/rhdh/chart/tag/?onlyActiveTags=true&limit=600",
-      );
-
-      if (!response.ok)
-        throw new Error(
-          `Failed to fetch chart versions: ${response.statusText}`,
-        );
-
-      const data = (await response.json()) as { tags: Array<{ name: string }> };
-      const matching = data.tags
+      const matchingTags = (
+        await this._getQuayTags("rhdh", "chart", `${resolvedVersion}-`)
+      )
         .map((t) => t.name)
         .filter((name) => name.startsWith(`${resolvedVersion}-`))
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
-      const latest = matching.at(-1);
-      if (!latest)
-        throw new Error(`No chart version found for ${resolvedVersion}`);
-      return latest;
+      const latest = matchingTags.at(-1);
+      if (latest) return latest;
+
+      throw new Error(`No chart version found for ${resolvedVersion}`);
     }
 
     // CI build versions (e.g., 1.2.3-CI)
@@ -473,47 +465,54 @@ export class RHDHDeployment {
   }
 
   /**
-   * Resolve the semantic version from the "next" tag by looking up the
-   * downstream image (rhdh-hub-rhel9) and finding tags with the same digest.
+   * Resolve the semantic version from the "next" tag by looking
+   * at the version in package.json in rhdh core repo
    */
   private async _resolveVersionFromNextTag(): Promise<string> {
-    // Fetch all active tags in a single API call
-    const response = await fetch(
-      "https://quay.io/api/v1/repository/rhdh/rhdh-hub-rhel9/tag/?onlyActiveTags=true&limit=75",
-    );
+    const RHDH_PACKAGE_URL =
+      "https://raw.githubusercontent.com/redhat-developer/rhdh/refs/heads/main/package.json";
+    const response = await fetch(RHDH_PACKAGE_URL);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch image tags: ${response.statusText}`);
+      throw new Error(`Could not find semantic version for "next"`);
     }
+    const packageJson = JSON.parse(await response.text());
+    const version = packageJson.version as string;
 
-    // Use Record to avoid snake_case linting issues with Quay API response
-    const data = (await response.json()) as {
-      tags: Array<Record<string, unknown>>;
-    };
-
-    // Find the "next" tag and get its digest
-    const nextTag = data.tags.find((t) => t["name"] === "next");
-    if (!nextTag) {
-      throw new Error('No "next" tag found in rhdh-hub-rhel9 repository');
+    // only use major and minor, since the image tags don't use micro
+    const shortVersion = version.match(/^(\d+\.\d+)/);
+    if (!shortVersion) {
+      throw new Error(`Invalid semantic version ${version}`);
     }
+    return shortVersion[1];
+  }
 
-    const digest = nextTag["manifest_digest"] as string;
-    this._log(`"next" tag digest: ${digest}`);
-
-    // Find semantic version tag (e.g., "1.10") with the same digest
-    const semanticVersionTag = data.tags.find(
-      (t) =>
-        t["manifest_digest"] === digest &&
-        /^\d+\.\d+$/.test(t["name"] as string),
-    );
-
-    if (!semanticVersionTag) {
-      throw new Error(
-        `Could not find semantic version tag for "next" (digest: ${digest})`,
+  private async _getQuayTags(org: string, repo: string, tagFilter?: string) {
+    const tags = [];
+    for (let page = 1; ; page++) {
+      const tagNameFilter = tagFilter
+        ? `filter_tag_name=like:${tagFilter}&`
+        : "";
+      const response = await fetch(
+        `https://quay.io/api/v1/repository/${org}/${repo}/tag/?${tagNameFilter}onlyActiveTags=true&limit=600&page=${page}`,
       );
-    }
 
-    return semanticVersionTag["name"] as string;
+      if (!response.ok)
+        throw new Error(
+          `Failed to fetch tags for ${org}/${repo}: ${response.statusText}`,
+        );
+
+      /* eslint-disable @typescript-eslint/naming-convention */
+      const data = (await response.json()) as {
+        tags: Array<{ name: string; manifest_digest: string }>;
+        has_additional: boolean;
+      };
+      /* eslint-enable @typescript-eslint/naming-convention */
+      tags.push(...data.tags);
+
+      if (!data.has_additional) break;
+    }
+    return tags;
   }
 
   private _buildDeploymentConfig(input: DeploymentOptions): DeploymentConfig {

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.23] - Current
+
+### Fixed
+
+- Errors when resolving helm chart versions due to the desired tags not fitting into the API call. Pagination has been added to search the whole quay repo instead of relying on an arbitrary limit.
+
 ## [2.1.22] - Current
 
 ### Fixed

@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.3] - Current
+## [2.2.4] - Current
+
+### Fixed
+
+- Disable Segment telemetry by default in RHDH E2E deployments. Workspaces can override `SEGMENT_TEST_MODE` when exercising analytics with a dummy write key.
+
+## [2.2.3]
 
 ### Fixed
 

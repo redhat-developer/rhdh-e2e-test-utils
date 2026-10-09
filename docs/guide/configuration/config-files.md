@@ -97,6 +97,8 @@ stringData:
 
 Environment variables are substituted at deployment time.
 
+The default `rhdh-secrets` Secret sets `SEGMENT_TEST_MODE: "true"` so E2E deployments do not send Segment telemetry. A workspace can override this value in its own `rhdh-secrets.yaml` when testing analytics with a dummy write key.
+
 ## value_file.yaml (Helm)
 
 Helm values for RHDH chart:

@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.4] - Current
+## [2.2.5] - Current
+
+### Fixed
+
+- Disable the Intelligent Assistant flavour by default in operator E2E deployments, matching Helm. Workspaces can enable it explicitly through `spec.flavours` in their subscription override.
+
+## [2.2.4]
 
 ### Fixed
 

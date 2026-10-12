@@ -3,6 +3,9 @@ kind: Backstage
 metadata:
   name: developer-hub
 spec:
+  flavours:
+    - name: intelligent-assistant
+      enabled: false
   application:
     appConfig:
       configMaps:

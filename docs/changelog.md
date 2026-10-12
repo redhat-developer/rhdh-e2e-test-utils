@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Disable the Intelligent Assistant flavour by default in operator E2E deployments, matching Helm. Workspaces can enable it explicitly through `spec.flavours` in their subscription override.
+- Fix operator restart helpers to select Deployment metadata rather than Pod-only labels. Both restart methods wait for rollout completion, and Helm Pod selection excludes PostgreSQL.
 
 ## [2.2.4]
 

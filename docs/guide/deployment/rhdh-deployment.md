@@ -151,7 +151,7 @@ Any other value will throw an error during deployment.
 
 Wait for the RHDH deployment to be ready. Performs two-phase readiness check:
 
-1. **Pod readiness** — Waits for RHDH Pods to have `Ready=True` with early failure detection (CrashLoopBackOff, ImagePullBackOff, etc.)
+1. **Pod readiness** — Waits for all pods to have `Ready=True` with early failure detection (CrashLoopBackOff, ImagePullBackOff, etc.)
 2. **Route readiness** — HTTP health check against the RHDH route, closing the gap between pod readiness and the OpenShift Router actually serving traffic
 
 ```typescript
@@ -164,7 +164,7 @@ await deployment.waitUntilReady(600); // 10 minutes
 
 ### `rolloutRestart()`
 
-Restart the RHDH Deployment after config changes. Supports Helm and operator installations and waits for rollout completion before checking application readiness:
+Restart the RHDH deployment (useful after config changes):
 
 ```typescript
 // Update configuration

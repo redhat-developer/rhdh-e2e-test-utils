@@ -126,7 +126,7 @@ await rhdh.waitUntilReady(600); // 10 minutes
 async rolloutRestart(): Promise<void>
 ```
 
-Restart the RHDH Deployment for either Helm or operator installations, then wait for rollout completion and application readiness.
+Restart the RHDH deployment.
 
 ```typescript
 await rhdh.rolloutRestart();
@@ -138,7 +138,7 @@ await rhdh.rolloutRestart();
 async scaleDownAndRestart(): Promise<void>
 ```
 
-Scale down to 0, wait for RHDH Pod termination, then scale back to 1 replica and wait for rollout completion. Supports Helm and operator installations; PostgreSQL Pods are excluded. Prevents `MigrationLocked` errors when two backstage instances try to run database migrations simultaneously.
+Scale down to 0, wait for pod termination, then scale back to 1 replica. Prevents `MigrationLocked` errors when two backstage instances try to run database migrations simultaneously.
 
 ::: info
 Called automatically during `deploy()` only on **helm upgrades** (when an existing deployment is detected). Skipped on fresh installs to avoid unnecessary pod cycling.

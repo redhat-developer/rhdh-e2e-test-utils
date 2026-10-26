@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.1.25] - Current
+## [2.1.26] - Current
+
+### Fixed
+
+- Stop pinning `app-auth` / `app-integrations` OCI tags in the shared dynamic-plugins defaults so deployments use catalog/DPDY versions instead of stale `bs_1.54.6__1.1.0` images.
+
+## [2.1.25]
 
 ### Fixed
 

@@ -15,7 +15,7 @@ import type {
 } from "./types.js";
 
 /**
- * Orchestrator-style OpenLDAP helper (Bitnami legacy image).
+ * Orchestrator-style OpenLDAP helper (quay.io/rhdh-test/security/openldap-ubi10.2).
  * Call from test.runOnce — not globalSetup. Deploys into the Playwright project namespace.
  */
 export class OpenLDAPHelper {
@@ -192,11 +192,10 @@ spec:
       containers:
         - name: openldap
           image: ${cfg.imageRepository}:${cfg.imageTag}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: ldap
               containerPort: ${cfg.port}
-          # Bitnami slapd/slappasswd carry setcap CAP_NET_BIND_SERVICE; OpenShift
           # restricted-v2 drops ALL capabilities unless NET_BIND_SERVICE is added
           # explicitly (otherwise: "slappasswd: Operation not permitted").
           securityContext:
@@ -237,10 +236,10 @@ spec:
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 256Mi
             limits:
               cpu: 500m
-              memory: 512Mi
+              memory: 1Gi
       volumes:
         - name: seed
           configMap:

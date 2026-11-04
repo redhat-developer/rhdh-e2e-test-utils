@@ -10,14 +10,12 @@ We need OpenLDAP on a base image that ships **OpenSSL 3.5.5+** (UBI 10.2). UBI d
 
 ## Files
 
-
 | File                  | Role                                                   |
 | --------------------- | ------------------------------------------------------ |
 | `Containerfile`       | Multi-stage build: compile slapd, then runtime image   |
 | `entrypoint.sh`       | Renders config, loads seed on first boot, starts slapd |
 | `slapd.conf.template` | slapd config template (`__LDAP_*__` placeholders)      |
 | `seed.ldif`           | Default tree: `dc=rhdh,dc=test`, users, groups         |
-
 
 ## Build and push
 
@@ -42,7 +40,6 @@ podman run --rm --entrypoint ldd quay.io/rhdh-test/security/openldap-ubi10.2:lat
 
 ## Defaults
 
-
 | Setting    | Value                                    |
 | ---------- | ---------------------------------------- |
 | Base DN    | `dc=rhdh,dc=test`                        |
@@ -52,11 +49,9 @@ podman run --rm --entrypoint ldd quay.io/rhdh-test/security/openldap-ubi10.2:lat
 | TLS        | off (`LDAP_ENABLE_TLS=no`)               |
 | User       | UID `1001` (OpenShift-friendly)          |
 
-
 Seed users: `user1`, `user2`, `user3`, `rhdh-admin` (password `user1pass`).
 
 ## Environment variables
-
 
 | Variable                 | Default            | Purpose                         |
 | ------------------------ | ------------------ | ------------------------------- |
@@ -70,9 +65,3 @@ Seed users: `user1`, `user2`, `user3`, `rhdh-admin` (password `user1pass`).
 | `LDAP_TLS_CERT_FILE`     | `/certs/tls.crt`   | Server cert (TLS on)            |
 | `LDAP_TLS_KEY_FILE`      | `/certs/tls.key`   | Server key (TLS on)             |
 | `LDAP_TLS_CA_FILE`       | `/certs/ca.crt`    | CA file (TLS on)                |
-
-
-
-
-
-

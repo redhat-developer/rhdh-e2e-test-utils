@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.6] - Current
+## [2.2.7] - Current
+
+### Changed
+
+- Switch the OpenLDAP e2e helper from Bitnami legacy to `quay.io/rhdh-test/security/openldap-ubi10.2:latest` (UBI 10.2 / OpenSSL 3.5.5+), raise memory requests/limits, set `imagePullPolicy: Always`, and add image build sources under `src/deployment/openldap/image`.
+
+## [2.2.6]
 
 ### Fixed
 

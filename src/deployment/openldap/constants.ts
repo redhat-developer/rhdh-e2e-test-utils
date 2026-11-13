@@ -15,9 +15,8 @@ export const DEFAULT_OPENLDAP_CONFIG = {
   usersOu: "users",
   groupsOu: "groups",
   port: 1389,
-  // Bitnami public Helm chart for OpenLDAP was removed; use the Bitnami legacy image.
-  imageRepository: "bitnamilegacy/openldap",
-  imageTag: "2.6.10-debian-12-r4",
+  imageRepository: "quay.io/rhdh-test/security/openldap-ubi10.2",
+  imageTag: "latest",
 };
 
 export const DEFAULT_CONFIG_PATHS = {

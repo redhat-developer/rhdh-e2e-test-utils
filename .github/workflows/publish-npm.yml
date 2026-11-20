@@ -72,16 +72,16 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Upgrade npm for trusted publishing (OIDC)
+        run: npm install -g npm@^11
+
       - name: Install Dependencies
         run: yarn install --immutable
 
       - name: Build
         run: yarn build
 
-      - name: Configure npm registry
-        run: yarn config set npmPublishRegistry "https://registry.npmjs.org"
-
       - name: Publish
-        run: yarn npm publish --access public --tag "$NPM_TAG"
+        run: npm publish --access public --tag "$NPM_TAG"
         env:
           NPM_TAG: ${{ needs.check-version.outputs.npm_tag }}

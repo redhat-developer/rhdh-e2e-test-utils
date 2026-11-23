@@ -57,6 +57,10 @@
       "types": "./dist/deployment/openldap/index.d.ts",
       "default": "./dist/deployment/openldap/index.js"
     },
+    "./pqc": {
+      "types": "./dist/deployment/pqc/index.d.ts",
+      "default": "./dist/deployment/pqc/index.js"
+    },
     "./secrets": {
       "types": "./dist/secrets/index.d.ts",
       "default": "./dist/secrets/index.js"

@@ -52,6 +52,8 @@ Thumbs.db
 build/
 *.tsbuildinfo
 dist/
+*.tgz
+*.tar.gz
 
 # VitePress
 docs/.vitepress/cache/

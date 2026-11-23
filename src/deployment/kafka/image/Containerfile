@@ -1,0 +1,52 @@
+# Kafka on UBI 10.2 with OpenSSL 3.5.x for Post-Quantum (PQ) TLS e2e testing.
+# UBI 10.2 ships OpenSSL 3.5.x natively (ML-KEM capable).
+
+FROM registry.access.redhat.com/ubi10/ubi:10.2 AS build
+
+ARG KAFKA_VERSION=3.9.0
+ARG SCALA_VERSION=2.13
+
+RUN dnf -y install \
+      tar java-21-openjdk-devel \
+    && dnf clean all
+
+COPY kafka_2.13-3.9.0.tgz /tmp/kafka.tgz
+
+RUN mkdir -p /opt/kafka \
+    && tar -xzf /tmp/kafka.tgz -C /opt/kafka --strip-components=1 \
+    && rm -rf /tmp/kafka.tgz
+
+FROM registry.access.redhat.com/ubi10/ubi:10.2
+
+LABEL name="rhdh-e2e-kafka-pq" \
+      summary="Apache Kafka on UBI 10.2 with OpenSSL 3.5.x for RHDH PQC e2e" \
+      description="Kafka powered by Java 21 and OpenSSL 3.5.x on UBI 10.2 for post-quantum TLS testing"
+
+RUN dnf -y install \
+      java-21-openjdk-headless \
+      java-21-openjdk-devel \
+      openssl openssl-libs shadow-utils curl \
+    && dnf clean all \
+    && openssl version \
+    && useradd --uid 1001 --gid 0 --home-dir /opt/kafka --no-create-home --shell /sbin/nologin kafka
+
+COPY --from=build /opt/kafka /opt/kafka
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY openssl-pq.cnf /opt/kafka/openssl-pq.cnf
+COPY kafka_liveness.sh /opt/kafka/kafka_liveness.sh
+COPY kafka_readiness.sh /opt/kafka/kafka_readiness.sh
+
+RUN chmod +x /usr/local/bin/entrypoint.sh /opt/kafka/kafka_liveness.sh /opt/kafka/kafka_readiness.sh \
+    && mkdir -p /var/lib/kafka/data /certs \
+    && chown -R 1001:0 /opt/kafka /var/lib/kafka /certs \
+    && chmod -R g=u /opt/kafka /var/lib/kafka /certs
+
+ENV PATH="/opt/kafka/bin:${PATH}" \
+    OPENSSL_CONF="/opt/kafka/openssl-pq.cnf" \
+    KAFKA_NODE_ID="1" \
+    KAFKA_LOG_DIRS="/var/lib/kafka/data"
+
+USER 1001
+WORKDIR /opt/kafka
+EXPOSE 9092 9093 9094
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

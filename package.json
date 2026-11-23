@@ -57,6 +57,10 @@
       "types": "./dist/deployment/openldap/index.d.ts",
       "default": "./dist/deployment/openldap/index.js"
     },
+    "./kafka": {
+      "types": "./dist/deployment/kafka/index.d.ts",
+      "default": "./dist/deployment/kafka/index.js"
+    },
     "./pqc": {
       "types": "./dist/deployment/pqc/index.d.ts",
       "default": "./dist/deployment/pqc/index.js"

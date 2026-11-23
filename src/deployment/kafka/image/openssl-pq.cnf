@@ -1,0 +1,11 @@
+openssl_conf = default_conf
+
+[default_conf]
+ssl_conf = ssl_sect
+
+[ssl_sect]
+system_default = system_default_sect
+
+[system_default_sect]
+# Enforce strict Post-Quantum / ML-KEM hybrid groups exclusively
+Groups = X25519MLKEM768:MLKEM768

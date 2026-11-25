@@ -7,7 +7,7 @@ ARG KAFKA_VERSION=3.9.0
 ARG SCALA_VERSION=2.13
 
 RUN dnf -y install \
-      tar java-21-openjdk-devel \
+      tar java-25-openjdk-devel \
     && dnf clean all
 
 COPY kafka_2.13-3.9.0.tgz /tmp/kafka.tgz
@@ -20,11 +20,11 @@ FROM registry.access.redhat.com/ubi10/ubi:10.2
 
 LABEL name="rhdh-e2e-kafka-pq" \
       summary="Apache Kafka on UBI 10.2 with OpenSSL 3.5.x for RHDH PQC e2e" \
-      description="Kafka powered by Java 21 and OpenSSL 3.5.x on UBI 10.2 for post-quantum TLS testing"
+      description="Kafka powered by Java 25 and OpenSSL 3.5.x on UBI 10.2 for post-quantum TLS testing"
 
 RUN dnf -y install \
-      java-21-openjdk-headless \
-      java-21-openjdk-devel \
+      java-25-openjdk-headless \
+      java-25-openjdk-devel \
       openssl openssl-libs shadow-utils curl \
     && dnf clean all \
     && openssl version \

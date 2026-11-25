@@ -4,6 +4,34 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
 
+/**
+ * Waiting messages of an image-pull failure that the kubelet retries on its
+ * own. They report throttling, not a bad reference, so the pull succeeds once
+ * the limit clears.
+ *
+ * - `pull QPS exceeded`: the node's kubelet `registryPullQPS` limit, hit when
+ *   many deployments start on one node at once.
+ * - `toomanyrequests` / `429 Too Many Requests`: the registry's rate limit.
+ */
+const TRANSIENT_IMAGE_PULL_MESSAGE =
+  /pull QPS exceeded|toomanyrequests|429 Too Many Requests/i;
+
+const IMAGE_PULL_REASONS = new Set(["ImagePullBackOff", "ErrImagePull"]);
+
+/**
+ * Whether a container waiting state is an image-pull failure the kubelet will
+ * recover from. Since Kubernetes 1.30 the `ImagePullBackOff` message carries
+ * the previous pull error, so both reasons can be classified from the message.
+ */
+export function isTransientImagePullFailure(
+  waiting: k8s.V1ContainerStateWaiting | undefined,
+): boolean {
+  if (!waiting?.reason || !IMAGE_PULL_REASONS.has(waiting.reason)) {
+    return false;
+  }
+  return TRANSIENT_IMAGE_PULL_MESSAGE.test(waiting.message ?? "");
+}
+
 $.verbose = true;
 
 /**
@@ -566,7 +594,9 @@ class KubernetesClientHelper {
   }
 
   /**
-   * Failure states that indicate a pod will not recover without intervention
+   * Failure states that indicate a pod will not recover without intervention.
+   * Image-pull reasons are exempt when the message reports throttling; see
+   * {@link isTransientImagePullFailure}.
    */
   private static readonly failureReasons = new Set([
     "CrashLoopBackOff",
@@ -803,7 +833,11 @@ class KubernetesClientHelper {
     // Check init containers first
     for (const cs of pod.status?.initContainerStatuses || []) {
       const reason = cs.state?.waiting?.reason;
-      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
+      if (
+        reason &&
+        KubernetesClientHelper.failureReasons.has(reason) &&
+        !isTransientImagePullFailure(cs.state?.waiting)
+      ) {
         return { reason: `Init:${reason}`, container: cs.name };
       }
       if (
@@ -820,7 +854,11 @@ class KubernetesClientHelper {
     // Check main containers
     for (const cs of pod.status?.containerStatuses || []) {
       const reason = cs.state?.waiting?.reason;
-      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
+      if (
+        reason &&
+        KubernetesClientHelper.failureReasons.has(reason) &&
+        !isTransientImagePullFailure(cs.state?.waiting)
+      ) {
         return { reason, container: cs.name };
       }
     }

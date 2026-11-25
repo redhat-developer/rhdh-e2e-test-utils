@@ -112,7 +112,7 @@ await k8sClient.waitForPodsWithFailureDetection(
 
 **Detected failure states:**
 - `CrashLoopBackOff` - container keeps crashing
-- `ImagePullBackOff` / `ErrImagePull` - can't pull image
+- `ImagePullBackOff` / `ErrImagePull` - can't pull image. Throttled pulls (`pull QPS exceeded` from the kubelet, or a registry `429` / `toomanyrequests`) are not treated as failures: the kubelet retries them, so the method keeps waiting until the timeout
 - `CreateContainerConfigError` - config issues (missing secrets, etc.)
 - `Init:*` variants - init container failures
 

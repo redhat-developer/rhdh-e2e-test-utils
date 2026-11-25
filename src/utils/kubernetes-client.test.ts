@@ -40,6 +40,13 @@ describe("isTransientImagePullFailure", () => {
       }),
       true,
     );
+    assert.strictEqual(
+      isTransientImagePullFailure({
+        reason: "ErrImagePull",
+        message: `initializing source docker://${IMAGE}: reading manifest sha256:abc in quay.io/rhdh/rhdh-hub-rhel10: too many requests to registry`,
+      }),
+      true,
+    );
   });
 
   it("keeps failing fast on a missing image", () => {

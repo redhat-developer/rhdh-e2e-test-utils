@@ -11,17 +11,20 @@ import * as yaml from "js-yaml";
  *
  * - `pull QPS exceeded`: the node's kubelet `registryPullQPS` limit, hit when
  *   many deployments start on one node at once.
- * - `toomanyrequests` / `429 Too Many Requests`: the registry's rate limit.
+ * - A registry rate limit (HTTP 429), worded per runtime and registry:
+ *   `too many requests to registry` (CRI-O, used by OpenShift),
+ *   `429 Too Many Requests` (containerd), `toomanyrequests` (registry error code).
  */
-const TRANSIENT_IMAGE_PULL_MESSAGE =
-  /pull QPS exceeded|toomanyrequests|429 Too Many Requests/i;
+const TRANSIENT_IMAGE_PULL_MESSAGE = /pull QPS exceeded|too ?many ?requests/i;
 
 const IMAGE_PULL_REASONS = new Set(["ImagePullBackOff", "ErrImagePull"]);
 
 /**
  * Whether a container waiting state is an image-pull failure the kubelet will
- * recover from. Since Kubernetes 1.30 the `ImagePullBackOff` message carries
- * the previous pull error, so both reasons can be classified from the message.
+ * recover from. `ErrImagePull` carries the pull error in its message. Since
+ * Kubernetes 1.32 `ImagePullBackOff` carries it too; on older clusters the
+ * back-off message names only the image, so it is not classified as transient
+ * and still fails fast.
  */
 export function isTransientImagePullFailure(
   waiting: k8s.V1ContainerStateWaiting | undefined,
@@ -630,6 +633,10 @@ class KubernetesClientHelper {
       `[K8sHelper] Waiting for pods (${labelSelector}) in ${namespace}...`,
     );
 
+    // Throttled pulls are waited out, not failed; log each once so a later
+    // timeout still shows that the pull was being throttled.
+    const throttledPulls = new Set<string>();
+
     while (Date.now() - startTime < timeoutMs) {
       let pods: k8s.V1Pod[];
       try {
@@ -663,6 +670,22 @@ class KubernetesClientHelper {
             // Ignore log fetch errors
           }
           throw new Error(`Pod ${podName} failed: ${failure.reason}`);
+        }
+
+        for (const cs of [
+          ...(pod.status?.initContainerStatuses ?? []),
+          ...(pod.status?.containerStatuses ?? []),
+        ]) {
+          const key = `${podName}/${cs.name}`;
+          if (
+            isTransientImagePullFailure(cs.state?.waiting) &&
+            !throttledPulls.has(key)
+          ) {
+            throttledPulls.add(key);
+            console.log(
+              `[K8sHelper] Pod ${podName} container ${cs.name}: image pull throttled, waiting for the kubelet to retry (${cs.state?.waiting?.message})`,
+            );
+          }
         }
       }
 

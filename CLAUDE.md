@@ -241,6 +241,7 @@ Test files:
 
 - `src/deployment/rhdh/deployment.test.ts` — plugin merge behavior
 - `src/utils/merge-yamls.test.ts` — YAML merge strategies
+- `src/utils/kubernetes-client.test.ts` — transient image-pull classification
 - `src/utils/tests/plugin-metadata.*.test.ts` — metadata resolution (PR, nightly, fixtures)
 
 ## Naming Conventions

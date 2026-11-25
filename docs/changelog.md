@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.7] - Current
+## [2.2.9] - Current
+
+### Fixed
+
+- `waitForPodsWithFailureDetection()` no longer fails fast on throttled image pulls. `pull QPS exceeded` (the node's kubelet pull limit, hit when several deployments start on one node) and registry rate limits (`too many requests to registry`, `429 Too Many Requests`, `toomanyrequests`) are retried by the kubelet, so the wait now continues until the timeout and logs the throttled container once. A missing image, an authentication error, or a crash loop still fails fast. Requires Kubernetes 1.32+ for `ImagePullBackOff`, whose message carries the pull error only from that version.
+
+## [2.2.7]
 
 ### Changed
 

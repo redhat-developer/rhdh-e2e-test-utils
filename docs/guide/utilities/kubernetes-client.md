@@ -112,7 +112,7 @@ await k8sClient.waitForPodsWithFailureDetection(
 
 **Detected failure states:**
 - `CrashLoopBackOff` - container keeps crashing
-- `ImagePullBackOff` / `ErrImagePull` - can't pull image. Throttled pulls (`pull QPS exceeded` from the kubelet, or a registry `429` / `toomanyrequests`) are not treated as failures: the kubelet retries them, so the method keeps waiting until the timeout
+- `ImagePullBackOff` / `ErrImagePull` - can't pull image. Throttled pulls are not treated as failures, because the kubelet retries them: the method logs the throttled container once and keeps waiting until the timeout. Throttling means `pull QPS exceeded` (the node's kubelet pull limit) or a registry rate limit (`too many requests to registry` on CRI-O, `429 Too Many Requests` on containerd, `toomanyrequests`). `ImagePullBackOff` carries the pull error only on Kubernetes 1.32 and later; on older clusters a throttled pull still fails fast once it reaches back-off
 - `CreateContainerConfigError` - config issues (missing secrets, etc.)
 - `Init:*` variants - init container failures
 

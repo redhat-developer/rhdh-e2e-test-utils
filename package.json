@@ -1,6 +1,6 @@
 {
   "name": "@red-hat-developer-hub/e2e-test-utils",
-  "version": "2.2.8",
+  "version": "2.2.9",
   "description": "Test utilities for RHDH E2E tests",
   "license": "Apache-2.0",
   "repository": {
@@ -56,6 +56,14 @@
     "./openldap": {
       "types": "./dist/deployment/openldap/index.d.ts",
       "default": "./dist/deployment/openldap/index.js"
+    },
+    "./kafka": {
+      "types": "./dist/deployment/kafka/index.d.ts",
+      "default": "./dist/deployment/kafka/index.js"
+    },
+    "./pqc": {
+      "types": "./dist/deployment/pqc/index.d.ts",
+      "default": "./dist/deployment/pqc/index.js"
     },
     "./secrets": {
       "types": "./dist/secrets/index.d.ts",

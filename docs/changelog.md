@@ -2,7 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2.2.7] - Current
+## [2.2.9] - Current
+
+### Added
+
+- New `./pqc` export: `TLS_GROUPS` (`X25519` / `X25519MLKEM768`) plus `runOpensslSClientFromRhdhPod()`, `resolvedKeyExchangeGroup()` and `parseOpensslSClientOutput()` helpers that run `openssl s_client` inside the RHDH hub pod to verify hybrid post-quantum TLS 1.3 handshakes against in-cluster Services (east-west, no Route involved).
+- New `./kafka` export: `KafkaDeployment` deploys a Kafka 3.9 peer on UBI 10.2 (Java 25, OpenSSL 3.5.x) with plain (9092), TLS 1.3 (9093) and controller (9094) listeners for Orchestrator "Run as Event" PQC e2e. Image build sources (`Containerfile`, `entrypoint.sh`, `build-image.sh`, `openssl-pq.cnf`) live under `src/deployment/kafka/image`.
+
+## [2.2.8]
+
+### Changed
+
+- Publish `@red-hat-developer-hub/e2e-test-utils` from `main`/`release-*` through npm trusted publishing (OIDC) instead of an auth token (#193).
+- Dependency bump: `brace-expansion` 5.0.5 → 5.0.12 (#176).
+
+## [2.2.7]
 
 ### Changed
 

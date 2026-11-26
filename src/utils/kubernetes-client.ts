@@ -4,6 +4,65 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
 
+/**
+ * Waiting messages of an image-pull failure that the kubelet retries on its
+ * own. They report throttling, not a bad reference, so the pull succeeds once
+ * the limit clears.
+ *
+ * - `pull QPS exceeded`: the node's kubelet `registryPullQPS` limit, hit when
+ *   many deployments start on one node at once.
+ * - A registry rate limit (HTTP 429), worded per runtime and registry:
+ *   `too many requests to registry` (CRI-O, used by OpenShift),
+ *   `429 Too Many Requests` (containerd), `toomanyrequests` (registry error code).
+ */
+const TRANSIENT_IMAGE_PULL_MESSAGE = /pull QPS exceeded|too ?many ?requests/i;
+
+const IMAGE_PULL_REASONS = new Set(["ImagePullBackOff", "ErrImagePull"]);
+
+/**
+ * Waiting reasons that indicate a container will not recover without
+ * intervention. Image-pull reasons are exempt when the message reports
+ * throttling; see {@link isTransientImagePullFailure}.
+ */
+const UNRECOVERABLE_WAITING_REASONS = new Set([
+  ...IMAGE_PULL_REASONS,
+  "CrashLoopBackOff",
+  "Error",
+  "InvalidImageName",
+  "CreateContainerConfigError",
+  "CreateContainerError",
+]);
+
+/**
+ * Whether a container waiting state is an image-pull failure the kubelet will
+ * recover from. `ErrImagePull` carries the pull error in its message. Since
+ * Kubernetes 1.32 `ImagePullBackOff` carries it too; on older clusters the
+ * back-off message names only the image, so it is not classified as transient
+ * and still fails fast.
+ */
+function isTransientImagePullFailure(
+  waiting: k8s.V1ContainerStateWaiting | undefined,
+): boolean {
+  if (!waiting?.reason || !IMAGE_PULL_REASONS.has(waiting.reason)) {
+    return false;
+  }
+  return TRANSIENT_IMAGE_PULL_MESSAGE.test(waiting.message ?? "");
+}
+
+/**
+ * Whether a container waiting state should abort a readiness wait: an
+ * unrecoverable reason that is not a throttled image pull.
+ */
+function isUnrecoverableWaitingState(
+  waiting: k8s.V1ContainerStateWaiting | undefined,
+): waiting is k8s.V1ContainerStateWaiting & { reason: string } {
+  return (
+    !!waiting?.reason &&
+    UNRECOVERABLE_WAITING_REASONS.has(waiting.reason) &&
+    !isTransientImagePullFailure(waiting)
+  );
+}
+
 $.verbose = true;
 
 /**
@@ -566,19 +625,6 @@ class KubernetesClientHelper {
   }
 
   /**
-   * Failure states that indicate a pod will not recover without intervention
-   */
-  private static readonly failureReasons = new Set([
-    "CrashLoopBackOff",
-    "Error",
-    "ImagePullBackOff",
-    "ErrImagePull",
-    "InvalidImageName",
-    "CreateContainerConfigError",
-    "CreateContainerError",
-  ]);
-
-  /**
    * Wait for pods matching a label selector to be ready, with early failure detection.
    * Fails fast when it detects unrecoverable states like CrashLoopBackOff.
    *
@@ -599,6 +645,10 @@ class KubernetesClientHelper {
     console.log(
       `[K8sHelper] Waiting for pods (${labelSelector}) in ${namespace}...`,
     );
+
+    // Throttled pulls are waited out, not failed; log each once so a later
+    // timeout still shows that the pull was being throttled.
+    const throttledPulls = new Set<string>();
 
     while (Date.now() - startTime < timeoutMs) {
       let pods: k8s.V1Pod[];
@@ -633,6 +683,22 @@ class KubernetesClientHelper {
             // Ignore log fetch errors
           }
           throw new Error(`Pod ${podName} failed: ${failure.reason}`);
+        }
+
+        for (const cs of [
+          ...(pod.status?.initContainerStatuses ?? []),
+          ...(pod.status?.containerStatuses ?? []),
+        ]) {
+          const containerId = `${podName}/${cs.name}`;
+          if (
+            isTransientImagePullFailure(cs.state?.waiting) &&
+            !throttledPulls.has(containerId)
+          ) {
+            throttledPulls.add(containerId);
+            console.log(
+              `[K8sHelper] Pod ${podName} container ${cs.name}: image pull throttled, waiting for the kubelet to retry (${cs.state?.waiting?.message})`,
+            );
+          }
         }
       }
 
@@ -802,9 +868,9 @@ class KubernetesClientHelper {
   ): { reason: string; container?: string } | null {
     // Check init containers first
     for (const cs of pod.status?.initContainerStatuses || []) {
-      const reason = cs.state?.waiting?.reason;
-      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
-        return { reason: `Init:${reason}`, container: cs.name };
+      const waiting = cs.state?.waiting;
+      if (isUnrecoverableWaitingState(waiting)) {
+        return { reason: `Init:${waiting.reason}`, container: cs.name };
       }
       if (
         cs.state?.terminated?.exitCode &&
@@ -819,9 +885,9 @@ class KubernetesClientHelper {
 
     // Check main containers
     for (const cs of pod.status?.containerStatuses || []) {
-      const reason = cs.state?.waiting?.reason;
-      if (reason && KubernetesClientHelper.failureReasons.has(reason)) {
-        return { reason, container: cs.name };
+      const waiting = cs.state?.waiting;
+      if (isUnrecoverableWaitingState(waiting)) {
+        return { reason: waiting.reason, container: cs.name };
       }
     }
 
@@ -829,4 +895,8 @@ class KubernetesClientHelper {
   }
 }
 
-export { KubernetesClientHelper };
+export {
+  KubernetesClientHelper,
+  isTransientImagePullFailure,
+  isUnrecoverableWaitingState,
+};
